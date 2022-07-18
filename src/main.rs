@@ -2,14 +2,13 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use druid::widget::{Flex, Scroll, TextBox};
 use druid::{AppLauncher, Data, Lens, Widget, WidgetExt, WindowDesc};
-use std::borrow::Cow;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
 #[derive(Parser)]
 struct Cli {
-    #[clap(parse(from_os_str))]
+    /// File to spell check.
     pathname: PathBuf,
 }
 
@@ -24,11 +23,11 @@ struct AppState {
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-    let filename = match args.pathname.file_name() {
-        Some(name) => name.to_string_lossy(),
-        None => Cow::from(""),
-    }
-    .to_string();
+    let filename = if let Some(name) = args.pathname.file_name() {
+        name.to_string_lossy().to_string()
+    } else {
+        "".to_string()
+    };
     let contents =
         std::fs::read_to_string(&args.pathname).with_context(|| {
             format!("could not read file {}", args.pathname.display())
