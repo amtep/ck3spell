@@ -28,10 +28,13 @@ fn main() -> Result<()> {
     } else {
         "".to_string()
     };
-    let contents =
+    let mut contents =
         std::fs::read_to_string(&args.pathname).with_context(|| {
             format!("could not read file {}", args.pathname.display())
         })?;
+    if contents.starts_with('\u{feff}') {
+        contents.remove(0); // Remove BOM
+    }
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
