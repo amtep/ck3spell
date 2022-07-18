@@ -19,6 +19,7 @@ struct AppState {
     pathname: Rc<PathBuf>,
     filename: Rc<String>,
     text: Arc<String>,
+    lines_crlf: bool,
 }
 
 fn main() -> Result<()> {
@@ -28,6 +29,7 @@ fn main() -> Result<()> {
     } else {
         "".to_string()
     };
+
     let mut contents =
         std::fs::read_to_string(&args.pathname).with_context(|| {
             format!("could not read file {}", args.pathname.display())
@@ -35,10 +37,16 @@ fn main() -> Result<()> {
     if contents.starts_with('\u{feff}') {
         contents.remove(0); // Remove BOM
     }
+    let crlf = contents.contains("\r\n");
+    if crlf {
+        contents = contents.replace("\r\n", "\n");
+    }
+
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
         text: Arc::new(contents),
+        lines_crlf: crlf,
     };
     let main_window = WindowDesc::new(ui_builder)
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
