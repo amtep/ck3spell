@@ -1,10 +1,10 @@
-use anyhow::{ Context, Result };
+use anyhow::{Context, Result};
 use clap::Parser;
 use druid::text::RichText;
-use druid::widget::{ Button, Flex, Label };
+use druid::widget::{Button, Flex, Label};
 use druid::{
-    AppLauncher, Data, LocalizedString, PlatformError,
-    Widget, WidgetExt, WindowDesc
+    AppLauncher, Data, LocalizedString, PlatformError, Widget, WidgetExt,
+    WindowDesc,
 };
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -28,11 +28,14 @@ struct AppState {
 fn main() -> Result<(), PlatformError> {
     let args = Cli::parse();
     let filename = match args.pathname.file_name() {
-        Some(name) => { name.to_string_lossy() }
-        None => { Cow::from("") }
-    }.to_string();
-    let contents = std::fs::read_to_string(&args.pathname)
-        .with_context(|| format!("could not read file {}", args.pathname.display()))?;
+        Some(name) => name.to_string_lossy(),
+        None => Cow::from(""),
+    }
+    .to_string();
+    let contents =
+        std::fs::read_to_string(&args.pathname).with_context(|| {
+            format!("could not read file {}", args.pathname.display())
+        })?;
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
@@ -48,8 +51,7 @@ fn main() -> Result<(), PlatformError> {
 fn ui_builder() -> impl Widget<AppState> {
     let text = LocalizedString::new("hello-counter");
     let label = Label::new(text).padding(5.0).center();
-    let button = Button::new("increment")
-        .padding(5.0);
+    let button = Button::new("increment").padding(5.0);
 
     Flex::column().with_child(label).with_child(button)
 }
