@@ -3,8 +3,7 @@ use clap::Parser;
 use druid::text::RichText;
 use druid::widget::{Button, Flex, Label};
 use druid::{
-    AppLauncher, Data, LocalizedString, PlatformError, Widget, WidgetExt,
-    WindowDesc,
+    AppLauncher, Data, LocalizedString, Widget, WidgetExt, WindowDesc,
 };
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -25,7 +24,7 @@ struct AppState {
     text: RichText,
 }
 
-fn main() -> Result<(), PlatformError> {
+fn main() -> Result<()> {
     let args = Cli::parse();
     let filename = match args.pathname.file_name() {
         Some(name) => name.to_string_lossy(),
@@ -46,6 +45,7 @@ fn main() -> Result<(), PlatformError> {
     AppLauncher::with_window(main_window)
         .use_simple_logger()
         .launch(data)
+        .with_context(|| "could not launch application")
 }
 
 fn ui_builder() -> impl Widget<AppState> {
