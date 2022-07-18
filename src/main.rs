@@ -1,13 +1,11 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use druid::text::RichText;
-use druid::widget::{Button, Flex, Label};
-use druid::{
-    AppLauncher, Data, LocalizedString, Widget, WidgetExt, WindowDesc,
-};
+use druid::widget::{Flex, Scroll, TextBox};
+use druid::{AppLauncher, Data, Lens, Widget, WidgetExt, WindowDesc};
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Parser)]
 struct Cli {
@@ -17,11 +15,11 @@ struct Cli {
 
 const WINDOW_TITLE: &str = "CK3 spellcheck";
 
-#[derive(Clone, Data)]
+#[derive(Clone, Data, Lens)]
 struct AppState {
     pathname: Rc<PathBuf>,
     filename: Rc<String>,
-    text: RichText,
+    text: Arc<String>,
 }
 
 fn main() -> Result<()> {
@@ -38,7 +36,7 @@ fn main() -> Result<()> {
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
-        text: RichText::new(contents.into()),
+        text: Arc::new(contents),
     };
     let main_window = WindowDesc::new(ui_builder)
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
@@ -49,9 +47,7 @@ fn main() -> Result<()> {
 }
 
 fn ui_builder() -> impl Widget<AppState> {
-    let text = LocalizedString::new("hello-counter");
-    let label = Label::new(text).padding(5.0).center();
-    let button = Button::new("increment").padding(5.0);
+    let textbox = TextBox::multiline().lens(AppState::text).expand_width();
 
-    Flex::column().with_child(label).with_child(button)
+    Scroll::new(Flex::column().with_child(textbox)).vertical()
 }
