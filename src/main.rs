@@ -28,6 +28,7 @@ const WORD_COLOR: Key<Color> = Key::new("ck3spell.word-color");
 const MISSPELLED_COLOR: Key<Color> = Key::new("ck3spell.misspelled-color");
 const CODE_COLOR: Key<Color> = Key::new("ck3spell.code-color");
 const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
+const ESCAPE_COLOR: Key<Color> = Key::new("ck3spell.escape-color");
 
 #[derive(Clone, Data, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
@@ -114,7 +115,8 @@ impl Drop for Hunspell {
 
 fn is_word_char(c: char) -> bool {
     // 2019 is the unicode apostrophe
-    c.is_alphabetic() || c == '\'' || c == '\u{2019}'
+    // alphanumeric is accepted for words like "2nd"
+    c.is_alphanumeric() || c == '\'' || c == '\u{2019}' || c == '-'
 }
 
 fn highlight_syntax(
@@ -128,6 +130,7 @@ fn highlight_syntax(
         Init,
         AwaitingSpaceOrQuote,
         NormalText,
+        Escape(usize),
         InWord(usize),
         InKeyword(usize),
         InCode(usize),
@@ -136,7 +139,7 @@ fn highlight_syntax(
     let mut state: State = State::Init;
     let mut word: String = String::new();
 
-    for (pos, c) in line.chars().enumerate() {
+    for (pos, c) in line.char_indices() {
         match state {
             State::Init => {
                 if c == ':' {
@@ -157,6 +160,8 @@ fn highlight_syntax(
                     state = State::InKeyword(pos);
                 } else if c == '[' {
                     state = State::InCode(pos);
+                } else if c == '\\' {
+                    state = State::Escape(pos);
                 } else if is_word_char(c) {
                     word = String::new();
                     word.push(c);
@@ -165,14 +170,26 @@ fn highlight_syntax(
             }
             State::InWord(from) => {
                 // TODO: checking of complex words that contain [ ] parts
+                let mut paint_word = false;
                 if c == '$' {
                     state = State::InKeyword(pos);
                 } else if c == '[' {
                     state = State::InCode(pos);
+                } else if c == '\\' {
+                    paint_word = true;
+                    state = State::Escape(pos);
                 } else if is_word_char(c) {
-                    word.push(c);
+                    if c == '\'' {
+                        word.push('\u{2019}')
+                    } else {
+                        word.push(c);
+                    }
                 } else if !is_word_char(c) {
-                    if hunspell.spellcheck(&word) {
+                    paint_word = true;
+                    state = State::NormalText;
+                }
+                if paint_word {
+                    if word.chars().count() <= 1 || hunspell.spellcheck(&word) {
                         text.add_attribute(
                             from..pos,
                             Attribute::text_color(env.get(WORD_COLOR)),
@@ -183,8 +200,14 @@ fn highlight_syntax(
                             Attribute::text_color(env.get(MISSPELLED_COLOR)),
                         );
                     }
-                    state = State::NormalText;
                 }
+            }
+            State::Escape(from) => {
+                text.add_attribute(
+                    from..pos + 1,
+                    Attribute::text_color(env.get(ESCAPE_COLOR)),
+                );
+                state = State::NormalText;
             }
             State::InKeyword(from) => {
                 if c == '$' {
@@ -298,6 +321,7 @@ fn main() -> Result<()> {
             env.set(MISSPELLED_COLOR, Color::rgb8(0xFF, 0x40, 0x40));
             env.set(CODE_COLOR, Color::rgb8(0x40, 0x40, 0xFF));
             env.set(KEYWORD_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
+            env.set(ESCAPE_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
         })
         .launch(data)
         .with_context(|| "could not launch application")
