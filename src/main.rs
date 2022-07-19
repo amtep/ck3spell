@@ -3,7 +3,7 @@ use clap::Parser;
 use druid::widget::{
     CrossAxisAlignment, Flex, Label, LineBreaking, List, Scroll,
 };
-use druid::{AppLauncher, Data, Lens, Widget, WidgetExt, WindowDesc};
+use druid::{AppLauncher, Color, Data, Lens, Widget, WidgetExt, WindowDesc};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -100,6 +100,7 @@ fn main() -> Result<()> {
 
 fn make_line_item() -> impl Widget<Line> {
     let linenr = Label::dynamic(|line: &Line, _| line.line_nr.to_string())
+        .with_text_color(Color::grey8(160))
         .fix_width(30.0);
     let line = Label::dynamic(|line: &Line, _| line.line.to_string())
         .with_line_break_mode(LineBreaking::WordWrap);
