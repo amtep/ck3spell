@@ -1,10 +1,13 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use druid::text::{Attribute, RichText};
 use druid::widget::{
-    CrossAxisAlignment, Flex, Label, LineBreaking, List, Scroll,
+    Controller, CrossAxisAlignment, Flex, Label, LineBreaking, List, RawLabel,
+    Scroll,
 };
 use druid::{
-    AppLauncher, Color, Data, Key, Lens, Widget, WidgetExt, WindowDesc,
+    AppLauncher, Color, Data, Env, Event, EventCtx, Key, Lens, Widget,
+    WidgetExt, WindowDesc,
 };
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -35,6 +38,7 @@ struct Line {
     line_nr: usize,
     line: Rc<String>,
     line_end: LineEnd,
+    rendered: RichText,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -44,6 +48,60 @@ struct AppState {
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<Line>>,
+}
+
+fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
+    let mut text = RichText::new((*line.as_str()).into());
+
+    enum State {
+        Init,
+        AwaitingSpaceOrQuote,
+        NormalText(usize),
+    }
+
+    let mut state: State = State::Init;
+
+    for (pos, c) in line.chars().enumerate() {
+        match state {
+            State::Init => {
+                if c == ':' {
+                    state = State::AwaitingSpaceOrQuote;
+                }
+            }
+            State::AwaitingSpaceOrQuote => {
+                if c == ' ' || c == '"' {
+                    text.add_attribute(
+                        0..pos,
+                        Attribute::text_color(env.get(LOC_KEY_COLOR)),
+                    );
+                    state = State::NormalText(pos);
+                }
+            }
+            State::NormalText(_from) => (),
+        }
+    }
+    text
+}
+
+struct SyntaxHighlighter;
+
+impl<W: Widget<Line>> Controller<Line, W> for SyntaxHighlighter {
+    fn event(
+        &mut self,
+        child: &mut W,
+        ctx: &mut EventCtx,
+        event: &Event,
+        data: &mut Line,
+        env: &Env,
+    ) {
+        let pre_data = data.line.to_owned();
+        child.event(ctx, event, data, env);
+        if !data.line.same(&pre_data)
+            || (data.rendered.is_empty() && !data.line.is_empty())
+        {
+            data.rendered = highlight_syntax(&data.line, env);
+        }
+    }
 }
 
 fn split_lines(contents: &str) -> Vec<Line> {
@@ -56,6 +114,7 @@ fn split_lines(contents: &str) -> Vec<Line> {
                     line_nr: nr + 1,
                     line: Rc::new(line.to_string()),
                     line_end: LineEnd::Nothing,
+                    rendered: RichText::new("".into()),
                 });
             }
         } else if line.ends_with('\r') {
@@ -63,12 +122,14 @@ fn split_lines(contents: &str) -> Vec<Line> {
                 line_nr: nr + 1,
                 line: Rc::new(line.strip_suffix('\r').unwrap().to_string()),
                 line_end: LineEnd::CRLF,
+                rendered: RichText::new("".into()),
             });
         } else {
             lines.push(Line {
                 line_nr: nr + 1,
                 line: Rc::new(line.to_string()),
                 line_end: LineEnd::NL,
+                rendered: RichText::new("".into()),
             });
         }
     }
@@ -113,8 +174,10 @@ fn make_line_item() -> impl Widget<Line> {
     let linenr = Label::dynamic(|line: &Line, _| line.line_nr.to_string())
         .with_text_color(Color::grey8(160))
         .fix_width(30.0);
-    let line = Label::dynamic(|line: &Line, _| line.line.to_string())
-        .with_line_break_mode(LineBreaking::WordWrap);
+    let line = RawLabel::new()
+        .with_line_break_mode(LineBreaking::WordWrap)
+        .lens(Line::rendered)
+        .controller(SyntaxHighlighter);
     Flex::row()
         .with_child(Flex::column().with_child(linenr))
         .with_flex_child(line, 1.0)
