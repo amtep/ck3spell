@@ -142,7 +142,12 @@ fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
                 }
             }
             State::InWord(from) => {
-                if !is_word_char(c) {
+                // TODO: checking of complex words that contain [ ] parts
+                if c == '$' {
+                    state = State::InKeyword(pos);
+                } else if c == '[' {
+                    state = State::InCode(pos);
+                } else if !is_word_char(c) {
                     text.add_attribute(
                         from..pos,
                         Attribute::text_color(env.get(WORD_COLOR)),
