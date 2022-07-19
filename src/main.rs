@@ -40,22 +40,7 @@ struct AppState {
     lines: Arc<Vec<Line>>,
 }
 
-fn main() -> Result<()> {
-    let args = Cli::parse();
-    let filename = if let Some(name) = args.pathname.file_name() {
-        name.to_string_lossy().to_string()
-    } else {
-        "".to_string()
-    };
-
-    let mut contents =
-        std::fs::read_to_string(&args.pathname).with_context(|| {
-            format!("could not read file {}", args.pathname.display())
-        })?;
-    if contents.starts_with('\u{feff}') {
-        contents.remove(0); // Remove BOM
-    }
-
+fn split_lines(contents: &str) -> Vec<Line> {
     let mut lines: Vec<Line> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
     while let Some((nr, line)) = line_iter.next() {
@@ -81,11 +66,29 @@ fn main() -> Result<()> {
             });
         }
     }
+    lines
+}
+
+fn main() -> Result<()> {
+    let args = Cli::parse();
+    let filename = if let Some(name) = args.pathname.file_name() {
+        name.to_string_lossy().to_string()
+    } else {
+        "".to_string()
+    };
+
+    let mut contents =
+        std::fs::read_to_string(&args.pathname).with_context(|| {
+            format!("could not read file {}", args.pathname.display())
+        })?;
+    if contents.starts_with('\u{feff}') {
+        contents.remove(0); // Remove BOM
+    }
 
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
-        lines: Arc::new(lines),
+        lines: Arc::new(split_lines(&contents)),
     };
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
