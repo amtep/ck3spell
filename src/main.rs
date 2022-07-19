@@ -22,7 +22,7 @@ struct Cli {
 const WINDOW_TITLE: &str = "CK3 spellcheck";
 
 const LOC_KEY_COLOR: Key<Color> = Key::new("ck3spell.loc-key-color");
-const NORMAL_TEXT_COLOR: Key<Color> = Key::new("ck3spell.normal-text-color");
+const WORD_COLOR: Key<Color> = Key::new("ck3spell.normal-text-color");
 const CODE_COLOR: Key<Color> = Key::new("ck3spell.code-color");
 const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
 
@@ -51,13 +51,19 @@ struct AppState {
     lines: Arc<Vec<Line>>,
 }
 
+fn is_word_char(c: char) -> bool {
+    // 2019 is the unicode apostrophe
+    c.is_alphabetic() || c == '\'' || c == '\u{2019}'
+}
+
 fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
     let mut text = RichText::new((*line.as_str()).into());
 
     enum State {
         Init,
         AwaitingSpaceOrQuote,
-        NormalText(usize),
+        NormalText,
+        InWord(usize),
         InKeyword(usize),
         InCode(usize),
     }
@@ -77,14 +83,25 @@ fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
                         0..pos,
                         Attribute::text_color(env.get(LOC_KEY_COLOR)),
                     );
-                    state = State::NormalText(pos);
+                    state = State::NormalText;
                 }
             }
-            State::NormalText(_from) => {
+            State::NormalText => {
                 if c == '$' {
                     state = State::InKeyword(pos);
                 } else if c == '[' {
                     state = State::InCode(pos);
+                } else if is_word_char(c) {
+                    state = State::InWord(pos);
+                }
+            }
+            State::InWord(from) => {
+                if !is_word_char(c) {
+                    text.add_attribute(
+                        from..pos,
+                        Attribute::text_color(env.get(WORD_COLOR)),
+                    );
+                    state = State::NormalText;
                 }
             }
             State::InKeyword(from) => {
@@ -93,7 +110,7 @@ fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
                         from..pos + 1,
                         Attribute::text_color(env.get(KEYWORD_COLOR)),
                     );
-                    state = State::NormalText(pos + 1);
+                    state = State::NormalText;
                 }
             }
             State::InCode(from) => {
@@ -102,7 +119,7 @@ fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
                         from..pos + 1,
                         Attribute::text_color(env.get(CODE_COLOR)),
                     );
-                    state = State::NormalText(pos + 1);
+                    state = State::NormalText;
                 }
             }
         }
@@ -190,7 +207,7 @@ fn main() -> Result<()> {
         .log_to_console()
         .configure_env(|env, _| {
             env.set(LOC_KEY_COLOR, Color::rgb8(0xff, 0xa5, 0x00));
-            env.set(NORMAL_TEXT_COLOR, Color::rgb8(0xFF, 0xFF, 0xFF));
+            env.set(WORD_COLOR, Color::rgb8(0xFF, 0xFF, 0xFF));
             env.set(CODE_COLOR, Color::rgb8(0x40, 0x40, 0xFF));
             env.set(KEYWORD_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
         })
