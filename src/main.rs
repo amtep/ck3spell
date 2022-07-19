@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use druid::widget::{Flex, Label, LineBreaking, List, Scroll};
+use druid::widget::{
+    CrossAxisAlignment, Flex, Label, LineBreaking, List, Scroll,
+};
 use druid::{AppLauncher, Data, Lens, Widget, WidgetExt, WindowDesc};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -24,6 +26,7 @@ enum LineEnd {
 
 #[derive(Clone, Data, Lens)]
 struct Line {
+    line_nr: usize,
     line: String,
     line_end: LineEnd,
 }
@@ -54,22 +57,25 @@ fn main() -> Result<()> {
     }
 
     let mut lines: Vec<Line> = Vec::new();
-    let mut line_iter = contents.split('\n').peekable();
-    while let Some(line) = line_iter.next() {
+    let mut line_iter = contents.split('\n').enumerate().peekable();
+    while let Some((nr, line)) = line_iter.next() {
         if line_iter.peek().is_none() {
             if !line.is_empty() {
                 lines.push(Line {
+                    line_nr: nr + 1,
                     line: line.to_string(),
                     line_end: LineEnd::Nothing,
                 });
             }
         } else if line.ends_with('\r') {
             lines.push(Line {
+                line_nr: nr + 1,
                 line: line.strip_suffix('\r').unwrap().to_string(),
                 line_end: LineEnd::CRLF,
             });
         } else {
             lines.push(Line {
+                line_nr: nr + 1,
                 line: line.to_string(),
                 line_end: LineEnd::NL,
             });
@@ -90,8 +96,14 @@ fn main() -> Result<()> {
 }
 
 fn make_line_item() -> impl Widget<Line> {
-    Label::dynamic(|line: &Line, _| line.line.to_string())
-        .with_line_break_mode(LineBreaking::WordWrap)
+    let linenr = Label::dynamic(|line: &Line, _| line.line_nr.to_string())
+        .fix_width(30.0);
+    let line = Label::dynamic(|line: &Line, _| line.line.to_string())
+        .with_line_break_mode(LineBreaking::WordWrap);
+    Flex::row()
+        .with_child(Flex::column().with_child(linenr))
+        .with_flex_child(line, 1.0)
+        .cross_axis_alignment(CrossAxisAlignment::Start)
 }
 
 fn ui_builder() -> impl Widget<AppState> {
