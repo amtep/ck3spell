@@ -48,10 +48,10 @@ fn main() -> Result<()> {
         text: Arc::new(contents),
         lines_crlf: crlf,
     };
-    let main_window = WindowDesc::new(ui_builder)
+    let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
     AppLauncher::with_window(main_window)
-        .use_simple_logger()
+        .log_to_console()
         .launch(data)
         .with_context(|| "could not launch application")
 }
