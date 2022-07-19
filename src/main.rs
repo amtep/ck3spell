@@ -10,6 +10,7 @@ use druid::{
     WidgetExt, WindowDesc,
 };
 use std::ffi::CString;
+use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -23,7 +24,8 @@ struct Cli {
 const WINDOW_TITLE: &str = "CK3 spellcheck";
 
 const LOC_KEY_COLOR: Key<Color> = Key::new("ck3spell.loc-key-color");
-const WORD_COLOR: Key<Color> = Key::new("ck3spell.normal-text-color");
+const WORD_COLOR: Key<Color> = Key::new("ck3spell.word-color");
+const MISSPELLED_COLOR: Key<Color> = Key::new("ck3spell.misspelled-color");
 const CODE_COLOR: Key<Color> = Key::new("ck3spell.code-color");
 const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
 
@@ -65,6 +67,7 @@ struct Hunhandle {
 extern "C" {
     fn Hunspell_create(affpath: *const i8, dpath: *const i8) -> *mut Hunhandle;
     fn Hunspell_destroy(pHunspell: *mut Hunhandle);
+    fn Hunspell_spell(pHunspell: *mut Hunhandle, word: *const i8) -> c_int;
 }
 
 struct Hunspell {
@@ -87,6 +90,18 @@ impl Hunspell {
             Hunspell { handle }
         }
     }
+
+    fn spellcheck(&self, word: &str) -> bool {
+        let c_word = if let Ok(c_word) = CString::new(word) {
+            c_word
+        } else {
+            return true;
+        };
+        unsafe {
+            let result = Hunspell_spell(self.handle, c_word.as_ptr());
+            result != 0
+        }
+    }
 }
 
 impl Drop for Hunspell {
@@ -102,7 +117,11 @@ fn is_word_char(c: char) -> bool {
     c.is_alphabetic() || c == '\'' || c == '\u{2019}'
 }
 
-fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
+fn highlight_syntax(
+    line: &Rc<String>,
+    env: &Env,
+    hunspell: &Rc<Hunspell>,
+) -> RichText {
     let mut text = RichText::new((*line.as_str()).into());
 
     enum State {
@@ -115,6 +134,7 @@ fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
     }
 
     let mut state: State = State::Init;
+    let mut word: String = String::new();
 
     for (pos, c) in line.chars().enumerate() {
         match state {
@@ -138,6 +158,8 @@ fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
                 } else if c == '[' {
                     state = State::InCode(pos);
                 } else if is_word_char(c) {
+                    word = String::new();
+                    word.push(c);
                     state = State::InWord(pos);
                 }
             }
@@ -147,11 +169,20 @@ fn highlight_syntax(line: &Rc<String>, env: &Env) -> RichText {
                     state = State::InKeyword(pos);
                 } else if c == '[' {
                     state = State::InCode(pos);
+                } else if is_word_char(c) {
+                    word.push(c);
                 } else if !is_word_char(c) {
-                    text.add_attribute(
-                        from..pos,
-                        Attribute::text_color(env.get(WORD_COLOR)),
-                    );
+                    if hunspell.spellcheck(&word) {
+                        text.add_attribute(
+                            from..pos,
+                            Attribute::text_color(env.get(WORD_COLOR)),
+                        );
+                    } else {
+                        text.add_attribute(
+                            from..pos,
+                            Attribute::text_color(env.get(MISSPELLED_COLOR)),
+                        );
+                    }
                     state = State::NormalText;
                 }
             }
@@ -194,7 +225,7 @@ impl<W: Widget<Line>> Controller<Line, W> for SyntaxHighlighter {
         if !data.line.same(&pre_data)
             || (data.rendered.is_empty() && !data.line.is_empty())
         {
-            data.rendered = highlight_syntax(&data.line, env);
+            data.rendered = highlight_syntax(&data.line, env, &data.hunspell);
         }
     }
 }
@@ -264,6 +295,7 @@ fn main() -> Result<()> {
         .configure_env(|env, _| {
             env.set(LOC_KEY_COLOR, Color::rgb8(0xff, 0xa5, 0x00));
             env.set(WORD_COLOR, Color::rgb8(0xFF, 0xFF, 0xFF));
+            env.set(MISSPELLED_COLOR, Color::rgb8(0xFF, 0x40, 0x40));
             env.set(CODE_COLOR, Color::rgb8(0x40, 0x40, 0xFF));
             env.set(KEYWORD_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
         })
