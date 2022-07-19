@@ -33,7 +33,7 @@ enum LineEnd {
 #[derive(Clone, Data, Lens)]
 struct Line {
     line_nr: usize,
-    line: String,
+    line: Rc<String>,
     line_end: LineEnd,
 }
 
@@ -54,20 +54,20 @@ fn split_lines(contents: &str) -> Vec<Line> {
             if !line.is_empty() {
                 lines.push(Line {
                     line_nr: nr + 1,
-                    line: line.to_string(),
+                    line: Rc::new(line.to_string()),
                     line_end: LineEnd::Nothing,
                 });
             }
         } else if line.ends_with('\r') {
             lines.push(Line {
                 line_nr: nr + 1,
-                line: line.strip_suffix('\r').unwrap().to_string(),
+                line: Rc::new(line.strip_suffix('\r').unwrap().to_string()),
                 line_end: LineEnd::CRLF,
             });
         } else {
             lines.push(Line {
                 line_nr: nr + 1,
-                line: line.to_string(),
+                line: Rc::new(line.to_string()),
                 line_end: LineEnd::NL,
             });
         }
