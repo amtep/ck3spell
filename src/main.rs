@@ -3,7 +3,9 @@ use clap::Parser;
 use druid::widget::{
     CrossAxisAlignment, Flex, Label, LineBreaking, List, Scroll,
 };
-use druid::{AppLauncher, Color, Data, Lens, Widget, WidgetExt, WindowDesc};
+use druid::{
+    AppLauncher, Color, Data, Key, Lens, Widget, WidgetExt, WindowDesc,
+};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -15,6 +17,10 @@ struct Cli {
 }
 
 const WINDOW_TITLE: &str = "CK3 spellcheck";
+
+const LOC_KEY_COLOR: Key<Color> = Key::new("ck3spell.loc-key-color");
+const NORMAL_TEXT_COLOR: Key<Color> = Key::new("ck3spell.normal-text-color");
+const CODE_COLOR: Key<Color> = Key::new("ck3spell.code-color");
 
 #[derive(Clone, Data, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
@@ -94,6 +100,11 @@ fn main() -> Result<()> {
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
     AppLauncher::with_window(main_window)
         .log_to_console()
+        .configure_env(|env, _| {
+            env.set(LOC_KEY_COLOR, Color::rgb8(0xA5, 0x2A, 0x2A));
+            env.set(NORMAL_TEXT_COLOR, Color::rgb8(0xFF, 0xFF, 0xFF));
+            env.set(CODE_COLOR, Color::rgb8(0x2A, 0x2A, 0xA5));
+        })
         .launch(data)
         .with_context(|| "could not launch application")
 }
