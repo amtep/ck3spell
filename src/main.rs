@@ -9,7 +9,8 @@ use druid::{
     AppLauncher, Color, Data, Env, Event, EventCtx, Key, Lens, Widget,
     WidgetExt, WindowDesc,
 };
-use std::path::PathBuf;
+use std::ffi::CString;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -49,6 +50,51 @@ struct AppState {
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<Line>>,
+    // handle to the hunspell library object
+    hunspell: Rc<Hunspell>,
+}
+
+/// Opaque type representing a Hunhandle in C
+#[repr(C)]
+struct Hunhandle {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+#[link(name = "hunspell")]
+extern "C" {
+    fn Hunspell_create(affpath: *const i8, dpath: *const i8) -> *mut Hunhandle;
+    fn Hunspell_destroy(pHunspell: *mut Hunhandle);
+}
+
+struct Hunspell {
+    handle: *mut Hunhandle,
+}
+
+impl Hunspell {
+    fn _path_helper(path: &Path, locale: &str, ext: &str) -> CString {
+        let mut p = path.to_path_buf();
+        p.push(format!("{}.{}", locale, ext));
+        CString::new(p.as_os_str().to_str().unwrap()).unwrap()
+    }
+
+    fn new(path: &Path, locale: &str) -> Hunspell {
+        let c_affpath = Hunspell::_path_helper(path, locale, "aff");
+        let c_dpath = Hunspell::_path_helper(path, locale, "dic");
+
+        unsafe {
+            let handle = Hunspell_create(c_affpath.as_ptr(), c_dpath.as_ptr());
+            Hunspell { handle }
+        }
+    }
+}
+
+impl Drop for Hunspell {
+    fn drop(&mut self) {
+        unsafe {
+            Hunspell_destroy(self.handle);
+        }
+    }
 }
 
 fn is_word_char(c: char) -> bool {
@@ -196,10 +242,13 @@ fn main() -> Result<()> {
         contents.remove(0); // Remove BOM
     }
 
+    let hunspell = Hunspell::new(Path::new("/usr/share/hunspell"), "en_US");
+
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
         lines: Arc::new(split_lines(&contents)),
+        hunspell: Rc::new(hunspell),
     };
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
