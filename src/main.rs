@@ -41,6 +41,8 @@ struct Line {
     line: Rc<String>,
     line_end: LineEnd,
     rendered: RichText,
+    /// Handle to the hunspell library object. Should be in Env but can't.
+    hunspell: Rc<Hunspell>,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -50,8 +52,6 @@ struct AppState {
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<Line>>,
-    // handle to the hunspell library object
-    hunspell: Rc<Hunspell>,
 }
 
 /// Opaque type representing a Hunhandle in C
@@ -194,7 +194,7 @@ impl<W: Widget<Line>> Controller<Line, W> for SyntaxHighlighter {
     }
 }
 
-fn split_lines(contents: &str) -> Vec<Line> {
+fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<Line> {
     let mut lines: Vec<Line> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
     while let Some((nr, line)) = line_iter.next() {
@@ -205,6 +205,7 @@ fn split_lines(contents: &str) -> Vec<Line> {
                     line: Rc::new(line.to_string()),
                     line_end: LineEnd::Nothing,
                     rendered: RichText::new("".into()),
+                    hunspell: Rc::clone(hunspell),
                 });
             }
         } else if line.ends_with('\r') {
@@ -213,6 +214,7 @@ fn split_lines(contents: &str) -> Vec<Line> {
                 line: Rc::new(line.strip_suffix('\r').unwrap().to_string()),
                 line_end: LineEnd::CRLF,
                 rendered: RichText::new("".into()),
+                hunspell: Rc::clone(hunspell),
             });
         } else {
             lines.push(Line {
@@ -220,6 +222,7 @@ fn split_lines(contents: &str) -> Vec<Line> {
                 line: Rc::new(line.to_string()),
                 line_end: LineEnd::NL,
                 rendered: RichText::new("".into()),
+                hunspell: Rc::clone(hunspell),
             });
         }
     }
@@ -247,8 +250,7 @@ fn main() -> Result<()> {
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
-        lines: Arc::new(split_lines(&contents)),
-        hunspell: Rc::new(hunspell),
+        lines: Arc::new(split_lines(&contents, &Rc::new(hunspell))),
     };
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
