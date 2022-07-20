@@ -378,7 +378,8 @@ fn main() -> Result<()> {
         lines: Arc::new(split_lines(&contents, &Rc::new(hunspell))),
     };
     let main_window = WindowDesc::new(ui_builder())
-        .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref());
+        .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref())
+        .window_size((1000.0, 500.0));
     AppLauncher::with_window(main_window)
         .log_to_console()
         .configure_env(|env, _| {
