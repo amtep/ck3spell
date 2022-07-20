@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::{
@@ -9,7 +9,7 @@ use druid::{
     AppLauncher, Color, Data, Env, Event, EventCtx, Key, Lens, Widget,
     WidgetExt, WindowDesc,
 };
-use std::ffi::CString;
+use std::ffi::{CString, OsStr};
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -110,6 +110,31 @@ impl Drop for Hunspell {
         unsafe {
             Hunspell_destroy(self.handle);
         }
+    }
+}
+
+fn locale_from_filename(pathname: &Path) -> Result<&str> {
+    let filename = pathname
+        .file_name()
+        .unwrap_or_else(|| OsStr::new(""))
+        .to_str()
+        .unwrap_or("");
+    if filename.ends_with("_l_english.yml") {
+        Ok("en_US")
+    } else if filename.ends_with("_l_german.yml") {
+        Ok("de_DE")
+    } else if filename.ends_with("_l_french.yml") {
+        Ok("fr_FR")
+    } else if filename.ends_with("_l_spanish.yml") {
+        Ok("es_ES")
+    } else if filename.ends_with("_l_russian.yml") {
+        Ok("ru_RU")
+    } else if filename.ends_with("_l_korean.yml") {
+        Err(anyhow!("Korean not supported"))
+    } else if filename.ends_with("_l_simp_chinese.yml") {
+        Err(anyhow!("Chinese not supported"))
+    } else {
+        Err(anyhow!("Could not determine language from filename"))
     }
 }
 
@@ -304,7 +329,8 @@ fn main() -> Result<()> {
         contents.remove(0); // Remove BOM
     }
 
-    let hunspell = Hunspell::new(Path::new("/usr/share/hunspell"), "en_US");
+    let locale = locale_from_filename(&args.pathname)?;
+    let hunspell = Hunspell::new(Path::new("/usr/share/hunspell"), locale);
 
     let data = AppState {
         pathname: Rc::new(args.pathname),
