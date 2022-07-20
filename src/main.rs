@@ -139,7 +139,7 @@ fn locale_from_filename(pathname: &Path) -> Result<&str> {
 }
 
 fn is_word_char(c: char) -> bool {
-    // 2019 is the unicode apostrophe
+    // U+2019 is the unicode apostrophe
     // alphanumeric is accepted for words like "2nd"
     c.is_alphanumeric() || c == '\'' || c == '\u{2019}' || c == '-'
 }
@@ -323,7 +323,7 @@ fn main() -> Result<()> {
 
     let mut contents =
         std::fs::read_to_string(&args.pathname).with_context(|| {
-            format!("could not read file {}", args.pathname.display())
+            format!("Could not read file {}", args.pathname.display())
         })?;
     if contents.starts_with('\u{feff}') {
         contents.remove(0); // Remove BOM
@@ -350,7 +350,7 @@ fn main() -> Result<()> {
             env.set(ESCAPE_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
         })
         .launch(data)
-        .with_context(|| "could not launch application")
+        .with_context(|| "Could not launch application")
 }
 
 fn make_line_item() -> impl Widget<Line> {
