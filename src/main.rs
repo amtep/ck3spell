@@ -188,7 +188,7 @@ fn highlight_syntax(
     line: &Rc<String>,
     env: &Env,
     hunspell: &Rc<Hunspell>,
-) -> (RichText, Vec<Range<usize>>) {
+) -> (RichText, Rc<Vec<Range<usize>>>) {
     let mut text = RichText::new((*line.as_str()).into());
     let mut bad_words = Vec::new();
 
@@ -302,7 +302,7 @@ fn highlight_syntax(
             }
         }
     }
-    (text, bad_words)
+    (text, Rc::new(bad_words))
 }
 
 struct SyntaxHighlighter;
@@ -321,10 +321,8 @@ impl<W: Widget<LineInfo>> Controller<LineInfo, W> for SyntaxHighlighter {
         if !data.line.line.same(&pre_data)
             || (data.rendered.is_empty() && !data.line.line.is_empty())
         {
-            let (rendered, bad_words) =
+            (data.rendered, data.bad_words) =
                 highlight_syntax(&data.line.line, env, &data.hunspell);
-            data.rendered = rendered;
-            data.bad_words = Rc::new(bad_words);
         }
     }
 }
