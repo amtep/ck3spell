@@ -261,7 +261,7 @@ fn highlight_syntax(
             }
             State::Escape(from) => {
                 text.add_attribute(
-                    from..pos + 1,
+                    from..pos + c.len_utf8(),
                     Attribute::text_color(env.get(ESCAPE_COLOR)),
                 );
                 state = State::NormalText;
