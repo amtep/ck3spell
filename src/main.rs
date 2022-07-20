@@ -59,6 +59,14 @@ struct LineInfo {
     hunspell: Rc<Hunspell>,
 }
 
+/// Current highlighted bad word, as 1-based line and word number.
+/// If the word number is 0 then no word is highlighted.
+#[derive(Clone, Data)]
+struct Cursor {
+    linenr: usize,
+    wordnr: usize,
+}
+
 #[derive(Clone, Data, Lens)]
 struct AppState {
     /// File to spell check.
@@ -66,9 +74,54 @@ struct AppState {
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
-    /// Current highlighted bad word, as line and (1-based) word number.
-    /// If the word number is 0 then no word is highlighted.
-    cursor: (usize, usize),
+    cursor: Cursor,
+}
+
+impl AppState {
+    fn cursor_prev(&mut self) {
+        if self.cursor.wordnr > 1 {
+            self.cursor.wordnr -= 1;
+        } else {
+            self.cursor.wordnr = 0;
+            while self.cursor.linenr > 1 {
+                self.cursor.linenr -= 1;
+                let words = self.lines[self.cursor.linenr - 1].bad_words.len();
+                if words > 0 {
+                    self.cursor.wordnr = words;
+                    break;
+                }
+            }
+        }
+    }
+
+    fn cursor_next(&mut self) {
+        let words = self.lines[self.cursor.linenr - 1].bad_words.len();
+        let lines = self.lines.len();
+        if self.cursor.wordnr < words {
+            self.cursor.wordnr += 1;
+        } else {
+            self.cursor.wordnr = 0;
+            while self.cursor.linenr < lines {
+                self.cursor.linenr += 1;
+                let words = self.lines[self.cursor.linenr - 1].bad_words.len();
+                if words > 0 {
+                    self.cursor.wordnr = 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    fn cursor_word(&self) -> Option<&str> {
+        if self.cursor.wordnr == 0 {
+            None
+        } else {
+            let range = self.lines[self.cursor.linenr - 1].bad_words
+                [self.cursor.wordnr - 1]
+                .clone();
+            Some(&self.lines[self.cursor.linenr - 1].line.line[range])
+        }
+    }
 }
 
 /// Opaque type representing a Hunhandle in C
@@ -395,7 +448,10 @@ fn main() -> Result<()> {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
         lines: Arc::new(split_lines(&contents, &Rc::new(hunspell))),
-        cursor: (1, 0),
+        cursor: Cursor {
+            linenr: 1,
+            wordnr: 0,
+        },
     };
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref())
@@ -431,8 +487,12 @@ fn make_line_item() -> impl Widget<LineInfo> {
 }
 
 fn buttons_builder() -> impl Widget<AppState> {
-    let prev = Button::new("Previous");
-    let next = Button::new("Next");
+    let prev = Button::new("Previous").on_click(|_, data: &mut AppState, _| {
+        data.cursor_prev();
+    });
+    let next = Button::new("Next").on_click(|_, data: &mut AppState, _| {
+        data.cursor_next();
+    });
     let accept = Button::new("Accept word");
     let edit = Button::new("Edit line");
     let save = Button::new("Save and Exit");
@@ -454,14 +514,11 @@ fn buttons_builder() -> impl Widget<AppState> {
 fn ui_builder() -> impl Widget<AppState> {
     let lines = List::new(make_line_item).lens(AppState::lines);
     let display = Scroll::new(Flex::column().with_child(lines)).vertical();
-    let word = Label::dynamic(|state: &AppState, _| {
-        let (linenr, wordnr) = state.cursor;
-        // bad_words might not have been initialized yet
-        if wordnr == 0 || state.lines[linenr - 1].bad_words.is_empty() {
-            String::new()
+    let word = Label::dynamic(|data: &AppState, _| {
+        if let Some(cursor_word) = data.cursor_word() {
+            format!("Word: {}", cursor_word)
         } else {
-            let range = state.lines[linenr - 1].bad_words[wordnr - 1].clone();
-            format!("Word: {}", &state.lines[linenr - 1].line.line[range])
+            String::new()
         }
     });
     let buttons_row = Flex::row()
