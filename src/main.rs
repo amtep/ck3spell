@@ -379,6 +379,7 @@ fn main() -> Result<()> {
     }
 
     let locale = locale_from_filename(&args.pathname)?;
+    eprintln!("Using locale {}", locale);
     let dictpath = find_dictionary(locale)?;
     let hunspell = Hunspell::new(Path::new(dictpath), locale)?;
 
