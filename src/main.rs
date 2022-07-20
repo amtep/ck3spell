@@ -10,6 +10,7 @@ use druid::{
     WidgetExt, WindowDesc,
 };
 use std::ffi::{CString, OsStr};
+use std::fs::File;
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -76,19 +77,33 @@ struct Hunspell {
 }
 
 impl Hunspell {
-    fn _path_helper(path: &Path, locale: &str, ext: &str) -> CString {
+    fn _path_helper(
+        path: &Path,
+        locale: &str,
+        ext: &str,
+        errname: &str,
+    ) -> Result<CString> {
         let mut p = path.to_path_buf();
         p.push(format!("{}.{}", locale, ext));
-        CString::new(p.as_os_str().to_str().unwrap()).unwrap()
+
+        // Hunspell itself won't tell us if opening the dictionary fails,
+        // so check it here.
+        File::open(&p).with_context(|| {
+            format!("Could not open {} file {}", errname, p.display())
+        })?;
+
+        // These unwraps won't panic because we have full control over the incoming pathname.
+        Ok(CString::new(p.as_os_str().to_str().unwrap()).unwrap())
     }
 
-    fn new(path: &Path, locale: &str) -> Hunspell {
-        let c_affpath = Hunspell::_path_helper(path, locale, "aff");
-        let c_dpath = Hunspell::_path_helper(path, locale, "dic");
+    fn new(path: &Path, locale: &str) -> Result<Hunspell> {
+        let c_dpath =
+            Hunspell::_path_helper(path, locale, "dic", "dictionary")?;
+        let c_affpath = Hunspell::_path_helper(path, locale, "aff", "affix")?;
 
         unsafe {
             let handle = Hunspell_create(c_affpath.as_ptr(), c_dpath.as_ptr());
-            Hunspell { handle }
+            Ok(Hunspell { handle })
         }
     }
 
@@ -330,7 +345,7 @@ fn main() -> Result<()> {
     }
 
     let locale = locale_from_filename(&args.pathname)?;
-    let hunspell = Hunspell::new(Path::new("/usr/share/hunspell"), locale);
+    let hunspell = Hunspell::new(Path::new("/usr/share/hunspell"), locale)?;
 
     let data = AppState {
         pathname: Rc::new(args.pathname),
