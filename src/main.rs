@@ -31,6 +31,8 @@ const CODE_COLOR: Key<Color> = Key::new("ck3spell.code-color");
 const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
 const ESCAPE_COLOR: Key<Color> = Key::new("ck3spell.escape-color");
 
+const DICTIONARY_SEARCH_PATH: [&str; 2] = [".", "/usr/share/hunspell"];
+
 #[derive(Clone, Data, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 enum LineEnd {
@@ -126,6 +128,21 @@ impl Drop for Hunspell {
             Hunspell_destroy(self.handle);
         }
     }
+}
+
+fn find_dictionary(locale: &str) -> Result<&str> {
+    for dir in DICTIONARY_SEARCH_PATH {
+        eprint!("Looking for dictionary in {}", dir);
+        let filename = format!("{}.dic", locale);
+        let mut p = PathBuf::from(dir);
+        p.push(filename);
+        if Path::exists(&p) {
+            eprintln!(" ...found");
+            return Ok(dir);
+        }
+        eprintln!();
+    }
+    Err(anyhow!("Dictionary not found"))
 }
 
 fn locale_from_filename(pathname: &Path) -> Result<&str> {
@@ -345,7 +362,8 @@ fn main() -> Result<()> {
     }
 
     let locale = locale_from_filename(&args.pathname)?;
-    let hunspell = Hunspell::new(Path::new("/usr/share/hunspell"), locale)?;
+    let dictpath = find_dictionary(locale)?;
+    let hunspell = Hunspell::new(Path::new(dictpath), locale)?;
 
     let data = AppState {
         pathname: Rc::new(args.pathname),
