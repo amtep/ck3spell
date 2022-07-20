@@ -11,6 +11,7 @@ use druid::{
 };
 use std::ffi::{CString, OsStr};
 use std::fs::File;
+use std::ops::Range;
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -48,6 +49,7 @@ struct Line {
     line: Rc<String>,
     line_end: LineEnd,
     rendered: RichText,
+    bad_words: Rc<Vec<Range<usize>>>,
     /// Handle to the hunspell library object. Should be in Env but can't.
     hunspell: Rc<Hunspell>,
 }
@@ -181,8 +183,9 @@ fn highlight_syntax(
     line: &Rc<String>,
     env: &Env,
     hunspell: &Rc<Hunspell>,
-) -> RichText {
+) -> (RichText, Vec<Range<usize>>) {
     let mut text = RichText::new((*line.as_str()).into());
+    let mut bad_words = Vec::new();
 
     enum State {
         Init,
@@ -263,6 +266,7 @@ fn highlight_syntax(
                             from..pos,
                             Attribute::text_color(env.get(MISSPELLED_COLOR)),
                         );
+                        bad_words.push(from..pos);
                     }
                 }
             }
@@ -293,7 +297,7 @@ fn highlight_syntax(
             }
         }
     }
-    text
+    (text, bad_words)
 }
 
 struct SyntaxHighlighter;
@@ -312,7 +316,10 @@ impl<W: Widget<Line>> Controller<Line, W> for SyntaxHighlighter {
         if !data.line.same(&pre_data)
             || (data.rendered.is_empty() && !data.line.is_empty())
         {
-            data.rendered = highlight_syntax(&data.line, env, &data.hunspell);
+            let (rendered, bad_words) =
+                highlight_syntax(&data.line, env, &data.hunspell);
+            data.rendered = rendered;
+            data.bad_words = Rc::new(bad_words);
         }
     }
 }
@@ -328,6 +335,7 @@ fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<Line> {
                     line: Rc::new(line.to_string()),
                     line_end: LineEnd::Nothing,
                     rendered: RichText::new("".into()),
+                    bad_words: Rc::new(Vec::new()),
                     hunspell: Rc::clone(hunspell),
                 });
             }
@@ -337,6 +345,7 @@ fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<Line> {
                 line: Rc::new(line.strip_suffix('\r').unwrap().to_string()),
                 line_end: LineEnd::CRLF,
                 rendered: RichText::new("".into()),
+                bad_words: Rc::new(Vec::new()),
                 hunspell: Rc::clone(hunspell),
             });
         } else {
@@ -345,6 +354,7 @@ fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<Line> {
                 line: Rc::new(line.to_string()),
                 line_end: LineEnd::NL,
                 rendered: RichText::new("".into()),
+                bad_words: Rc::new(Vec::new()),
                 hunspell: Rc::clone(hunspell),
             });
         }
