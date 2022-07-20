@@ -66,6 +66,9 @@ struct AppState {
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
+    /// Current highlighted bad word, as line and (1-based) word number.
+    /// If the word number is 0 then no word is highlighted.
+    cursor: (usize, usize),
 }
 
 /// Opaque type representing a Hunhandle in C
@@ -392,6 +395,7 @@ fn main() -> Result<()> {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
         lines: Arc::new(split_lines(&contents, &Rc::new(hunspell))),
+        cursor: (1, 0),
     };
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref())
@@ -450,8 +454,24 @@ fn buttons_builder() -> impl Widget<AppState> {
 fn ui_builder() -> impl Widget<AppState> {
     let lines = List::new(make_line_item).lens(AppState::lines);
     let display = Scroll::new(Flex::column().with_child(lines)).vertical();
+    let word = Label::dynamic(|state: &AppState, _| {
+        let (linenr, wordnr) = state.cursor;
+        // bad_words might not have been initialized yet
+        if wordnr == 0 || state.lines[linenr - 1].bad_words.is_empty() {
+            String::new()
+        } else {
+            let range = state.lines[linenr - 1].bad_words[wordnr - 1].clone();
+            format!("Word: {}", &state.lines[linenr - 1].line.line[range])
+        }
+    });
+    let buttons_row = Flex::row()
+        .with_default_spacer()
+        .with_child(word)
+        .with_flex_spacer(1.0)
+        .with_child(buttons_builder())
+        .with_default_spacer();
     Flex::column()
         .with_flex_child(display.border(Color::WHITE, 2.0), 1.0)
         .with_spacer(2.0)
-        .with_child(buttons_builder())
+        .with_child(buttons_row)
 }
