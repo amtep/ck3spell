@@ -2,8 +2,8 @@ use anyhow::{anyhow, Context, Result};
 use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::{
-    Controller, CrossAxisAlignment, Flex, Label, LineBreaking, List, RawLabel,
-    Scroll,
+    Button, Controller, CrossAxisAlignment, Flex, Label, LineBreaking, List,
+    RawLabel, Scroll,
 };
 use druid::{
     AppLauncher, Color, Data, Env, Event, EventCtx, Key, Lens, Widget,
@@ -426,7 +426,32 @@ fn make_line_item() -> impl Widget<LineInfo> {
         .cross_axis_alignment(CrossAxisAlignment::Start)
 }
 
+fn buttons_builder() -> impl Widget<AppState> {
+    let prev = Button::new("Previous");
+    let next = Button::new("Next");
+    let accept = Button::new("Accept word");
+    let edit = Button::new("Edit line");
+    let save = Button::new("Save and Exit");
+    let quit = Button::new("Quit without Saving");
+    Flex::row()
+        .with_child(prev)
+        .with_default_spacer()
+        .with_child(next)
+        .with_default_spacer()
+        .with_child(accept)
+        .with_default_spacer()
+        .with_child(edit)
+        .with_default_spacer()
+        .with_child(save)
+        .with_default_spacer()
+        .with_child(quit)
+}
+
 fn ui_builder() -> impl Widget<AppState> {
     let lines = List::new(make_line_item).lens(AppState::lines);
-    Scroll::new(Flex::column().with_child(lines)).vertical()
+    let display = Scroll::new(Flex::column().with_child(lines)).vertical();
+    Flex::column()
+        .with_flex_child(display.border(Color::WHITE, 2.0), 1.0)
+        .with_spacer(2.0)
+        .with_child(buttons_builder())
 }
