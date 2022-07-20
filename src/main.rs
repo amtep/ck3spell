@@ -153,29 +153,32 @@ fn find_dictionary(locale: &str) -> Result<&str> {
     Err(anyhow!("Dictionary not found"))
 }
 
+const LANGUAGES: [(&str, &str, &str); 7] = [
+    ("l_english", "en_US", "English"),
+    ("l_german", "de_DE", "German"),
+    ("l_french", "fr_FR", "French"),
+    ("l_spanish", "es_ES", "Spanish"),
+    ("l_russian", "ru_RU", "Russian"),
+    ("l_korean", "", "Korean"),
+    ("l_simp_chinese", "", "Chinese"),
+];
+
 fn locale_from_filename(pathname: &Path) -> Result<&str> {
     let filename = pathname
         .file_name()
         .unwrap_or_else(|| OsStr::new(""))
         .to_str()
         .unwrap_or("");
-    if filename.ends_with("_l_english.yml") {
-        Ok("en_US")
-    } else if filename.ends_with("_l_german.yml") {
-        Ok("de_DE")
-    } else if filename.ends_with("_l_french.yml") {
-        Ok("fr_FR")
-    } else if filename.ends_with("_l_spanish.yml") {
-        Ok("es_ES")
-    } else if filename.ends_with("_l_russian.yml") {
-        Ok("ru_RU")
-    } else if filename.ends_with("_l_korean.yml") {
-        Err(anyhow!("Korean not supported"))
-    } else if filename.ends_with("_l_simp_chinese.yml") {
-        Err(anyhow!("Chinese not supported"))
-    } else {
-        Err(anyhow!("Could not determine language from filename"))
+    for (tag, locale, name) in LANGUAGES {
+        if filename.ends_with(&format!("_{}.yml", tag)) {
+            if !locale.is_empty() {
+                return Ok(locale);
+            } else {
+                return Err(anyhow!("{} not supported", name));
+            }
+        }
     }
+    Err(anyhow!("Could not determine language from filename"))
 }
 
 fn is_word_char(c: char) -> bool {
