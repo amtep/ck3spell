@@ -30,6 +30,7 @@ const MISSPELLED_COLOR: Key<Color> = Key::new("ck3spell.misspelled-color");
 const CODE_COLOR: Key<Color> = Key::new("ck3spell.code-color");
 const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
 const ESCAPE_COLOR: Key<Color> = Key::new("ck3spell.escape-color");
+const COMMENT_COLOR: Key<Color> = Key::new("ck3spell.comment-color");
 
 const DICTIONARY_SEARCH_PATH: [&str; 2] = [".", "/usr/share/hunspell"];
 
@@ -201,6 +202,12 @@ fn highlight_syntax(
             State::Init => {
                 if c == ':' {
                     state = State::AwaitingSpaceOrQuote;
+                } else if c == '#' {
+                    text.add_attribute(
+                        pos..line.len(),
+                        Attribute::text_color(env.get(COMMENT_COLOR)),
+                    );
+                    break;
                 }
             }
             State::AwaitingSpaceOrQuote => {
@@ -381,6 +388,7 @@ fn main() -> Result<()> {
             env.set(CODE_COLOR, Color::rgb8(0x40, 0x40, 0xFF));
             env.set(KEYWORD_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
             env.set(ESCAPE_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
+            env.set(COMMENT_COLOR, Color::rgb8(0xc0, 0xa0, 0x50));
         })
         .launch(data)
         .with_context(|| "Could not launch application")
