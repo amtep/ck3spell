@@ -48,6 +48,11 @@ struct Line {
     line_nr: usize,
     line: Rc<String>,
     line_end: LineEnd,
+}
+
+#[derive(Clone, Data, Lens)]
+struct LineInfo {
+    line: Line,
     rendered: RichText,
     bad_words: Rc<Vec<Range<usize>>>,
     /// Handle to the hunspell library object. Should be in Env but can't.
@@ -60,7 +65,7 @@ struct AppState {
     pathname: Rc<PathBuf>,
     /// Name of file to spell check, for display.
     filename: Rc<String>,
-    lines: Arc<Vec<Line>>,
+    lines: Arc<Vec<LineInfo>>,
 }
 
 /// Opaque type representing a Hunhandle in C
@@ -302,62 +307,61 @@ fn highlight_syntax(
 
 struct SyntaxHighlighter;
 
-impl<W: Widget<Line>> Controller<Line, W> for SyntaxHighlighter {
+impl<W: Widget<LineInfo>> Controller<LineInfo, W> for SyntaxHighlighter {
     fn event(
         &mut self,
         child: &mut W,
         ctx: &mut EventCtx,
         event: &Event,
-        data: &mut Line,
+        data: &mut LineInfo,
         env: &Env,
     ) {
-        let pre_data = data.line.to_owned();
+        let pre_data = data.line.line.to_owned();
         child.event(ctx, event, data, env);
-        if !data.line.same(&pre_data)
-            || (data.rendered.is_empty() && !data.line.is_empty())
+        if !data.line.line.same(&pre_data)
+            || (data.rendered.is_empty() && !data.line.line.is_empty())
         {
             let (rendered, bad_words) =
-                highlight_syntax(&data.line, env, &data.hunspell);
+                highlight_syntax(&data.line.line, env, &data.hunspell);
             data.rendered = rendered;
             data.bad_words = Rc::new(bad_words);
         }
     }
 }
 
-fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<Line> {
-    let mut lines: Vec<Line> = Vec::new();
+fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<LineInfo> {
+    let mut lines: Vec<LineInfo> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
     while let Some((nr, line)) = line_iter.next() {
-        if line_iter.peek().is_none() {
+        let numbered_line = if line_iter.peek().is_none() {
             if !line.is_empty() {
-                lines.push(Line {
+                Line {
                     line_nr: nr + 1,
                     line: Rc::new(line.to_string()),
                     line_end: LineEnd::Nothing,
-                    rendered: RichText::new("".into()),
-                    bad_words: Rc::new(Vec::new()),
-                    hunspell: Rc::clone(hunspell),
-                });
+                }
+            } else {
+                continue;
             }
         } else if line.ends_with('\r') {
-            lines.push(Line {
+            Line {
                 line_nr: nr + 1,
                 line: Rc::new(line.strip_suffix('\r').unwrap().to_string()),
                 line_end: LineEnd::CRLF,
-                rendered: RichText::new("".into()),
-                bad_words: Rc::new(Vec::new()),
-                hunspell: Rc::clone(hunspell),
-            });
+            }
         } else {
-            lines.push(Line {
+            Line {
                 line_nr: nr + 1,
                 line: Rc::new(line.to_string()),
                 line_end: LineEnd::NL,
-                rendered: RichText::new("".into()),
-                bad_words: Rc::new(Vec::new()),
-                hunspell: Rc::clone(hunspell),
-            });
-        }
+            }
+        };
+        lines.push(LineInfo {
+            line: numbered_line,
+            rendered: RichText::new("".into()),
+            bad_words: Rc::new(Vec::new()),
+            hunspell: Rc::clone(hunspell),
+        });
     }
     lines
 }
@@ -406,13 +410,14 @@ fn main() -> Result<()> {
         .with_context(|| "Could not launch application")
 }
 
-fn make_line_item() -> impl Widget<Line> {
-    let linenr = Label::dynamic(|line: &Line, _| line.line_nr.to_string())
-        .with_text_color(Color::grey8(160))
-        .fix_width(30.0);
+fn make_line_item() -> impl Widget<LineInfo> {
+    let linenr =
+        Label::dynamic(|line: &LineInfo, _| line.line.line_nr.to_string())
+            .with_text_color(Color::grey8(160))
+            .fix_width(30.0);
     let line = RawLabel::new()
         .with_line_break_mode(LineBreaking::WordWrap)
-        .lens(Line::rendered)
+        .lens(LineInfo::rendered)
         .controller(SyntaxHighlighter);
     Flex::row()
         .with_child(Flex::column().with_child(linenr))
