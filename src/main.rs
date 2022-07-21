@@ -3,7 +3,7 @@ use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::widget::{
-    Button, CrossAxisAlignment, Flex, Label, LineBreaking, List, RawLabel,
+    Button, CrossAxisAlignment, Flex, Label, LineBreaking, RawLabel,
 };
 use druid::{AppLauncher, Color, Key, Lens, WidgetExt, WindowDesc};
 use std::ffi::OsStr;
@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 mod commands;
 mod hunspell;
+mod linelist;
 mod linescroller;
 mod syntaxhighlighter;
 
@@ -408,7 +409,7 @@ fn buttons_builder() -> impl Widget<AppState> {
 }
 
 fn ui_builder() -> impl Widget<AppState> {
-    let lines = List::new(make_line_item).lens(AppState::lines);
+    let lines = linelist::LineList::new(make_line_item).lens(AppState::lines);
     let display = linescroller::LineScroller::new(lines);
     let word = Label::dynamic(|data: &AppState, _| {
         if let Some(cursor_word) = data.cursor_word() {
