@@ -1,10 +1,8 @@
 use anyhow::{anyhow, Context, Result};
-use std::path::{Path, PathBuf};
 use std::ffi::CString;
-use std::os::raw::c_int;
 use std::fs::File;
-
-use crate::DICTIONARY_SEARCH_PATH;
+use std::os::raw::c_int;
+use std::path::{Path, PathBuf};
 
 /// Opaque type representing a Hunhandle in C
 #[repr(C)]
@@ -66,6 +64,24 @@ impl Hunspell {
             result != 0
         }
     }
+
+    pub fn find_dictionary<'a>(
+        search_path: &[&'a str],
+        locale: &str,
+    ) -> Result<&'a str> {
+        for dir in search_path {
+            eprint!("Looking for dictionary in {}", dir);
+            let filename = format!("{}.dic", locale);
+            let mut p = PathBuf::from(dir);
+            p.push(filename);
+            if Path::exists(&p) {
+                eprintln!(" ...found");
+                return Ok(dir);
+            }
+            eprintln!();
+        }
+        Err(anyhow!("Dictionary not found"))
+    }
 }
 
 impl Drop for Hunspell {
@@ -74,19 +90,4 @@ impl Drop for Hunspell {
             Hunspell_destroy(self.handle);
         }
     }
-}
-
-pub fn find_dictionary(locale: &str) -> Result<&str> {
-    for dir in DICTIONARY_SEARCH_PATH {
-        eprint!("Looking for dictionary in {}", dir);
-        let filename = format!("{}.dic", locale);
-        let mut p = PathBuf::from(dir);
-        p.push(filename);
-        if Path::exists(&p) {
-            eprintln!(" ...found");
-            return Ok(dir);
-        }
-        eprintln!();
-    }
-    Err(anyhow!("Dictionary not found"))
 }

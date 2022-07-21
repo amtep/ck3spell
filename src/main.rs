@@ -17,7 +17,7 @@ mod hunspell;
 mod linescroller;
 mod syntaxhighlighter;
 
-use crate::hunspell::{Hunspell, find_dictionary};
+use crate::hunspell::Hunspell;
 
 #[derive(Parser)]
 struct Cli {
@@ -35,7 +35,7 @@ const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
 const ESCAPE_COLOR: Key<Color> = Key::new("ck3spell.escape-color");
 const COMMENT_COLOR: Key<Color> = Key::new("ck3spell.comment-color");
 
-pub const DICTIONARY_SEARCH_PATH: [&str; 2] = [".", "/usr/share/hunspell"];
+const DICTIONARY_SEARCH_PATH: [&str; 2] = [".", "/usr/share/hunspell"];
 
 #[derive(Clone, Data, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
@@ -336,7 +336,7 @@ fn main() -> Result<()> {
 
     let locale = locale_from_filename(&args.pathname)?;
     eprintln!("Using locale {}", locale);
-    let dictpath = find_dictionary(locale)?;
+    let dictpath = Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
     let hunspell = Hunspell::new(Path::new(dictpath), locale)?;
 
     let data = AppState {
