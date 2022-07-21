@@ -20,7 +20,7 @@ mod linelist;
 mod linescroller;
 mod syntaxhighlighter;
 
-use crate::commands::HIGHLIGHT_WORD;
+use crate::commands::{DICTIONARY_UPDATED, HIGHLIGHT_WORD};
 use crate::hunspell::Hunspell;
 
 #[derive(Parser)]
@@ -82,6 +82,8 @@ pub struct AppState {
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
     cursor: Cursor,
+    /// Handle to the hunspell library object. Should be in Env but can't.
+    hunspell: Rc<Hunspell>,
 }
 
 impl AppState {
@@ -346,16 +348,17 @@ fn main() -> Result<()> {
     let locale = locale_from_filename(&args.pathname)?;
     eprintln!("Using locale {}", locale);
     let dictpath = Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
-    let hunspell = Hunspell::new(Path::new(dictpath), locale)?;
+    let hunspell = Rc::new(Hunspell::new(Path::new(dictpath), locale)?);
 
     let data = AppState {
         pathname: Rc::new(args.pathname),
         filename: Rc::new(filename),
-        lines: Arc::new(split_lines(&contents, &Rc::new(hunspell))),
+        lines: Arc::new(split_lines(&contents, &hunspell.clone())),
         cursor: Cursor {
             linenr: 1,
             wordnr: 0,
         },
+        hunspell,
     };
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref())
@@ -409,7 +412,14 @@ fn buttons_builder() -> impl Widget<AppState> {
             Target::Auto,
         ));
     });
-    let accept = Button::new("Accept word");
+    let accept = Button::new("Accept word")
+        .on_click(|ctx, data: &mut AppState, _| {
+            if let Some(cursor_word) = data.cursor_word() {
+                data.hunspell.add_word(cursor_word);
+                ctx.submit_command(DICTIONARY_UPDATED);
+            }
+        })
+        .disabled_if(|data: &AppState, _: &Env| data.cursor_word().is_none());
     let edit = Button::new("Edit line");
     let save = Button::new("Save and Exit");
     let quit = Button::new("Quit without Saving");

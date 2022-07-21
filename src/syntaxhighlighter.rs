@@ -3,7 +3,7 @@ use druid::widget::prelude::*;
 use druid::{Point, WidgetPod};
 use std::rc::Rc;
 
-use crate::commands::HIGHLIGHT_WORD;
+use crate::commands::{DICTIONARY_UPDATED, HIGHLIGHT_WORD};
 use crate::{highlight_syntax, LineInfo};
 
 pub struct SyntaxHighlighter<W> {
@@ -30,6 +30,7 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
         data: &mut LineInfo,
         env: &Env,
     ) {
+        let mut dict_updated = false;
         if let Event::Command(command) = event {
             if let Some(cursor) = command.get(HIGHLIGHT_WORD) {
                 if data.line.line_nr == cursor.linenr {
@@ -37,9 +38,12 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
                 } else {
                     data.highlight_word_nr = 0;
                 }
+            } else if command.is(DICTIONARY_UPDATED) {
+                dict_updated = true;
             }
         }
         if self.old_line.is_none()
+            || (dict_updated && !data.bad_words.is_empty())
             || !data.line.line.same(self.old_line.as_ref().unwrap())
             || self.old_highlight != data.highlight_word_nr
         {

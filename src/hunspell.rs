@@ -16,6 +16,7 @@ extern "C" {
     fn Hunspell_create(affpath: *const i8, dpath: *const i8) -> *mut Hunhandle;
     fn Hunspell_destroy(pHunspell: *mut Hunhandle);
     fn Hunspell_spell(pHunspell: *mut Hunhandle, word: *const i8) -> c_int;
+    fn Hunspell_add(pHunspell: *mut Hunhandle, word: *const i8) -> c_int;
 }
 
 pub struct Hunspell {
@@ -62,6 +63,18 @@ impl Hunspell {
         unsafe {
             let result = Hunspell_spell(self.handle, c_word.as_ptr());
             result != 0
+        }
+    }
+
+    pub fn add_word(&self, word: &str) {
+        let c_word = if let Ok(c_word) = CString::new(word) {
+            c_word
+        } else {
+            return;
+        };
+
+        unsafe {
+            Hunspell_add(self.handle, c_word.as_ptr());
         }
     }
 
