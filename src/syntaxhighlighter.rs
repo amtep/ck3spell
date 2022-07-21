@@ -1,12 +1,15 @@
+use druid::text::Attribute;
 use druid::widget::prelude::*;
 use druid::{Point, WidgetPod};
 use std::rc::Rc;
 
+use crate::commands::HIGHLIGHT_WORD;
 use crate::{highlight_syntax, LineInfo};
 
 pub struct SyntaxHighlighter<W> {
     child: WidgetPod<LineInfo, W>,
     old_line: Option<Rc<String>>,
+    old_highlight: usize,
 }
 
 impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
@@ -14,6 +17,7 @@ impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
         SyntaxHighlighter {
             child: WidgetPod::new(child),
             old_line: None,
+            old_highlight: 0,
         }
     }
 }
@@ -26,14 +30,36 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
         data: &mut LineInfo,
         env: &Env,
     ) {
-        self.child.event(ctx, event, data, env);
+        if let Event::Command(command) = event {
+            if let Some(cursor) = command.get(HIGHLIGHT_WORD) {
+                if data.line.line_nr == cursor.linenr {
+                    data.highlight_word_nr = cursor.wordnr;
+                } else {
+                    data.highlight_word_nr = 0;
+                }
+            }
+        }
         if self.old_line.is_none()
             || !data.line.line.same(self.old_line.as_ref().unwrap())
+            || self.old_highlight != data.highlight_word_nr
         {
             (data.rendered, data.bad_words) =
                 highlight_syntax(&data.line.line, env, &data.hunspell);
+            if data.highlight_word_nr > 0 {
+                if let Some(range) =
+                    data.bad_words.get(data.highlight_word_nr - 1)
+                {
+                    data.rendered.add_attribute(
+                        range.clone(),
+                        Attribute::underline(true),
+                    );
+                }
+            }
             self.old_line = Some(data.line.line.clone());
+            self.old_highlight = data.highlight_word_nr;
+            ctx.request_paint();
         }
+        self.child.event(ctx, event, data, env);
     }
 
     fn lifecycle(

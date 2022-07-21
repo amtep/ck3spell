@@ -5,7 +5,9 @@ use druid::widget::prelude::*;
 use druid::widget::{
     Button, CrossAxisAlignment, Flex, Label, LineBreaking, RawLabel,
 };
-use druid::{AppLauncher, Color, Key, Lens, WidgetExt, WindowDesc};
+use druid::{
+    AppLauncher, Color, Command, Key, Lens, Target, WidgetExt, WindowDesc,
+};
 use std::ffi::OsStr;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -18,6 +20,7 @@ mod linelist;
 mod linescroller;
 mod syntaxhighlighter;
 
+use crate::commands::HIGHLIGHT_WORD;
 use crate::hunspell::Hunspell;
 
 #[derive(Parser)]
@@ -58,6 +61,7 @@ pub struct LineInfo {
     line: Line,
     rendered: RichText,
     bad_words: Rc<Vec<Range<usize>>>,
+    highlight_word_nr: usize,
     /// Handle to the hunspell library object. Should be in Env but can't.
     hunspell: Rc<Hunspell>,
 }
@@ -65,7 +69,7 @@ pub struct LineInfo {
 /// Current highlighted bad word, as 1-based line and word number.
 /// If the word number is 0 then no word is highlighted.
 #[derive(Clone, Data)]
-struct Cursor {
+pub struct Cursor {
     linenr: usize,
     wordnr: usize,
 }
@@ -117,12 +121,15 @@ impl AppState {
 
     fn cursor_word(&self) -> Option<&str> {
         if self.cursor.wordnr == 0 {
-            None
+            return None;
+        }
+        if let Some(range) = self.lines[self.cursor.linenr - 1]
+            .bad_words
+            .get(self.cursor.wordnr - 1)
+        {
+            Some(&self.lines[self.cursor.linenr - 1].line.line[range.clone()])
         } else {
-            let range = self.lines[self.cursor.linenr - 1].bad_words
-                [self.cursor.wordnr - 1]
-                .clone();
-            Some(&self.lines[self.cursor.linenr - 1].line.line[range])
+            None
         }
     }
 }
@@ -313,6 +320,7 @@ fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<LineInfo> {
             line: numbered_line,
             rendered: RichText::new("".into()),
             bad_words: Rc::new(Vec::new()),
+            highlight_word_nr: 0,
             hunspell: Rc::clone(hunspell),
         });
     }
@@ -384,11 +392,22 @@ fn make_line_item() -> impl Widget<LineInfo> {
 }
 
 fn buttons_builder() -> impl Widget<AppState> {
-    let prev = Button::new("Previous").on_click(|_, data: &mut AppState, _| {
-        data.cursor_prev();
-    });
-    let next = Button::new("Next").on_click(|_, data: &mut AppState, _| {
+    let prev =
+        Button::new("Previous").on_click(|ctx, data: &mut AppState, _| {
+            data.cursor_prev();
+            ctx.submit_command(Command::new(
+                HIGHLIGHT_WORD,
+                data.cursor.clone(),
+                Target::Auto,
+            ));
+        });
+    let next = Button::new("Next").on_click(|ctx, data: &mut AppState, _| {
         data.cursor_next();
+        ctx.submit_command(Command::new(
+            HIGHLIGHT_WORD,
+            data.cursor.clone(),
+            Target::Auto,
+        ));
     });
     let accept = Button::new("Accept word");
     let edit = Button::new("Edit line");
