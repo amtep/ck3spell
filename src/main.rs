@@ -478,14 +478,12 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
         env: &Env,
     ) {
         self.scroll.event(ctx, event, data, env);
-        if !data.cursor.same(&self.old_cursor) {
-            self.old_cursor = data.cursor.clone();
-            let command = Command::new(
-                QUERY_LINE_LAYOUT_REGION,
-                data.cursor.linenr,
-                Target::Auto,
-            );
-            ctx.submit_command(command);
+        if let Event::Notification(notification) = event {
+            if let Some(&rect) = notification.get(REPLY_LINE_LAYOUT_REGION) {
+                self.scroll.widget_mut().scroll_to(rect);
+                ctx.set_handled();
+                ctx.request_paint();
+            }
         }
     }
 
@@ -507,6 +505,15 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
         env: &Env,
     ) {
         self.scroll.update(ctx, data, env);
+        if !data.cursor.same(&self.old_cursor) {
+            self.old_cursor = data.cursor.clone();
+            let command = Command::new(
+                QUERY_LINE_LAYOUT_REGION,
+                data.cursor.linenr,
+                Target::Auto,
+            );
+            ctx.submit_command(command);
+        }
     }
 
     fn layout(
