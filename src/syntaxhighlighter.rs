@@ -1,8 +1,7 @@
 use druid::widget::prelude::*;
-use druid::{Command, Point, Target, WidgetPod};
+use druid::{Point, WidgetPod};
 use std::rc::Rc;
 
-use crate::commands::{QUERY_LINE_LAYOUT_REGION, REPLY_LINE_LAYOUT_REGION};
 use crate::{highlight_syntax, LineInfo};
 
 pub struct SyntaxHighlighter<W> {
@@ -27,18 +26,6 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
         data: &mut LineInfo,
         env: &Env,
     ) {
-        if let Event::Command(command) = event {
-            if let Some(&linenr) = command.get(QUERY_LINE_LAYOUT_REGION) {
-                if linenr == data.line.line_nr {
-                    let command = Command::new(
-                        REPLY_LINE_LAYOUT_REGION,
-                        self.child.layout_rect(),
-                        Target::Auto,
-                    );
-                    ctx.submit_notification(command);
-                }
-            }
-        }
         self.child.event(ctx, event, data, env);
         if self.old_line.is_none()
             || !data.line.line.same(self.old_line.as_ref().unwrap())

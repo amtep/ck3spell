@@ -3,9 +3,10 @@
 
 use druid::widget::prelude::*;
 use druid::widget::ListIter;
-use druid::{Point, Rect, WidgetPod};
+use druid::{Command, Point, Rect, Target, WidgetPod};
 use std::cmp::Ordering;
 
+use crate::commands::{QUERY_LINE_LAYOUT_REGION, REPLY_LINE_LAYOUT_REGION};
 use crate::LineInfo;
 
 pub struct LineList {
@@ -43,6 +44,10 @@ impl LineList {
         }
         len != data.data_len()
     }
+
+    fn child_layout_rect(&self, nr: usize) -> Option<Rect> {
+        Some(self.children.get(nr)?.layout_rect())
+    }
 }
 
 impl<T: ListIter<LineInfo>> Widget<T> for LineList {
@@ -59,6 +64,19 @@ impl<T: ListIter<LineInfo>> Widget<T> for LineList {
                 child.event(ctx, event, child_data, env);
             }
         });
+
+        if let Event::Command(command) = event {
+            if let Some(&linenr) = command.get(QUERY_LINE_LAYOUT_REGION) {
+                if let Some(region) = self.child_layout_rect(linenr - 1) {
+                    let command = Command::new(
+                        REPLY_LINE_LAYOUT_REGION,
+                        region,
+                        Target::Auto,
+                    );
+                    ctx.submit_notification(command);
+                }
+            }
+        }
     }
 
     fn lifecycle(

@@ -1,6 +1,6 @@
 use druid::widget::prelude::*;
 use druid::widget::Scroll;
-use druid::{Command, Point, Target, WidgetPod};
+use druid::{Command, Point, Rect, Target, WidgetPod};
 
 use crate::commands::{QUERY_LINE_LAYOUT_REGION, REPLY_LINE_LAYOUT_REGION};
 use crate::{AppState, Cursor};
@@ -32,10 +32,21 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
     ) {
         self.scroll.event(ctx, event, data, env);
         if let Event::Notification(notification) = event {
-            if let Some(&rect) = notification.get(REPLY_LINE_LAYOUT_REGION) {
-                self.scroll.widget_mut().scroll_to(rect);
+            if let Some(&region) = notification.get(REPLY_LINE_LAYOUT_REGION) {
+                let port_size = self.scroll.layout_rect().size();
+                let port_pad = port_size.height / 2.0;
+                let centerline = region.center().y;
+                let rect = Rect::new(
+                    region.x0,
+                    (centerline - port_pad).max(0.0),
+                    region.x1,
+                    centerline + port_pad,
+                );
+                let moved = self.scroll.widget_mut().scroll_to(rect);
                 ctx.set_handled();
-                ctx.request_paint();
+                if moved {
+                    ctx.request_paint();
+                }
             }
         }
     }
