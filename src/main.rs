@@ -4,12 +4,8 @@ use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::widget::{
     Button, CrossAxisAlignment, Flex, Label, LineBreaking, List, RawLabel,
-    Scroll,
 };
-use druid::{
-    AppLauncher, Color, Command, Key, Lens, Point, Rect, Selector, Target,
-    WidgetExt, WidgetPod, WindowDesc,
-};
+use druid::{AppLauncher, Color, Key, Lens, WidgetExt, WindowDesc};
 use std::ffi::{CString, OsStr};
 use std::fs::File;
 use std::ops::Range;
@@ -17,6 +13,10 @@ use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
+
+mod commands;
+mod linescroller;
+mod syntaxhighlighter;
 
 #[derive(Parser)]
 struct Cli {
@@ -52,7 +52,7 @@ struct Line {
 }
 
 #[derive(Clone, Data, Lens)]
-struct LineInfo {
+pub struct LineInfo {
     line: Line,
     rendered: RichText,
     bad_words: Rc<Vec<Range<usize>>>,
@@ -69,7 +69,7 @@ struct Cursor {
 }
 
 #[derive(Clone, Data, Lens)]
-struct AppState {
+pub struct AppState {
     /// File to spell check.
     pathname: Rc<PathBuf>,
     /// Name of file to spell check, for display.
@@ -365,175 +365,6 @@ fn highlight_syntax(
     (text, Rc::new(bad_words))
 }
 
-const QUERY_LINE_LAYOUT_REGION: Selector<usize> =
-    Selector::new("query_line_layout_region");
-const REPLY_LINE_LAYOUT_REGION: Selector<Rect> =
-    Selector::new("reply_line_layout_region");
-
-struct SyntaxHighlighter<W> {
-    child: WidgetPod<LineInfo, W>,
-    old_line: Option<Rc<String>>,
-}
-
-impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
-    fn new(child: W) -> SyntaxHighlighter<W> {
-        SyntaxHighlighter {
-            child: WidgetPod::new(child),
-            old_line: None,
-        }
-    }
-}
-
-impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
-    fn event(
-        &mut self,
-        ctx: &mut EventCtx,
-        event: &Event,
-        data: &mut LineInfo,
-        env: &Env,
-    ) {
-        if let Event::Command(command) = event {
-            if let Some(&linenr) = command.get(QUERY_LINE_LAYOUT_REGION) {
-                if linenr == data.line.line_nr {
-                    let command = Command::new(
-                        REPLY_LINE_LAYOUT_REGION,
-                        self.child.layout_rect(),
-                        Target::Auto,
-                    );
-                    ctx.submit_notification(command);
-                }
-            }
-        }
-        self.child.event(ctx, event, data, env);
-        if self.old_line.is_none()
-            || !data.line.line.same(self.old_line.as_ref().unwrap())
-        {
-            (data.rendered, data.bad_words) =
-                highlight_syntax(&data.line.line, env, &data.hunspell);
-            self.old_line = Some(data.line.line.clone());
-        }
-    }
-
-    fn lifecycle(
-        &mut self,
-        ctx: &mut LifeCycleCtx,
-        event: &LifeCycle,
-        data: &LineInfo,
-        env: &Env,
-    ) {
-        self.child.lifecycle(ctx, event, data, env);
-    }
-
-    fn update(
-        &mut self,
-        ctx: &mut UpdateCtx,
-        _old_data: &LineInfo,
-        data: &LineInfo,
-        env: &Env,
-    ) {
-        self.child.update(ctx, data, env);
-    }
-
-    fn layout(
-        &mut self,
-        ctx: &mut LayoutCtx,
-        bc: &BoxConstraints,
-        data: &LineInfo,
-        env: &Env,
-    ) -> Size {
-        bc.debug_check("SyntaxHighlighter");
-        let size = self.child.layout(ctx, bc, data, env);
-        self.child.set_origin(ctx, data, env, Point::ZERO);
-        size
-    }
-
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &LineInfo, env: &Env) {
-        self.child.paint(ctx, data, env);
-    }
-}
-
-struct LineScroller<W> {
-    scroll: WidgetPod<AppState, Scroll<AppState, W>>,
-    old_cursor: Cursor,
-}
-
-impl<W: Widget<AppState>> LineScroller<W> {
-    fn new(child: W) -> LineScroller<W> {
-        LineScroller {
-            scroll: WidgetPod::new(Scroll::new(child).vertical()),
-            old_cursor: Cursor {
-                linenr: 1,
-                wordnr: 0,
-            },
-        }
-    }
-}
-
-impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
-    fn event(
-        &mut self,
-        ctx: &mut EventCtx,
-        event: &Event,
-        data: &mut AppState,
-        env: &Env,
-    ) {
-        self.scroll.event(ctx, event, data, env);
-        if let Event::Notification(notification) = event {
-            if let Some(&rect) = notification.get(REPLY_LINE_LAYOUT_REGION) {
-                self.scroll.widget_mut().scroll_to(rect);
-                ctx.set_handled();
-                ctx.request_paint();
-            }
-        }
-    }
-
-    fn lifecycle(
-        &mut self,
-        ctx: &mut LifeCycleCtx,
-        event: &LifeCycle,
-        data: &AppState,
-        env: &Env,
-    ) {
-        self.scroll.lifecycle(ctx, event, data, env);
-    }
-
-    fn update(
-        &mut self,
-        ctx: &mut UpdateCtx,
-        _old_data: &AppState,
-        data: &AppState,
-        env: &Env,
-    ) {
-        self.scroll.update(ctx, data, env);
-        if !data.cursor.same(&self.old_cursor) {
-            self.old_cursor = data.cursor.clone();
-            let command = Command::new(
-                QUERY_LINE_LAYOUT_REGION,
-                data.cursor.linenr,
-                Target::Auto,
-            );
-            ctx.submit_command(command);
-        }
-    }
-
-    fn layout(
-        &mut self,
-        ctx: &mut LayoutCtx,
-        bc: &BoxConstraints,
-        data: &AppState,
-        env: &Env,
-    ) -> Size {
-        bc.debug_check("LineScroller");
-        let size = self.scroll.layout(ctx, bc, data, env);
-        self.scroll.set_origin(ctx, data, env, Point::ZERO);
-        size
-    }
-
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &AppState, env: &Env) {
-        self.scroll.paint(ctx, data, env);
-    }
-}
-
 fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<LineInfo> {
     let mut lines: Vec<LineInfo> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
@@ -624,7 +455,7 @@ fn make_line_item() -> impl Widget<LineInfo> {
         Label::dynamic(|line: &LineInfo, _| line.line.line_nr.to_string())
             .with_text_color(Color::grey8(160))
             .fix_width(30.0);
-    let line = SyntaxHighlighter::new(
+    let line = syntaxhighlighter::SyntaxHighlighter::new(
         RawLabel::new()
             .with_line_break_mode(LineBreaking::WordWrap)
             .lens(LineInfo::rendered),
@@ -662,7 +493,7 @@ fn buttons_builder() -> impl Widget<AppState> {
 
 fn ui_builder() -> impl Widget<AppState> {
     let lines = List::new(make_line_item).lens(AppState::lines);
-    let display = LineScroller::new(lines);
+    let display = linescroller::LineScroller::new(lines);
     let word = Label::dynamic(|data: &AppState, _| {
         if let Some(cursor_word) = data.cursor_word() {
             format!("Word: {}", cursor_word)
