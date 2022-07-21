@@ -3,12 +3,12 @@ use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::widget::{
-    Button, Controller, CrossAxisAlignment, Flex, Label, LineBreaking, List,
-    RawLabel, Scroll,
+    Button, CrossAxisAlignment, Flex, Label, LineBreaking, List, RawLabel,
+    Scroll,
 };
 use druid::{
-    AppLauncher, Color, Command, Key, Lens, Point, Selector, Target, WidgetExt,
-    WidgetPod, WindowDesc,
+    AppLauncher, Color, Command, Key, Lens, Point, Rect, Selector, Target,
+    WidgetExt, WidgetPod, WindowDesc,
 };
 use std::ffi::{CString, OsStr};
 use std::fs::File;
@@ -367,26 +367,88 @@ fn highlight_syntax(
 
 const QUERY_LINE_LAYOUT_REGION: Selector<usize> =
     Selector::new("query_line_layout_region");
+const REPLY_LINE_LAYOUT_REGION: Selector<Rect> =
+    Selector::new("reply_line_layout_region");
 
-struct SyntaxHighlighter;
+struct SyntaxHighlighter<W> {
+    child: WidgetPod<LineInfo, W>,
+    old_line: Option<Rc<String>>,
+}
 
-impl<W: Widget<LineInfo>> Controller<LineInfo, W> for SyntaxHighlighter {
+impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
+    fn new(child: W) -> SyntaxHighlighter<W> {
+        SyntaxHighlighter {
+            child: WidgetPod::new(child),
+            old_line: None,
+        }
+    }
+}
+
+impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
     fn event(
         &mut self,
-        child: &mut W,
         ctx: &mut EventCtx,
         event: &Event,
         data: &mut LineInfo,
         env: &Env,
     ) {
-        let pre_data = data.line.line.to_owned();
-        child.event(ctx, event, data, env);
-        if !data.line.line.same(&pre_data)
-            || (data.rendered.is_empty() && !data.line.line.is_empty())
+        if let Event::Command(command) = event {
+            if let Some(&linenr) = command.get(QUERY_LINE_LAYOUT_REGION) {
+                if linenr == data.line.line_nr {
+                    let command = Command::new(
+                        REPLY_LINE_LAYOUT_REGION,
+                        self.child.layout_rect(),
+                        Target::Auto,
+                    );
+                    ctx.submit_notification(command);
+                }
+            }
+        }
+        self.child.event(ctx, event, data, env);
+        if self.old_line.is_none()
+            || !data.line.line.same(self.old_line.as_ref().unwrap())
         {
             (data.rendered, data.bad_words) =
                 highlight_syntax(&data.line.line, env, &data.hunspell);
+            self.old_line = Some(data.line.line.clone());
         }
+    }
+
+    fn lifecycle(
+        &mut self,
+        ctx: &mut LifeCycleCtx,
+        event: &LifeCycle,
+        data: &LineInfo,
+        env: &Env,
+    ) {
+        self.child.lifecycle(ctx, event, data, env);
+    }
+
+    fn update(
+        &mut self,
+        ctx: &mut UpdateCtx,
+        _old_data: &LineInfo,
+        data: &LineInfo,
+        env: &Env,
+    ) {
+        self.child.update(ctx, data, env);
+    }
+
+    fn layout(
+        &mut self,
+        ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        data: &LineInfo,
+        env: &Env,
+    ) -> Size {
+        bc.debug_check("SyntaxHighlighter");
+        let size = self.child.layout(ctx, bc, data, env);
+        self.child.set_origin(ctx, data, env, Point::ZERO);
+        size
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &LineInfo, env: &Env) {
+        self.child.paint(ctx, data, env);
     }
 }
 
@@ -555,10 +617,11 @@ fn make_line_item() -> impl Widget<LineInfo> {
         Label::dynamic(|line: &LineInfo, _| line.line.line_nr.to_string())
             .with_text_color(Color::grey8(160))
             .fix_width(30.0);
-    let line = RawLabel::new()
-        .with_line_break_mode(LineBreaking::WordWrap)
-        .lens(LineInfo::rendered)
-        .controller(SyntaxHighlighter);
+    let line = SyntaxHighlighter::new(
+        RawLabel::new()
+            .with_line_break_mode(LineBreaking::WordWrap)
+            .lens(LineInfo::rendered),
+    );
     Flex::row()
         .with_child(Flex::column().with_child(linenr))
         .with_flex_child(line, 1.0)
