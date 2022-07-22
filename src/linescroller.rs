@@ -2,7 +2,9 @@ use druid::widget::prelude::*;
 use druid::widget::Scroll;
 use druid::{Command, Point, Rect, Target, WidgetPod};
 
-use crate::commands::{QUERY_LINE_LAYOUT_REGION, REPLY_LINE_LAYOUT_REGION};
+use crate::commands::{
+    DICTIONARY_UPDATED, QUERY_LINE_LAYOUT_REGION, REPLY_LINE_LAYOUT_REGION,
+};
 use crate::{AppState, Cursor};
 
 pub struct LineScroller<W> {
@@ -47,6 +49,13 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
                 if moved {
                     ctx.request_paint();
                 }
+            }
+        } else if let Event::Command(command) = event {
+            if command.is(DICTIONARY_UPDATED) {
+                if data.cursor_word().is_none() {
+                    data.cursor_next();
+                }
+                data.update_suggestions();
             }
         }
     }
