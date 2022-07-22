@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use clap::Parser;
+use druid::commands::QUIT_APP;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::widget::{
@@ -485,7 +486,8 @@ fn buttons_builder() -> impl Widget<AppState> {
         })
         .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
     let save = Button::new("Save and Exit");
-    let quit = Button::new("Quit without Saving");
+    let quit = Button::new("Quit without Saving")
+        .on_click(|ctx, _, _| ctx.submit_command(QUIT_APP));
     Flex::row()
         .with_child(prev)
         .with_default_spacer()
