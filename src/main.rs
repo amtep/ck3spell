@@ -3,7 +3,8 @@ use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::widget::{
-    Button, CrossAxisAlignment, Flex, Label, LineBreaking, RawLabel,
+    Button, CrossAxisAlignment, Flex, Label, LineBreaking, List, RawLabel,
+    Scroll,
 };
 use druid::{
     AppLauncher, Color, Command, Key, Lens, Target, WidgetExt, WindowDesc,
@@ -74,6 +75,12 @@ pub struct Cursor {
     wordnr: usize,
 }
 
+#[derive(Clone, Data)]
+pub struct Suggestion {
+    suggestion_nr: usize, // 1-based
+    suggestion: Rc<String>,
+}
+
 #[derive(Clone, Data, Lens)]
 pub struct AppState {
     /// File to spell check.
@@ -82,11 +89,31 @@ pub struct AppState {
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
     cursor: Cursor,
+    suggestions: Arc<Vec<Suggestion>>,
     /// Handle to the hunspell library object. Should be in Env but can't.
     hunspell: Rc<Hunspell>,
 }
 
 impl AppState {
+    fn new(pathname: &Path, contents: &str, hunspell: Rc<Hunspell>) -> Self {
+        let filename = if let Some(name) = pathname.file_name() {
+            name.to_string_lossy().to_string()
+        } else {
+            "".to_string()
+        };
+        AppState {
+            pathname: Rc::new(pathname.to_path_buf()),
+            filename: Rc::new(filename),
+            lines: Arc::new(split_lines(&contents, &hunspell.clone())),
+            cursor: Cursor {
+                linenr: 1,
+                wordnr: 0,
+            },
+            suggestions: Arc::new(Vec::new()),
+            hunspell,
+        }
+    }
+
     fn cursor_prev(&mut self) {
         if self.cursor.wordnr > 1 {
             self.cursor.wordnr -= 1;
@@ -101,6 +128,7 @@ impl AppState {
                 }
             }
         }
+        self.update_suggestions();
     }
 
     fn cursor_next(&mut self) {
@@ -119,6 +147,7 @@ impl AppState {
                 }
             }
         }
+        self.update_suggestions();
     }
 
     fn cursor_word(&self) -> Option<&str> {
@@ -133,6 +162,24 @@ impl AppState {
         } else {
             None
         }
+    }
+
+    fn update_suggestions(&mut self) {
+        self.suggestions = if let Some(word) = self.cursor_word() {
+            Arc::new(
+                self.hunspell
+                    .suggestions(word)
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| Suggestion {
+                        suggestion_nr: i + 1,
+                        suggestion: s.clone(),
+                    })
+                    .collect(),
+            )
+        } else {
+            Arc::new(Vec::new())
+        };
     }
 }
 
@@ -331,11 +378,6 @@ fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<LineInfo> {
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-    let filename = if let Some(name) = args.pathname.file_name() {
-        name.to_string_lossy().to_string()
-    } else {
-        "".to_string()
-    };
 
     let mut contents =
         std::fs::read_to_string(&args.pathname).with_context(|| {
@@ -350,16 +392,7 @@ fn main() -> Result<()> {
     let dictpath = Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
     let hunspell = Rc::new(Hunspell::new(Path::new(dictpath), locale)?);
 
-    let data = AppState {
-        pathname: Rc::new(args.pathname),
-        filename: Rc::new(filename),
-        lines: Arc::new(split_lines(&contents, &hunspell.clone())),
-        cursor: Cursor {
-            linenr: 1,
-            wordnr: 0,
-        },
-        hunspell,
-    };
+    let data = AppState::new(&args.pathname, &contents, hunspell);
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref())
         .window_size((1000.0, 500.0));
@@ -437,6 +470,18 @@ fn buttons_builder() -> impl Widget<AppState> {
         .with_child(quit)
 }
 
+fn make_suggestion() -> impl Widget<Suggestion> {
+    let nr = Button::dynamic(|s: &Suggestion, _| s.suggestion_nr.to_string())
+        .fix_width(30.0);
+    let word = Label::dynamic(|s: &Suggestion, _| s.suggestion.to_string());
+    Flex::row().with_child(nr).with_flex_child(word, 1.0)
+}
+
+fn lower_box_builder() -> impl Widget<AppState> {
+    let suggestions = List::new(make_suggestion).lens(AppState::suggestions);
+    Scroll::new(suggestions).vertical()
+}
+
 fn ui_builder() -> impl Widget<AppState> {
     let lines = linelist::LineList::new(make_line_item).lens(AppState::lines);
     let display = linescroller::LineScroller::new(lines);
@@ -457,4 +502,6 @@ fn ui_builder() -> impl Widget<AppState> {
         .with_flex_child(display.border(Color::WHITE, 2.0), 1.0)
         .with_spacer(2.0)
         .with_child(buttons_row)
+        .with_spacer(2.0)
+        .with_flex_child(lower_box_builder(), 1.0)
 }

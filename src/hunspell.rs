@@ -1,8 +1,10 @@
 use anyhow::{anyhow, Context, Result};
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::fs::File;
-use std::os::raw::c_int;
+use std::os::raw::{c_char, c_int};
 use std::path::{Path, PathBuf};
+use std::ptr;
+use std::rc::Rc;
 
 /// Opaque type representing a Hunhandle in C
 #[repr(C)]
@@ -13,10 +15,23 @@ struct Hunhandle {
 
 #[link(name = "hunspell")]
 extern "C" {
-    fn Hunspell_create(affpath: *const i8, dpath: *const i8) -> *mut Hunhandle;
+    fn Hunspell_create(
+        affpath: *const c_char,
+        dpath: *const c_char,
+    ) -> *mut Hunhandle;
     fn Hunspell_destroy(pHunspell: *mut Hunhandle);
-    fn Hunspell_spell(pHunspell: *mut Hunhandle, word: *const i8) -> c_int;
-    fn Hunspell_add(pHunspell: *mut Hunhandle, word: *const i8) -> c_int;
+    fn Hunspell_spell(pHunspell: *mut Hunhandle, word: *const c_char) -> c_int;
+    fn Hunspell_add(pHunspell: *mut Hunhandle, word: *const c_char) -> c_int;
+    fn Hunspell_suggest(
+        pHunspell: *mut Hunhandle,
+        slst: *const *mut *mut c_char,
+        word: *const c_char,
+    ) -> c_int;
+    fn Hunspell_free_list(
+        pHunspell: *mut Hunhandle,
+        slst: *const *mut *mut c_char,
+        n: c_int,
+    );
 }
 
 pub struct Hunspell {
@@ -75,6 +90,37 @@ impl Hunspell {
 
         unsafe {
             Hunspell_add(self.handle, c_word.as_ptr());
+        }
+    }
+
+    pub fn suggestions(&self, word: &str) -> Vec<Rc<String>> {
+        let c_word = if let Ok(c_word) = CString::new(word) {
+            c_word
+        } else {
+            return Vec::new();
+        };
+
+        unsafe {
+            let slstp: *mut *mut c_char = ptr::null_mut();
+            let slst = ptr::addr_of!(slstp);
+            let len = Hunspell_suggest(self.handle, slst, c_word.as_ptr());
+            if len == 0 {
+                return Vec::new();
+            }
+
+            let ulen = len as usize;
+            let mut vec = Vec::new();
+            let lst = ptr::slice_from_raw_parts_mut::<*mut c_char>(slstp, ulen);
+            let mut i = 0;
+            while i < ulen {
+                let raw = CStr::from_ptr((*lst)[i]);
+                if let Ok(s) = raw.to_str() {
+                    vec.push(Rc::new(s.to_string()));
+                }
+                i += 1;
+            }
+            Hunspell_free_list(self.handle, slst, len);
+            vec
         }
     }
 
