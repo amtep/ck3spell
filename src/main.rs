@@ -191,6 +191,7 @@ impl AppState {
                         suggestion_nr: i + 1,
                         suggestion: s.clone(),
                     })
+                    .take(9)
                     .collect(),
             )
         } else {

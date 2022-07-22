@@ -1,5 +1,6 @@
 use druid::widget::prelude::*;
 use druid::widget::Controller;
+use druid::{Command, KbKey, Target};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -17,7 +18,9 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
         data: &mut AppState,
         env: &Env,
     ) {
-        if let Event::Command(command) = event {
+        if let Event::WindowConnected = event {
+            ctx.request_focus();
+        } else if let Event::Command(command) = event {
             if let Some(word) = command.get(APPLY_SUGGESTION) {
                 if data.cursor.wordnr > 0 {
                     let mut lines = (*data.lines).clone();
@@ -36,6 +39,19 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                                 data.update_suggestions();
                             }
                         }
+                    }
+                }
+            }
+        } else if let Event::KeyDown(key_event) = event {
+            if let KbKey::Character(k) = &key_event.key {
+                if let Ok(d) = k.parse::<usize>() {
+                    if d > 0 && d <= data.suggestions.len() {
+                        let s = &data.suggestions[d - 1];
+                        ctx.submit_command(Command::new(
+                            APPLY_SUGGESTION,
+                            s.suggestion.clone(),
+                            Target::Auto,
+                        ));
                     }
                 }
             }
