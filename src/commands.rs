@@ -1,4 +1,5 @@
 use druid::{Rect, Selector};
+use std::rc::Rc;
 
 use crate::Cursor;
 
@@ -11,3 +12,6 @@ pub const HIGHLIGHT_WORD: Selector<Cursor> = Selector::new("highlight_word");
 
 pub const DICTIONARY_UPDATED: Selector<()> =
     Selector::new("dictionary_updated");
+
+pub const APPLY_SUGGESTION: Selector<Rc<String>> =
+    Selector::new("apply_suggestion");

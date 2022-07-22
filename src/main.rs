@@ -15,13 +15,15 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
+mod appcontroller;
 mod commands;
 mod hunspell;
 mod linelist;
 mod linescroller;
 mod syntaxhighlighter;
 
-use crate::commands::{DICTIONARY_UPDATED, HIGHLIGHT_WORD};
+use crate::appcontroller::AppController;
+use crate::commands::{APPLY_SUGGESTION, DICTIONARY_UPDATED, HIGHLIGHT_WORD};
 use crate::hunspell::Hunspell;
 
 #[derive(Parser)]
@@ -65,6 +67,20 @@ pub struct LineInfo {
     highlight_word_nr: usize,
     /// Handle to the hunspell library object. Should be in Env but can't.
     hunspell: Rc<Hunspell>,
+}
+
+impl LineInfo {
+    fn highlight(&mut self, env: &Env) {
+        (self.rendered, self.bad_words) =
+            highlight_syntax(&self.line.line, env, &self.hunspell);
+        if self.highlight_word_nr > 0 {
+            if let Some(range) = self.bad_words.get(self.highlight_word_nr - 1)
+            {
+                self.rendered
+                    .add_attribute(range.clone(), Attribute::underline(true));
+            }
+        }
+    }
 }
 
 /// Current highlighted bad word, as 1-based line and word number.
@@ -472,6 +488,13 @@ fn buttons_builder() -> impl Widget<AppState> {
 
 fn make_suggestion() -> impl Widget<Suggestion> {
     let nr = Button::dynamic(|s: &Suggestion, _| s.suggestion_nr.to_string())
+        .on_click(|ctx: &mut EventCtx, s: &mut Suggestion, _| {
+            ctx.submit_command(Command::new(
+                APPLY_SUGGESTION,
+                s.suggestion.clone(),
+                Target::Auto,
+            ))
+        })
         .fix_width(30.0);
     let word = Label::dynamic(|s: &Suggestion, _| s.suggestion.to_string());
     Flex::row().with_child(nr).with_flex_child(word, 1.0)
@@ -504,4 +527,5 @@ fn ui_builder() -> impl Widget<AppState> {
         .with_child(buttons_row)
         .with_spacer(2.0)
         .with_flex_child(lower_box_builder(), 1.0)
+        .controller(AppController)
 }
