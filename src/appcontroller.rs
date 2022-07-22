@@ -4,7 +4,7 @@ use druid::{Command, KbKey, Target};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::commands::APPLY_SUGGESTION;
+use crate::commands::{APPLY_EDIT, APPLY_SUGGESTION};
 use crate::AppState;
 
 pub struct AppController;
@@ -40,6 +40,19 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                             }
                         }
                     }
+                }
+            } else if command.is(APPLY_EDIT) && data.editing_linenr > 0 {
+                let mut lines = (*data.lines).clone();
+                let mut line = &mut lines[data.editing_linenr - 1];
+                line.line.line = Rc::new(data.editing_text.to_string());
+                line.highlight(env);
+                data.lines = Arc::new(lines);
+                data.editing_linenr = 0;
+                data.editing_text = Arc::new(String::new());
+                if data.cursor_word().is_none() {
+                    data.cursor_next();
+                } else {
+                    data.update_suggestions();
                 }
             }
         } else if let Event::KeyDown(key_event) = event {

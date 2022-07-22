@@ -3,8 +3,8 @@ use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::widget::{
-    Button, CrossAxisAlignment, Flex, Label, LineBreaking, List, RawLabel,
-    Scroll,
+    Button, CrossAxisAlignment, Either, Flex, Label, LineBreaking, List,
+    RawLabel, Scroll, TextBox,
 };
 use druid::{
     AppLauncher, Color, Command, Key, Lens, Target, WidgetExt, WindowDesc,
@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 mod appcontroller;
 mod commands;
+mod editorcontroller;
 mod hunspell;
 mod linelist;
 mod linescroller;
@@ -24,6 +25,7 @@ mod syntaxhighlighter;
 
 use crate::appcontroller::AppController;
 use crate::commands::{APPLY_SUGGESTION, DICTIONARY_UPDATED, HIGHLIGHT_WORD};
+use crate::editorcontroller::EditorController;
 use crate::hunspell::Hunspell;
 
 #[derive(Parser)]
@@ -106,6 +108,8 @@ pub struct AppState {
     lines: Arc<Vec<LineInfo>>,
     cursor: Cursor,
     suggestions: Arc<Vec<Suggestion>>,
+    editing_linenr: usize, // 1-based
+    editing_text: Arc<String>,
     /// Handle to the hunspell library object. Should be in Env but can't.
     hunspell: Rc<Hunspell>,
 }
@@ -126,6 +130,8 @@ impl AppState {
                 wordnr: 0,
             },
             suggestions: Arc::new(Vec::new()),
+            editing_linenr: 0,
+            editing_text: Arc::new(String::new()),
             hunspell,
         }
     }
@@ -469,8 +475,15 @@ fn buttons_builder() -> impl Widget<AppState> {
                 ctx.submit_command(DICTIONARY_UPDATED);
             }
         })
-        .disabled_if(|data: &AppState, _: &Env| data.cursor_word().is_none());
-    let edit = Button::new("Edit line");
+        .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
+    let edit = Button::new("Edit line")
+        .on_click(|_, data: &mut AppState, _| {
+            data.editing_linenr = data.cursor.linenr;
+            data.editing_text = Arc::new(
+                data.lines[data.cursor.linenr - 1].line.line.to_string(),
+            );
+        })
+        .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
     let save = Button::new("Save and Exit");
     let quit = Button::new("Quit without Saving");
     Flex::row()
@@ -502,8 +515,18 @@ fn make_suggestion() -> impl Widget<Suggestion> {
 }
 
 fn lower_box_builder() -> impl Widget<AppState> {
-    let suggestions = List::new(make_suggestion).lens(AppState::suggestions);
-    Scroll::new(suggestions).vertical()
+    let suggestions =
+        Scroll::new(List::new(make_suggestion).lens(AppState::suggestions))
+            .vertical();
+    let editor = TextBox::multiline()
+        .lens(AppState::editing_text)
+        .controller(EditorController)
+        .expand();
+    Either::new(
+        |data: &AppState, _| data.editing_linenr > 0,
+        editor,
+        suggestions,
+    )
 }
 
 fn ui_builder() -> impl Widget<AppState> {

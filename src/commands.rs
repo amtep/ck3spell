@@ -15,3 +15,5 @@ pub const DICTIONARY_UPDATED: Selector<()> =
 
 pub const APPLY_SUGGESTION: Selector<Rc<String>> =
     Selector::new("apply_suggestion");
+
+pub const APPLY_EDIT: Selector<()> = Selector::new("apply_edit");
