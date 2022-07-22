@@ -28,7 +28,7 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                         if let Some(range) =
                             line.bad_words.get(data.cursor.wordnr - 1)
                         {
-                            let mut linetext = (&(*(line.line.line))).clone();
+                            let mut linetext = (*line.line.line).clone();
                             linetext.replace_range((*range).clone(), word);
                             (*line).line.line = Rc::new(linetext);
                             (*line).highlight(env);
