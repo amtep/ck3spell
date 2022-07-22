@@ -11,6 +11,8 @@ use druid::{
     AppLauncher, Color, Command, Key, Lens, Target, WidgetExt, WindowDesc,
 };
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -53,6 +55,16 @@ enum LineEnd {
     NL,
     CRLF,
     Nothing,
+}
+
+impl LineEnd {
+    fn to_str(&self) -> &str {
+        match self {
+            LineEnd::NL => "\n",
+            LineEnd::CRLF => "\r\n",
+            LineEnd::Nothing => "",
+        }
+    }
 }
 
 #[derive(Clone, Data, Lens)]
@@ -204,6 +216,18 @@ impl AppState {
         } else {
             Arc::new(Vec::new())
         };
+    }
+
+    fn save_file(&self) -> Result<()> {
+        let mut file = File::create(&*self.pathname).with_context(|| {
+            format!("Could not write to {}", self.pathname.display())
+        })?;
+        file.write("\u{FEFF}".as_bytes())?; // Unicode BOM
+        for line in self.lines.iter() {
+            file.write(line.line.line.as_bytes())?;
+            file.write(line.line.line_end.to_str().as_bytes())?;
+        }
+        Ok(())
     }
 }
 
@@ -485,7 +509,13 @@ fn buttons_builder() -> impl Widget<AppState> {
             );
         })
         .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
-    let save = Button::new("Save and Exit");
+    let save =
+        Button::new("Save and Exit").on_click(|ctx, data: &mut AppState, _| {
+            data.save_file()
+                .with_context(|| "Could not save file")
+                .unwrap();
+            ctx.submit_command(QUIT_APP);
+        });
     let quit = Button::new("Quit without Saving")
         .on_click(|ctx, _, _| ctx.submit_command(QUIT_APP));
     Flex::row()
