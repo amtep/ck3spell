@@ -18,9 +18,10 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
         data: &mut AppState,
         env: &Env,
     ) {
-        if let Event::WindowConnected = event {
+        if data.editing_linenr == 0 && !ctx.has_focus() {
             ctx.request_focus();
-        } else if let Event::Command(command) = event {
+        }
+        if let Event::Command(command) = event {
             if let Some(word) = command.get(APPLY_SUGGESTION) {
                 if data.cursor.wordnr > 0 {
                     let mut lines = (*data.lines).clone();
