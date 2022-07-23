@@ -222,10 +222,10 @@ impl AppState {
         let mut file = File::create(&*self.pathname).with_context(|| {
             format!("Could not write to {}", self.pathname.display())
         })?;
-        file.write("\u{FEFF}".as_bytes())?; // Unicode BOM
+        file.write_all("\u{FEFF}".as_bytes())?; // Unicode BOM
         for line in self.lines.iter() {
-            file.write(line.line.line.as_bytes())?;
-            file.write(line.line.line_end.to_str().as_bytes())?;
+            file.write_all(line.line.line.as_bytes())?;
+            file.write_all(line.line.line_end.to_str().as_bytes())?;
         }
         Ok(())
     }
