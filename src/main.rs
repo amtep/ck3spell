@@ -35,6 +35,9 @@ use crate::hunspell::Hunspell;
 struct Cli {
     /// File to spell check.
     pathname: PathBuf,
+    /// Dictionary for accepted words.
+    #[clap(short, long)]
+    local_dict: Option<PathBuf>,
 }
 
 const WINDOW_TITLE: &str = "CK3 spellcheck";
@@ -438,9 +441,12 @@ fn main() -> Result<()> {
     let locale = locale_from_filename(&args.pathname)?;
     eprintln!("Using locale {}", locale);
     let dictpath = Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
-    let hunspell = Rc::new(Hunspell::new(Path::new(dictpath), locale)?);
+    let mut hunspell = Hunspell::new(Path::new(dictpath), locale)?;
+    if let Some(local_dict) = args.local_dict {
+        hunspell.set_user_dict(&local_dict)?;
+    }
 
-    let data = AppState::new(&args.pathname, &contents, hunspell);
+    let data = AppState::new(&args.pathname, &contents, Rc::new(hunspell));
     let main_window = WindowDesc::new(ui_builder())
         .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref())
         .window_size((1000.0, 500.0));
@@ -497,6 +503,7 @@ fn buttons_builder() -> impl Widget<AppState> {
         .on_click(|ctx, data: &mut AppState, _| {
             if let Some(cursor_word) = data.cursor_word() {
                 data.hunspell.add_word(cursor_word);
+                data.hunspell.add_word_user_dict(cursor_word);
                 ctx.submit_command(DICTIONARY_UPDATED);
             }
         })

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use std::ffi::{CStr, CString};
-use std::fs::File;
+use std::fs::{read_to_string, File, OpenOptions};
+use std::io::Write;
 use std::os::raw::{c_char, c_int};
 use std::path::{Path, PathBuf};
 use std::ptr;
@@ -36,6 +37,7 @@ extern "C" {
 
 pub struct Hunspell {
     handle: *mut Hunhandle,
+    user_dict: Option<PathBuf>,
 }
 
 impl Hunspell {
@@ -59,14 +61,31 @@ impl Hunspell {
     }
 
     pub fn new(path: &Path, locale: &str) -> Result<Hunspell> {
-        let c_dpath =
-            Hunspell::_path_helper(path, locale, "dic", "dictionary")?;
-        let c_affpath = Hunspell::_path_helper(path, locale, "aff", "affix")?;
+        let c_dpath = Self::_path_helper(path, locale, "dic", "dictionary")?;
+        let c_affpath = Self::_path_helper(path, locale, "aff", "affix")?;
 
         unsafe {
             let handle = Hunspell_create(c_affpath.as_ptr(), c_dpath.as_ptr());
-            Ok(Hunspell { handle })
+            Ok(Hunspell {
+                handle,
+                user_dict: None,
+            })
         }
+    }
+
+    pub fn set_user_dict(&mut self, path: &Path) -> Result<()> {
+        self.user_dict = Some(path.to_path_buf());
+        if !path.exists() {
+            File::create(path).with_context(|| {
+                format!("Could not create {}", path.display())
+            })?;
+        }
+        let dict = read_to_string(path)
+            .with_context(|| format!("Could not read {}", path.display()))?;
+        for word in dict.lines() {
+            self.add_word(word);
+        }
+        Ok(())
     }
 
     pub fn spellcheck(&self, word: &str) -> bool {
@@ -78,6 +97,25 @@ impl Hunspell {
         unsafe {
             let result = Hunspell_spell(self.handle, c_word.as_ptr());
             result != 0
+        }
+    }
+
+    fn _user_dict_adder(user_dict: &Path, word: &str) -> Result<()> {
+        let mut file = OpenOptions::new().append(true).open(user_dict)?;
+        file.write_all(word.as_bytes())?;
+        file.write_all("\n".as_bytes())?;
+        Ok(())
+    }
+
+    pub fn add_word_user_dict(&self, word: &str) {
+        if let Some(user_dict) = &self.user_dict {
+            if let Err(err) = Self::_user_dict_adder(user_dict, word)
+                .with_context(|| {
+                    format!("Could not append to {}", user_dict.display())
+                })
+            {
+                eprintln!("{:#}", err);
+            }
         }
     }
 
