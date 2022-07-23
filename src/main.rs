@@ -511,9 +511,11 @@ fn buttons_builder() -> impl Widget<AppState> {
         .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
     let save =
         Button::new("Save and Exit").on_click(|ctx, data: &mut AppState, _| {
-            data.save_file()
-                .with_context(|| "Could not save file")
-                .unwrap();
+            if let Err(err) =
+                data.save_file().with_context(|| "Could not save file")
+            {
+                eprintln!("{:#}", err);
+            }
             ctx.submit_command(QUIT_APP);
         });
     let quit = Button::new("Quit without Saving")
