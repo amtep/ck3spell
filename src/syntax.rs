@@ -3,11 +3,9 @@ use nom::bytes::complete::{is_not, tag, take_while1};
 use nom::character::complete::{
     alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
 };
-use nom::combinator::{eof, map, not, recognize, rest};
+use nom::combinator::{eof, map, opt, peek, recognize, rest};
 use nom::multi::{fold_many0, many0_count};
-use nom::sequence::{
-    delimited, pair, preceded, separated_pair, terminated, tuple,
-};
+use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
 use std::ops::Range;
@@ -139,7 +137,9 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
                 TokenType::Markup,
                 preceded(char('#'), alt((tag("!"), alpha1))),
             ),
-            no_token(pair(char('"'), not(pair(space0, eof)))),
+            // Unescaped embedded double-quotes are allowed.
+            // The game engine reads up to the last double-quote on the line.
+            no_token(pair(char('"'), peek(pair(none_of("\""), eof)))),
             no_token(none_of("\"")),
         )),
         Vec::new,
@@ -147,26 +147,28 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     )(s)
 }
 
+fn loc_definition(s: Span) -> IResult<Span, Vec<Token>> {
+    map(
+        separated_pair(
+            token(TokenType::LocKey, loc_key_header),
+            space0,
+            opt(delimited(char('"'), loc_value, char('"'))),
+        ),
+        |(v1, v2)| vec_add(v1, v2.unwrap_or_default()),
+    )(s)
+}
+
 fn line(s: Span) -> IResult<Span, Vec<Token>> {
     delimited(
         space0,
-        alt((
-            no_token(eof),
-            token(TokenType::Comment, comment),
-            map(
-                separated_pair(
-                    token(TokenType::LocKey, loc_key_header),
-                    space0,
-                    delimited(
-                        char('"'),
-                        loc_value,
-                        terminated(char('"'), space0),
-                    ),
-                ),
-                vec_pair,
+        map(
+            separated_pair(
+                opt(loc_definition),
+                space0,
+                opt(token(TokenType::Comment, comment)),
             ),
-            terminated(token(TokenType::LocKey, loc_key_header), space0),
-        )),
+            |(v1, v2)| vec_add(v1.unwrap_or_default(), v2.unwrap_or_default()),
+        ),
         eof,
     )(s)
 }
