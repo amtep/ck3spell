@@ -72,10 +72,9 @@ where
     }
 }
 
-fn vec_add<T>(v1: Vec<T>, mut v2: Vec<T>) -> Vec<T> {
-    let mut v = v1;
-    v.append(&mut v2);
-    v
+fn vec_add<T>(mut v1: Vec<T>, mut v2: Vec<T>) -> Vec<T> {
+    v1.append(&mut v2);
+    v1
 }
 
 fn vec_pair<T>((v1, v2): (Vec<T>, Vec<T>)) -> Vec<T> {
