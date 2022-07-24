@@ -24,12 +24,14 @@ mod editorcontroller;
 mod hunspell;
 mod linelist;
 mod linescroller;
+mod syntax;
 mod syntaxhighlighter;
 
 use crate::appcontroller::AppController;
 use crate::commands::{APPLY_SUGGESTION, DICTIONARY_UPDATED, HIGHLIGHT_WORD};
 use crate::editorcontroller::EditorController;
 use crate::hunspell::Hunspell;
+use crate::syntax::{parse_line, TokenType};
 
 #[derive(Parser)]
 struct Cli {
@@ -140,7 +142,7 @@ impl AppState {
         AppState {
             pathname: Rc::new(pathname.to_path_buf()),
             filename: Rc::new(filename),
-            lines: Arc::new(split_lines(&contents, &hunspell.clone())),
+            lines: Arc::new(split_lines(contents, &hunspell.clone())),
             cursor: Cursor {
                 linenr: 1,
                 wordnr: 0,
@@ -262,12 +264,6 @@ fn locale_from_filename(pathname: &Path) -> Result<&str> {
     Err(anyhow!("Could not determine language from filename"))
 }
 
-fn is_word_char(c: char) -> bool {
-    // U+2019 is the unicode apostrophe
-    // alphanumeric is accepted for words like "2nd"
-    c.is_alphanumeric() || c == '\'' || c == '\u{2019}' || c == '-'
-}
-
 fn highlight_syntax(
     line: &Rc<String>,
     env: &Env,
@@ -276,115 +272,26 @@ fn highlight_syntax(
     let mut text = RichText::new((*line.as_str()).into());
     let mut bad_words = Vec::new();
 
-    enum State {
-        Init,
-        AwaitingSpaceOrQuote,
-        NormalText,
-        Escape(usize),
-        InWord(usize),
-        InKeyword(usize),
-        InCode(usize),
-    }
+    for token in parse_line(line) {
+        let mut color = match token.ttype {
+            TokenType::Comment => env.get(COMMENT_COLOR),
+            TokenType::LocKey => env.get(LOC_KEY_COLOR),
+            TokenType::KeyReference => env.get(KEYWORD_COLOR),
+            TokenType::Word => env.get(WORD_COLOR),
+            TokenType::WordPart => env.get(WORD_COLOR),
+            TokenType::Escape => env.get(ESCAPE_COLOR),
+            TokenType::Code => env.get(CODE_COLOR),
+        };
 
-    let mut state: State = State::Init;
-    let mut word: String = String::new();
-
-    for (pos, c) in line.char_indices() {
-        match state {
-            State::Init => {
-                if c == ':' {
-                    state = State::AwaitingSpaceOrQuote;
-                } else if c == '#' {
-                    text.add_attribute(
-                        pos..line.len(),
-                        Attribute::text_color(env.get(COMMENT_COLOR)),
-                    );
-                    break;
-                }
-            }
-            State::AwaitingSpaceOrQuote => {
-                if c == ' ' || c == '"' {
-                    text.add_attribute(
-                        0..pos,
-                        Attribute::text_color(env.get(LOC_KEY_COLOR)),
-                    );
-                    state = State::NormalText;
-                }
-            }
-            State::NormalText => {
-                if c == '$' {
-                    state = State::InKeyword(pos);
-                } else if c == '[' {
-                    state = State::InCode(pos);
-                } else if c == '\\' {
-                    state = State::Escape(pos);
-                } else if is_word_char(c) {
-                    word = String::new();
-                    word.push(c);
-                    state = State::InWord(pos);
-                }
-            }
-            State::InWord(from) => {
-                // TODO: checking of complex words that contain [ ] parts
-                let mut paint_word = false;
-                if c == '$' {
-                    state = State::InKeyword(pos);
-                } else if c == '[' {
-                    state = State::InCode(pos);
-                } else if c == '\\' {
-                    paint_word = true;
-                    state = State::Escape(pos);
-                } else if is_word_char(c) {
-                    if c == '\'' {
-                        word.push('\u{2019}')
-                    } else {
-                        word.push(c);
-                    }
-                } else if !is_word_char(c) {
-                    paint_word = true;
-                    state = State::NormalText;
-                }
-                if paint_word {
-                    if word.chars().count() <= 1 || hunspell.spellcheck(&word) {
-                        text.add_attribute(
-                            from..pos,
-                            Attribute::text_color(env.get(WORD_COLOR)),
-                        );
-                    } else {
-                        text.add_attribute(
-                            from..pos,
-                            Attribute::text_color(env.get(MISSPELLED_COLOR)),
-                        );
-                        bad_words.push(from..pos);
-                    }
-                }
-            }
-            State::Escape(from) => {
-                text.add_attribute(
-                    from..pos + c.len_utf8(),
-                    Attribute::text_color(env.get(ESCAPE_COLOR)),
-                );
-                state = State::NormalText;
-            }
-            State::InKeyword(from) => {
-                if c == '$' {
-                    text.add_attribute(
-                        from..pos + 1,
-                        Attribute::text_color(env.get(KEYWORD_COLOR)),
-                    );
-                    state = State::NormalText;
-                }
-            }
-            State::InCode(from) => {
-                if c == ']' {
-                    text.add_attribute(
-                        from..pos + 1,
-                        Attribute::text_color(env.get(CODE_COLOR)),
-                    );
-                    state = State::NormalText;
-                }
+        if let TokenType::Word = token.ttype {
+            let word = &line[token.range.clone()];
+            if word.chars().count() > 1 && !hunspell.spellcheck(word) {
+                color = env.get(MISSPELLED_COLOR);
+                bad_words.push(token.range.clone());
             }
         }
+
+        text.add_attribute(token.range.clone(), Attribute::text_color(color));
     }
     (text, Rc::new(bad_words))
 }
