@@ -350,7 +350,9 @@ fn main() -> Result<()> {
     let dictpath = Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
     let mut hunspell = Hunspell::new(Path::new(dictpath), locale)?;
     if let Some(local_dict) = args.local_dict {
-        hunspell.set_user_dict(&local_dict)?;
+        eprint!("Using local dictionary {} ...", local_dict.display());
+        let added = hunspell.set_user_dict(&local_dict)?;
+        eprintln!("loaded {} words", added);
     }
 
     let data = AppState::new(&args.pathname, &contents, Rc::new(hunspell));

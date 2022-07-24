@@ -73,7 +73,7 @@ impl Hunspell {
         }
     }
 
-    pub fn set_user_dict(&mut self, path: &Path) -> Result<()> {
+    pub fn set_user_dict(&mut self, path: &Path) -> Result<i32> {
         self.user_dict = Some(path.to_path_buf());
         if !path.exists() {
             File::create(path).with_context(|| {
@@ -82,10 +82,12 @@ impl Hunspell {
         }
         let dict = read_to_string(path)
             .with_context(|| format!("Could not read {}", path.display()))?;
+        let mut added = 0;
         for word in dict.lines() {
             self.add_word(word);
+            added += 1;
         }
-        Ok(())
+        Ok(added)
     }
 
     pub fn spellcheck(&self, word: &str) -> bool {
