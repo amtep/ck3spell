@@ -1,7 +1,7 @@
 use nom::branch::alt;
-use nom::bytes::complete::{is_not, take_while1};
+use nom::bytes::complete::{is_not, tag, take_while1};
 use nom::character::complete::{
-    alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
+    alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
 };
 use nom::combinator::{eof, map, not, recognize, rest};
 use nom::multi::{fold_many0, many0_count};
@@ -23,6 +23,7 @@ pub enum TokenType {
     WordPart,
     Escape,
     Code,
+    Markup,
 }
 
 #[derive(Clone, Debug)]
@@ -134,6 +135,10 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
                 delimited(char('$'), is_not("$"), char('$')),
             ),
             token(TokenType::Escape, preceded(char('\\'), anychar)),
+            token(
+                TokenType::Markup,
+                preceded(char('#'), alt((tag("!"), alpha1))),
+            ),
             no_token(pair(char('"'), not(pair(space0, eof)))),
             no_token(none_of("\"")),
         )),
