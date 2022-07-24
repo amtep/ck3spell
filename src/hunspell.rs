@@ -41,6 +41,11 @@ pub struct Hunspell {
 }
 
 impl Hunspell {
+    fn _word_transform(word: &str) -> String {
+        // Hunspell can't handle Unicode apostrophes.
+        word.replace('\u{2019}', "'")
+    }
+
     fn _path_helper(
         path: &Path,
         locale: &str,
@@ -103,6 +108,7 @@ impl Hunspell {
     }
 
     fn _user_dict_adder(user_dict: &Path, word: &str) -> Result<()> {
+        let word = Self::_word_transform(word);
         let mut file = OpenOptions::new().append(true).open(user_dict)?;
         file.write_all(word.as_bytes())?;
         file.write_all("\n".as_bytes())?;
@@ -122,6 +128,7 @@ impl Hunspell {
     }
 
     pub fn add_word(&self, word: &str) {
+        let word = Self::_word_transform(word);
         let c_word = if let Ok(c_word) = CString::new(word) {
             c_word
         } else {
