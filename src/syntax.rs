@@ -1,5 +1,5 @@
 use nom::branch::alt;
-use nom::bytes::complete::{is_not, tag, take_while1};
+use nom::bytes::complete::{is_not, tag, take_until, take_while1};
 use nom::character::complete::{
     alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
 };
@@ -8,6 +8,7 @@ use nom::multi::{fold_many0, many0_count};
 use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
+use std::fmt::Debug;
 use std::ops::Range;
 
 type Span<'a> = LocatedSpan<&'a str>;
@@ -68,6 +69,21 @@ where
     move |s: Span| {
         let (s, _) = inner(s)?;
         Ok((s, Vec::new()))
+    }
+}
+
+#[allow(dead_code)]
+fn log<'a, F: 'a, O>(
+    mut inner: F,
+) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, O>
+where
+    F: FnMut(Span<'a>) -> IResult<Span<'a>, O>,
+    O: Debug,
+{
+    move |s: Span| {
+        let r = inner(s);
+        eprintln!("Trace: {:?}", r);
+        r
     }
 }
 
@@ -139,7 +155,7 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
             ),
             // Unescaped embedded double-quotes are allowed.
             // The game engine reads up to the last double-quote on the line.
-            no_token(pair(char('"'), peek(pair(none_of("\""), eof)))),
+            no_token(pair(char('"'), peek(take_until("\"")))),
             no_token(none_of("\"")),
         )),
         Vec::new,
