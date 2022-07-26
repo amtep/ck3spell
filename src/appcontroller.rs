@@ -23,33 +23,29 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
         }
         if let Event::Command(command) = event {
             if let Some(word) = command.get(APPLY_SUGGESTION) {
-                if data.cursor.wordnr > 0 {
-                    let mut lines = (*data.lines).clone();
-                    if let Some(lineinfo) =
-                        lines.get_mut(data.cursor.linenr - 1)
-                    {
-                        if let Some(range) =
-                            lineinfo.bad_words.get(data.cursor.wordnr - 1)
+                let wordnr = data.cursor.wordnr;
+                if wordnr > 0 {
+                    data.change_line(data.cursor.linenr, |lineinfo| {
+                        if let Some(range) = lineinfo.bad_words.get(wordnr - 1)
                         {
                             let mut linetext = (*lineinfo.line.line).clone();
-                            linetext.replace_range((*range).clone(), word);
+                            linetext.replace_range(range.clone(), word);
                             lineinfo.line.line = Rc::new(linetext);
                             lineinfo.highlight(env);
-                            data.lines = Arc::new(lines);
-                            if data.cursor_word().is_none() {
-                                data.cursor_next();
-                            } else {
-                                data.update_suggestions();
-                            }
                         }
+                    });
+                    if data.cursor_word().is_none() {
+                        data.cursor_next();
+                    } else {
+                        data.update_suggestions();
                     }
                 }
             } else if command.is(APPLY_EDIT) && data.editing_linenr > 0 {
-                let mut lines = (*data.lines).clone();
-                let mut lineinfo = &mut lines[data.editing_linenr - 1];
-                lineinfo.line.line = Rc::new(data.editing_text.to_string());
-                lineinfo.highlight(env);
-                data.lines = Arc::new(lines);
+                let new_text = data.editing_text.clone();
+                data.change_line(data.editing_linenr, |lineinfo| {
+                    lineinfo.line.line = Rc::new(new_text.to_string());
+                    lineinfo.highlight(env);
+                });
                 data.editing_linenr = 0;
                 data.editing_text = Arc::new(String::new());
                 if data.cursor_word().is_none() {

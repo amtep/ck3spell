@@ -227,6 +227,14 @@ impl AppState {
         }
         Ok(())
     }
+
+    fn change_line(&mut self, linenr: usize, f: impl Fn(&mut LineInfo)) {
+        let mut lines = (*self.lines).clone();
+        if let Some(lineinfo) = lines.get_mut(linenr - 1) {
+            f(lineinfo);
+            self.lines = Arc::new(lines);
+        }
+    }
 }
 
 const LANGUAGES: [(&str, &str, &str); 7] = [
