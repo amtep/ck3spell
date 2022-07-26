@@ -19,7 +19,7 @@ Because of that need, the localization texts often contain small blocks of code,
 ## Dependencies
 `ck3spell` uses the `hunspell` library.
 
-On Debian and Ubuntu, you should install the `hunspell` package, and one or more of its dictionary packages depending on which languages you want to check.
+On Debian and Ubuntu, you should install the `libhunspell-dev` package, and one or more of its dictionary packages depending on which languages you want to check.
 
 * English: `hunspell-en-us`
 * German: `hunspell-de-de`
