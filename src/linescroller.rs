@@ -54,9 +54,19 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
             if command.is(DICTIONARY_UPDATED) {
                 if data.cursor_word().is_none() {
                     data.cursor_next();
+                } else {
+                    data.update_suggestions();
                 }
-                data.update_suggestions();
             }
+        }
+        if !data.cursor.same(&self.old_cursor) {
+            self.old_cursor = data.cursor.clone();
+            let command = Command::new(
+                QUERY_LINE_LAYOUT_REGION,
+                data.cursor.linenr,
+                Target::Auto,
+            );
+            ctx.submit_command(command);
         }
     }
 
@@ -78,15 +88,6 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
         env: &Env,
     ) {
         self.scroll.update(ctx, data, env);
-        if !data.cursor.same(&self.old_cursor) {
-            self.old_cursor = data.cursor.clone();
-            let command = Command::new(
-                QUERY_LINE_LAYOUT_REGION,
-                data.cursor.linenr,
-                Target::Auto,
-            );
-            ctx.submit_command(command);
-        }
     }
 
     fn layout(
