@@ -1,10 +1,9 @@
-use druid::text::Attribute;
 use druid::widget::prelude::*;
 use druid::{Point, WidgetPod};
 use std::rc::Rc;
 
 use crate::commands::{DICTIONARY_UPDATED, HIGHLIGHT_WORD};
-use crate::{highlight_syntax, LineInfo};
+use crate::LineInfo;
 
 pub struct SyntaxHighlighter<W> {
     child: WidgetPod<LineInfo, W>,
@@ -47,18 +46,7 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
             || !data.line.line.same(self.old_line.as_ref().unwrap())
             || self.old_highlight != data.highlight_word_nr
         {
-            (data.rendered, data.bad_words) =
-                highlight_syntax(&data.line.line, env, &data.hunspell);
-            if data.highlight_word_nr > 0 {
-                if let Some(range) =
-                    data.bad_words.get(data.highlight_word_nr - 1)
-                {
-                    data.rendered.add_attribute(
-                        range.clone(),
-                        Attribute::underline(true),
-                    );
-                }
-            }
+            data.highlight(env);
             self.old_line = Some(data.line.line.clone());
             self.old_highlight = data.highlight_word_nr;
             ctx.request_paint();
