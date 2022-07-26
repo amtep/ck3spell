@@ -44,6 +44,7 @@ const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
 const ESCAPE_COLOR: Key<Color> = Key::new("ck3spell.escape-color");
 const COMMENT_COLOR: Key<Color> = Key::new("ck3spell.comment-color");
 const MARKUP_COLOR: Key<Color> = Key::new("ck3spell.markup-color");
+const ICON_TAG_COLOR: Key<Color> = Key::new("ck3spell.icon-tag-color");
 
 const DICTIONARY_SEARCH_PATH: [&str; 2] = [".", "/usr/share/hunspell"];
 
@@ -304,6 +305,7 @@ fn highlight_syntax(
             TokenType::Escape => env.get(ESCAPE_COLOR),
             TokenType::Code => env.get(CODE_COLOR),
             TokenType::Markup => env.get(MARKUP_COLOR),
+            TokenType::IconTag => env.get(ICON_TAG_COLOR),
         };
 
         if let TokenType::Word = token.ttype {
@@ -393,6 +395,7 @@ fn main() -> Result<()> {
             env.set(ESCAPE_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
             env.set(COMMENT_COLOR, Color::rgb8(0xc0, 0xa0, 0x50));
             env.set(MARKUP_COLOR, Color::rgb8(0x80, 0x80, 0xc0));
+            env.set(ICON_TAG_COLOR, Color::rgb8(0xff, 0xd7, 0x00));
         })
         .launch(data)
         .with_context(|| "Could not launch application")

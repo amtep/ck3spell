@@ -23,6 +23,7 @@ pub enum TokenType {
     Escape,
     Code,
     Markup,
+    IconTag,
 }
 
 #[derive(Clone, Debug)]
@@ -120,6 +121,11 @@ fn code_block(s: Span) -> IResult<Span, Span> {
     delimited(char('['), is_not("]"), char(']'))(s)
 }
 
+fn icon_tag(s: Span) -> IResult<Span, Span> {
+    // TODO: get fancy and separately mark up $Keyword$ inside icon tags.
+    delimited(char('@'), is_not("! "), one_of("! "))(s)
+}
+
 fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     fold_many0(
         alt((
@@ -144,6 +150,7 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
             ),
             token(TokenType::Word, word),
             token(TokenType::Code, code_block),
+            token(TokenType::IconTag, icon_tag),
             token(
                 TokenType::KeyReference,
                 delimited(char('$'), is_not("$"), char('$')),
