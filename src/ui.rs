@@ -36,19 +36,11 @@ fn buttons_builder() -> impl Widget<AppState> {
     let prev =
         Button::new("Previous").on_click(|ctx, data: &mut AppState, _| {
             data.cursor_prev();
-            ctx.submit_command(Command::new(
-                CURSOR_CHANGED,
-                data.cursor.clone(),
-                Target::Auto,
-            ));
+            ctx.submit_command(CURSOR_CHANGED);
         });
     let next = Button::new("Next").on_click(|ctx, data: &mut AppState, _| {
         data.cursor_next();
-        ctx.submit_command(Command::new(
-            CURSOR_CHANGED,
-            data.cursor.clone(),
-            Target::Auto,
-        ));
+        ctx.submit_command(CURSOR_CHANGED);
     });
     let accept = Button::new("Accept word")
         .on_click(|ctx, data: &mut AppState, _| {

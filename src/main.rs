@@ -86,12 +86,17 @@ impl LineInfo {
     fn highlight(&mut self, env: &Env) {
         (self.rendered, self.bad_words) =
             highlight_syntax(&self.line.line, env, &self.hunspell);
+        if let Some(range) = self.marked_word() {
+            self.rendered
+                .add_attribute(range.clone(), Attribute::underline(true));
+        }
+    }
+
+    fn marked_word(&self) -> Option<Range<usize>> {
         if self.highlight_word_nr > 0 {
-            if let Some(range) = self.bad_words.get(self.highlight_word_nr - 1)
-            {
-                self.rendered
-                    .add_attribute(range.clone(), Attribute::underline(true));
-            }
+            self.bad_words.get(self.highlight_word_nr - 1).cloned()
+        } else {
+            None
         }
     }
 }
@@ -148,38 +153,42 @@ impl AppState {
     }
 
     fn cursor_prev(&mut self) {
-        if self.cursor.wordnr > 1 {
-            self.cursor.wordnr -= 1;
+        let mut cursor = self.cursor.clone();
+        if cursor.wordnr > 1 {
+            cursor.wordnr -= 1;
         } else {
-            self.cursor.wordnr = 0;
-            while self.cursor.linenr > 1 {
-                self.cursor.linenr -= 1;
-                let words = self.lines[self.cursor.linenr - 1].bad_words.len();
-                if words > 0 {
-                    self.cursor.wordnr = words;
+            cursor.wordnr = 0;
+            while cursor.linenr > 1 {
+                cursor.linenr -= 1;
+                let nwords = self.lines[cursor.linenr - 1].bad_words.len();
+                if nwords > 0 {
+                    cursor.wordnr = nwords;
                     break;
                 }
             }
         }
+        self.update_cursor(cursor);
         self.update_suggestions();
     }
 
     fn cursor_next(&mut self) {
-        let words = self.lines[self.cursor.linenr - 1].bad_words.len();
-        let lines = self.lines.len();
-        if self.cursor.wordnr < words {
-            self.cursor.wordnr += 1;
+        let mut cursor = self.cursor.clone();
+        let nwords = self.lines[cursor.linenr - 1].bad_words.len();
+        let nlines = self.lines.len();
+        if cursor.wordnr < nwords {
+            cursor.wordnr += 1;
         } else {
-            self.cursor.wordnr = 0;
-            while self.cursor.linenr < lines {
-                self.cursor.linenr += 1;
-                let words = self.lines[self.cursor.linenr - 1].bad_words.len();
-                if words > 0 {
-                    self.cursor.wordnr = 1;
+            cursor.wordnr = 0;
+            while cursor.linenr < nlines {
+                cursor.linenr += 1;
+                let nwords = self.lines[cursor.linenr - 1].bad_words.len();
+                if nwords > 0 {
+                    cursor.wordnr = 1;
                     break;
                 }
             }
         }
+        self.update_cursor(cursor);
         self.update_suggestions();
     }
 
@@ -195,6 +204,18 @@ impl AppState {
         } else {
             None
         }
+    }
+
+    fn update_cursor(&mut self, cursor: Cursor) {
+        if self.cursor.linenr != cursor.linenr {
+            self.change_line(self.cursor.linenr, |lineinfo| {
+                lineinfo.highlight_word_nr = 0
+            });
+        }
+        self.change_line(cursor.linenr, |lineinfo| {
+            lineinfo.highlight_word_nr = cursor.wordnr
+        });
+        self.cursor = cursor;
     }
 
     fn update_suggestions(&mut self) {
