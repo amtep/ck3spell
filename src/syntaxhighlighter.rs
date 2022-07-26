@@ -1,15 +1,17 @@
 use druid::widget::prelude::*;
+use druid::widget::BackgroundBrush;
 use druid::{Point, WidgetPod};
 use std::ops::Range;
 use std::rc::Rc;
 
 use crate::commands::{CURSOR_CHANGED, DICTIONARY_UPDATED};
-use crate::LineInfo;
+use crate::{LineInfo, LINE_COLOR};
 
 pub struct SyntaxHighlighter<W> {
     child: WidgetPod<LineInfo, W>,
     old_line: Option<Rc<String>>,
     old_highlight: Option<Range<usize>>,
+    background: bool,
 }
 
 impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
@@ -18,6 +20,7 @@ impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
             child: WidgetPod::new(child),
             old_line: None,
             old_highlight: None,
+            background: false,
         }
     }
 }
@@ -32,10 +35,11 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
     ) {
         let mut force_update = false;
         if let Event::Command(command) = event {
-            if command.is(CURSOR_CHANGED) {
+            if let Some(cursor) = command.get(CURSOR_CHANGED) {
                 if self.old_highlight != data.marked_word() {
                     force_update = true;
                 }
+                self.background = cursor.linenr == data.line.line_nr;
             } else if command.is(DICTIONARY_UPDATED) {
                 if !data.bad_words.is_empty() {
                     force_update = true;
@@ -88,6 +92,12 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &LineInfo, env: &Env) {
+        if self.background {
+            let mut background: BackgroundBrush<LineInfo> = LINE_COLOR.into();
+            ctx.with_save(|ctx| {
+                background.paint(ctx, data, env);
+            });
+        }
         self.child.paint(ctx, data, env);
     }
 }

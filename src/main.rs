@@ -45,6 +45,7 @@ const ESCAPE_COLOR: Key<Color> = Key::new("ck3spell.escape-color");
 const COMMENT_COLOR: Key<Color> = Key::new("ck3spell.comment-color");
 const MARKUP_COLOR: Key<Color> = Key::new("ck3spell.markup-color");
 const ICON_TAG_COLOR: Key<Color> = Key::new("ck3spell.icon-tag-color");
+const LINE_COLOR: Key<Color> = Key::new("ck3spell-line-color");
 
 const DICTIONARY_SEARCH_PATH: [&str; 2] = [".", "/usr/share/hunspell"];
 
@@ -104,7 +105,7 @@ impl LineInfo {
 
 /// Current highlighted bad word, as 1-based line and word number.
 /// If the word number is 0 then no word is highlighted.
-#[derive(Clone, Data)]
+#[derive(Clone, Copy, Data)]
 pub struct Cursor {
     linenr: usize,
     wordnr: usize,
@@ -154,7 +155,7 @@ impl AppState {
     }
 
     fn cursor_prev(&mut self) {
-        let mut cursor = self.cursor.clone();
+        let mut cursor = self.cursor;
         if cursor.wordnr > 1 {
             cursor.wordnr -= 1;
         } else {
@@ -173,7 +174,7 @@ impl AppState {
     }
 
     fn cursor_next(&mut self) {
-        let mut cursor = self.cursor.clone();
+        let mut cursor = self.cursor;
         let nwords = self.lines[cursor.linenr - 1].bad_words.len();
         let nlines = self.lines.len();
         if cursor.wordnr < nwords {
@@ -390,12 +391,13 @@ fn main() -> Result<()> {
             env.set(LOC_KEY_COLOR, Color::rgb8(0xff, 0xa5, 0x00));
             env.set(WORD_COLOR, Color::rgb8(0xFF, 0xFF, 0xFF));
             env.set(MISSPELLED_COLOR, Color::rgb8(0xFF, 0x40, 0x40));
-            env.set(CODE_COLOR, Color::rgb8(0x40, 0x40, 0xFF));
+            env.set(CODE_COLOR, Color::rgb8(0x60, 0x60, 0xFF));
             env.set(KEYWORD_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
             env.set(ESCAPE_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
             env.set(COMMENT_COLOR, Color::rgb8(0xc0, 0xa0, 0x50));
             env.set(MARKUP_COLOR, Color::rgb8(0x80, 0x80, 0xc0));
             env.set(ICON_TAG_COLOR, Color::rgb8(0xff, 0xd7, 0x00));
+            env.set(LINE_COLOR, Color::rgba8(0x80, 0x80, 0x80, 0x20));
         })
         .launch(data)
         .with_context(|| "Could not launch application")

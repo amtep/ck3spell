@@ -55,14 +55,18 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
             if command.is(DICTIONARY_UPDATED) {
                 if data.cursor_word().is_none() {
                     data.cursor_next();
-                    ctx.submit_command(CURSOR_CHANGED);
+                    ctx.submit_command(Command::new(
+                        CURSOR_CHANGED,
+                        data.cursor,
+                        Target::Auto,
+                    ));
                 } else {
                     data.update_suggestions();
                 }
             }
         }
         if !data.cursor.same(&self.old_cursor) {
-            self.old_cursor = data.cursor.clone();
+            self.old_cursor = data.cursor;
             let command = Command::new(
                 QUERY_LINE_LAYOUT_REGION,
                 data.cursor.linenr,
