@@ -3,7 +3,8 @@ use druid::widget::Scroll;
 use druid::{Command, Point, Rect, Target, WidgetPod};
 
 use crate::commands::{
-    DICTIONARY_UPDATED, QUERY_LINE_LAYOUT_REGION, REPLY_LINE_LAYOUT_REGION,
+    CURSOR_CHANGED, DICTIONARY_UPDATED, QUERY_LINE_LAYOUT_REGION,
+    REPLY_LINE_LAYOUT_REGION,
 };
 use crate::{AppState, Cursor};
 
@@ -54,6 +55,7 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
             if command.is(DICTIONARY_UPDATED) {
                 if data.cursor_word().is_none() {
                     data.cursor_next();
+                    ctx.submit_command(CURSOR_CHANGED);
                 } else {
                     data.update_suggestions();
                 }
