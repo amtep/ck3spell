@@ -2,13 +2,12 @@ use druid::widget::prelude::*;
 use druid::{Point, WidgetPod};
 use std::rc::Rc;
 
-use crate::commands::{DICTIONARY_UPDATED, HIGHLIGHT_WORD};
+use crate::commands::{CURSOR_CHANGED, DICTIONARY_UPDATED};
 use crate::LineInfo;
 
 pub struct SyntaxHighlighter<W> {
     child: WidgetPod<LineInfo, W>,
     old_line: Option<Rc<String>>,
-    old_highlight: usize,
 }
 
 impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
@@ -16,7 +15,6 @@ impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
         SyntaxHighlighter {
             child: WidgetPod::new(child),
             old_line: None,
-            old_highlight: 0,
         }
     }
 }
@@ -29,26 +27,28 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
         data: &mut LineInfo,
         env: &Env,
     ) {
-        let mut dict_updated = false;
+        let mut force_update = false;
         if let Event::Command(command) = event {
-            if let Some(cursor) = command.get(HIGHLIGHT_WORD) {
+            if let Some(cursor) = command.get(CURSOR_CHANGED) {
                 if data.line.line_nr == cursor.linenr {
                     data.highlight_word_nr = cursor.wordnr;
+                    force_update = true;
                 } else {
+                    force_update = data.highlight_word_nr != 0;
                     data.highlight_word_nr = 0;
                 }
             } else if command.is(DICTIONARY_UPDATED) {
-                dict_updated = true;
+                if !data.bad_words.is_empty() {
+                    force_update = true;
+                }
             }
         }
         if self.old_line.is_none()
-            || (dict_updated && !data.bad_words.is_empty())
+            || force_update
             || !data.line.line.same(self.old_line.as_ref().unwrap())
-            || self.old_highlight != data.highlight_word_nr
         {
             data.highlight(env);
             self.old_line = Some(data.line.line.clone());
-            self.old_highlight = data.highlight_word_nr;
             ctx.request_paint();
         }
         self.child.event(ctx, event, data, env);

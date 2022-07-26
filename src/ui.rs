@@ -9,7 +9,7 @@ use druid::{Color, Command, Target, WidgetExt};
 use std::sync::Arc;
 
 use crate::appcontroller::AppController;
-use crate::commands::{APPLY_SUGGESTION, DICTIONARY_UPDATED, HIGHLIGHT_WORD};
+use crate::commands::{APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED};
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
 use crate::linescroller::LineScroller;
@@ -37,7 +37,7 @@ fn buttons_builder() -> impl Widget<AppState> {
         Button::new("Previous").on_click(|ctx, data: &mut AppState, _| {
             data.cursor_prev();
             ctx.submit_command(Command::new(
-                HIGHLIGHT_WORD,
+                CURSOR_CHANGED,
                 data.cursor.clone(),
                 Target::Auto,
             ));
@@ -45,7 +45,7 @@ fn buttons_builder() -> impl Widget<AppState> {
     let next = Button::new("Next").on_click(|ctx, data: &mut AppState, _| {
         data.cursor_next();
         ctx.submit_command(Command::new(
-            HIGHLIGHT_WORD,
+            CURSOR_CHANGED,
             data.cursor.clone(),
             Target::Auto,
         ));
