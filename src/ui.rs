@@ -68,14 +68,13 @@ fn buttons_builder() -> impl Widget<AppState> {
             }
         })
         .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
-    let edit = Button::new("Edit line")
-        .on_click(|_, data: &mut AppState, _| {
+    let edit =
+        Button::new("Edit line").on_click(|_, data: &mut AppState, _| {
             data.editing_linenr = data.cursor.linenr;
             data.editing_text = Arc::new(
                 data.lines[data.cursor.linenr - 1].line.line.to_string(),
             );
-        })
-        .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
+        });
     let save =
         Button::new("Save and Exit").on_click(|ctx, data: &mut AppState, _| {
             if let Err(err) =
