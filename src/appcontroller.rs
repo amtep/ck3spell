@@ -4,7 +4,9 @@ use druid::{Command, KbKey, Target};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use crate::commands::{APPLY_EDIT, APPLY_SUGGESTION};
+use crate::commands::{
+    APPLY_EDIT, APPLY_SUGGESTION, CURSOR_CHANGED, GOTO_LINE,
+};
 use crate::AppState;
 
 pub struct AppController;
@@ -53,6 +55,15 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                 } else {
                     data.update_suggestions();
                 }
+            } else if let Some(&linenr) = command.get(GOTO_LINE) {
+                data.cursor.linenr = linenr;
+                data.cursor.wordnr = 0;
+                data.update_suggestions();
+                ctx.submit_command(Command::new(
+                    CURSOR_CHANGED,
+                    data.cursor,
+                    Target::Auto,
+                ));
             }
         } else if let Event::KeyDown(key_event) = event {
             if let KbKey::Character(k) = &key_event.key {

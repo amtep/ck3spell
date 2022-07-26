@@ -9,7 +9,9 @@ use druid::{Color, Command, Target, WidgetExt};
 use std::sync::Arc;
 
 use crate::appcontroller::AppController;
-use crate::commands::{APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED};
+use crate::commands::{
+    APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED, GOTO_LINE,
+};
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
 use crate::linescroller::LineScroller;
@@ -24,7 +26,14 @@ fn make_line_item() -> impl Widget<LineInfo> {
     let line = SyntaxHighlighter::new(
         RawLabel::new()
             .with_line_break_mode(LineBreaking::WordWrap)
-            .lens(LineInfo::rendered),
+            .lens(LineInfo::rendered)
+            .on_click(|ctx, data: &mut LineInfo, _| {
+                ctx.submit_command(Command::new(
+                    GOTO_LINE,
+                    data.line.line_nr,
+                    Target::Auto,
+                ));
+            }),
     );
     Flex::row()
         .with_child(Flex::column().with_child(linenr))
