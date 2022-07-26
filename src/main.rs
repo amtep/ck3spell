@@ -221,9 +221,9 @@ impl AppState {
             format!("Could not write to {}", self.pathname.display())
         })?;
         file.write_all("\u{FEFF}".as_bytes())?; // Unicode BOM
-        for line in self.lines.iter() {
-            file.write_all(line.line.line.as_bytes())?;
-            file.write_all(line.line.line_end.to_str().as_bytes())?;
+        for lineinfo in self.lines.iter() {
+            file.write_all(lineinfo.line.line.as_bytes())?;
+            file.write_all(lineinfo.line.line_end.to_str().as_bytes())?;
         }
         Ok(())
     }
