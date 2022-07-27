@@ -2,9 +2,10 @@ use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, take_until, take_while1};
 use nom::character::complete::{
     alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
+    space1,
 };
-use nom::combinator::{eof, map, opt, peek, recognize, rest};
-use nom::multi::{fold_many0, many0_count};
+use nom::combinator::{eof, map, not, opt, peek, recognize, rest};
+use nom::multi::{fold_many0, many0_count, separated_list1};
 use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
@@ -38,7 +39,7 @@ fn is_word_char(c: char) -> bool {
     c.is_alphanumeric() || c == '\'' || c == '\u{2019}' || c == '-'
 }
 
-fn is_word_char_no_apo(c: char) -> bool {
+fn is_word_char_no_apostrophes(c: char) -> bool {
     c.is_alphanumeric() || c == '-'
 }
 
@@ -97,6 +98,14 @@ fn vec_pair<T>((v1, v2): (Vec<T>, Vec<T>)) -> Vec<T> {
     vec_add(v1, v2)
 }
 
+fn vec_flatten<T>(mut vv: Vec<Vec<T>>) -> Vec<T> {
+    let mut v = Vec::new();
+    for vt in vv.iter_mut() {
+        v.append(vt);
+    }
+    v
+}
+
 fn comment(s: Span) -> IResult<Span, Span> {
     preceded(char('#'), rest)(s)
 }
@@ -113,8 +122,15 @@ fn word(s: Span) -> IResult<Span, Span> {
     take_while1(is_word_char)(s)
 }
 
-fn word_no_apo(s: Span) -> IResult<Span, Span> {
-    take_while1(is_word_char_no_apo)(s)
+fn word_no_apostrophes(s: Span) -> IResult<Span, Span> {
+    take_while1(is_word_char_no_apostrophes)(s)
+}
+
+fn quoted_phrase(s: Span) -> IResult<Span, Vec<Token>> {
+    map(
+        separated_list1(space1, token(TokenType::Word, word_no_apostrophes)),
+        vec_flatten,
+    )(s)
 }
 
 fn code_block(s: Span) -> IResult<Span, Span> {
@@ -129,11 +145,7 @@ fn icon_tag(s: Span) -> IResult<Span, Span> {
 fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     fold_many0(
         alt((
-            delimited(
-                char('\''),
-                token(TokenType::Word, word_no_apo),
-                char('\''),
-            ),
+            delimited(char('\''), quoted_phrase, pair(char('\''), not(word))),
             map(
                 pair(
                     token(TokenType::WordPart, word),
