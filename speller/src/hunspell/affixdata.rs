@@ -46,6 +46,8 @@ pub struct AffixData {
     pub circumfix: Option<AffixFlag>,
     /// The flag for words that must have an affix.
     pub need_affix: Option<AffixFlag>,
+    /// The flag for words that should not change case.
+    pub keep_case: Option<AffixFlag>,
     /// The minimum length of words in compound words.
     pub compound_min: u8,
     /// Characters that should be converted before matching.
@@ -58,6 +60,10 @@ pub struct AffixData {
     pub related_chars: Vec<String>,
     /// Not sure what these do.
     pub word_breaks: Vec<String>,
+    /// Allow affixes to completely remove a root
+    pub fullstrip: bool,
+    /// Not sure what this does. Used by German.
+    pub check_sharps: bool,
 }
 
 impl AffixData {
@@ -76,12 +82,15 @@ impl AffixData {
             no_suggest: None,
             circumfix: None,
             need_affix: None,
+            keep_case: None,
             compound_min: 0,
             iconv: HashMap::new(),
             oconv: HashMap::new(),
             compound_rules: Vec::new(),
             related_chars: Vec::new(),
             word_breaks: Vec::new(),
+            fullstrip: false,
+            check_sharps: false,
         }
     }
 

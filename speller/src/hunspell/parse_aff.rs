@@ -74,6 +74,8 @@ enum AffixLine<'a> {
     AddCompoundRule(&'a str),
     AddRelatedChars(&'a str),
     AddWordBreaks(&'a str),
+    SetFullstrip,
+    SetCheckSharps,
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -146,7 +148,8 @@ fn value_string(s: &str) -> IResult<&str, &str, AffError> {
     take_till1(|c: char| c.is_whitespace())(s)
 }
 
-const FLAG_NAMES: [&str; 9] = [
+const FLAG_NAMES: [&str; 10] = [
+    "FORBIDDENWORD",
     "COMPOUNDBEGIN",
     "COMPOUNDMIDDLE",
     "COMPOUNDEND",
@@ -155,7 +158,7 @@ const FLAG_NAMES: [&str; 9] = [
     "NOSUGGEST",
     "CIRCUMFIX",
     "NEEDAFFIX",
-    "FORBIDDENWORD",
+    "KEEPCASE",
 ];
 
 fn assign_flag(s: &str) -> IResult<&str, AffixLine, AffError> {
@@ -227,6 +230,14 @@ fn add_word_breaks(s: &str) -> IResult<&str, AffixLine, AffError> {
     table_line("BREAK", value_string, AffixLine::AddWordBreaks)(s)
 }
 
+fn set_fullstrip(s: &str) -> IResult<&str, AffixLine, AffError> {
+    value(AffixLine::SetFullstrip, tag("FULLSTRIP"))(s)
+}
+
+fn set_checksharps(s: &str) -> IResult<&str, AffixLine, AffError> {
+    value(AffixLine::SetCheckSharps, tag("CHECKSHARPS"))(s)
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding,
@@ -241,6 +252,8 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
         add_compound_rule,
         add_related_chars,
         add_word_breaks,
+        set_fullstrip,
+        set_checksharps,
         success(AffixLine::Empty),
     ))(s)
 }
@@ -288,6 +301,7 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                     "NOSUGGEST" => d.no_suggest = v,
                     "CIRCUMFIX" => d.circumfix = v,
                     "NEEDAFFIX" => d.need_affix = v,
+                    "KEEPCASE" => d.keep_case = v,
                     _ => panic!("Unhandled flag"),
                 }
             }
@@ -308,6 +322,8 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
             AffixLine::AddWordBreaks(v) => {
                 d.word_breaks.push(v.to_string());
             }
+            AffixLine::SetFullstrip => d.fullstrip = true,
+            AffixLine::SetCheckSharps => d.check_sharps = true,
         };
     }
     let (s, _) = eof(s)?;
