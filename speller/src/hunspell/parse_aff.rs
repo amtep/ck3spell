@@ -3,12 +3,12 @@ use anyhow::{anyhow, Error, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{
-    char, line_ending, not_line_ending, space0, space1, u8,
+    anychar, char, i32, line_ending, not_line_ending, space0, space1, u8,
 };
 use nom::combinator::{cut, eof, map, opt, success, value};
 use nom::error::{Error as NomError, ErrorKind, ParseError};
 use nom::multi::many0;
-use nom::sequence::{delimited, preceded, terminated};
+use nom::sequence::{delimited, preceded, separated_pair, terminated, tuple};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
 use crate::hunspell::affixdata::FlagMode;
@@ -69,6 +69,8 @@ enum AffixLine<'a> {
     SetExtraWordString(&'a str),
     SetFlag(&'a str, &'a str),
     SetCompoundMin(u8),
+    AddIconv(char, char),
+    AddOconv(char, char),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -165,6 +167,28 @@ fn set_compound_min(s: &str) -> IResult<&str, AffixLine, AffError> {
     map(keyword("COMPOUNDMIN", u8), AffixLine::SetCompoundMin)(s)
 }
 
+fn conv(s: &str) -> IResult<&str, (char, char), AffError> {
+    separated_pair(anychar, space1, anychar)(s)
+}
+
+fn add_iconv(s: &str) -> IResult<&str, AffixLine, AffError> {
+    alt((
+        value(AffixLine::Empty, tuple((tag("ICONV"), space1, i32))),
+        map(keyword("ICONV", conv), |(c1, c2)| {
+            AffixLine::AddIconv(c1, c2)
+        }),
+    ))(s)
+}
+
+fn add_oconv(s: &str) -> IResult<&str, AffixLine, AffError> {
+    alt((
+        value(AffixLine::Empty, tuple((tag("OCONV"), space1, i32))),
+        map(keyword("OCONV", conv), |(c1, c2)| {
+            AffixLine::AddOconv(c1, c2)
+        }),
+    ))(s)
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding,
@@ -174,6 +198,8 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
         set_extra_word_string,
         assign_flag,
         set_compound_min,
+        add_iconv,
+        add_oconv,
         success(AffixLine::Empty),
     ))(s)
 }
@@ -225,6 +251,12 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                 }
             }
             AffixLine::SetCompoundMin(v) => d.compound_min = *v,
+            AffixLine::AddIconv(c1, c2) => {
+                d.iconv.insert(*c1, *c2);
+            }
+            AffixLine::AddOconv(c1, c2) => {
+                d.oconv.insert(*c1, *c2);
+            }
         };
     }
     let (s, _) = eof(s)?;

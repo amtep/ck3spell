@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::num::ParseIntError;
 
 /// Represents the format of the flags after words in the dictionary file.
@@ -47,6 +48,10 @@ pub struct AffixData {
     pub need_affix: Option<AffixFlag>,
     /// The minimum length of words in compound words.
     pub compound_min: u8,
+    /// Characters that should be converted before matching.
+    pub iconv: HashMap<char, char>,
+    /// Characters that should be converted after matching.
+    pub oconv: HashMap<char, char>,
 }
 
 impl AffixData {
@@ -66,6 +71,8 @@ impl AffixData {
             circumfix: None,
             need_affix: None,
             compound_min: 0,
+            iconv: HashMap::new(),
+            oconv: HashMap::new(),
         }
     }
 
