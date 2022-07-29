@@ -451,6 +451,7 @@ pub fn find_dictionary(
             eprintln!(" ... found");
             return Some((pdic, paff));
         }
+        eprintln!();
     }
     None
 }
