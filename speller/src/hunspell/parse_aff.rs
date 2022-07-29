@@ -66,6 +66,7 @@ enum AffixLine<'a> {
     SetFlagMode(FlagMode),
     SetKeyboardString(&'a str),
     SetTryString(&'a str),
+    SetExtraWordString(&'a str),
     SetFlag(&'a str, &'a str),
     SetCompoundMin(u8),
 }
@@ -153,6 +154,13 @@ fn set_try_string(s: &str) -> IResult<&str, AffixLine, AffError> {
     map(keyword("TRY", value_string), AffixLine::SetTryString)(s)
 }
 
+fn set_extra_word_string(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(
+        keyword("WORDCHARS", value_string),
+        AffixLine::SetExtraWordString,
+    )(s)
+}
+
 fn set_compound_min(s: &str) -> IResult<&str, AffixLine, AffError> {
     map(keyword("COMPOUNDMIN", u8), AffixLine::SetCompoundMin)(s)
 }
@@ -163,6 +171,7 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
         set_flag_mode,
         set_keyboard_string,
         set_try_string,
+        set_extra_word_string,
         assign_flag,
         set_compound_min,
         success(AffixLine::Empty),
@@ -190,6 +199,9 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                 d.keyboard_string = Some(k.to_string())
             }
             AffixLine::SetTryString(t) => d.try_string = Some(t.to_string()),
+            AffixLine::SetExtraWordString(t) => {
+                d.extra_word_string = Some(t.to_string())
+            }
             AffixLine::SetFlag(f, v) => {
                 let fflag = d.parse_flags(v).map_err(from_anyhow)?;
                 if fflag.len() != 1 {

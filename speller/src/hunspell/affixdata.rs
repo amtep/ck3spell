@@ -27,6 +27,8 @@ pub struct AffixData {
     pub keyboard_string: Option<String>,
     /// letters to try when suggesting fixes, from common to rare.
     pub try_string: Option<String>,
+    /// extra letters that may be part of words.
+    pub extra_word_string: Option<String>,
     /// The flag for words that may appear at the beginning of compound words.
     pub compound_begin: Option<AffixFlag>,
     /// The flag for words that may appear as middle words in compound words.
@@ -54,6 +56,7 @@ impl AffixData {
             forbidden: DEFAULT_FORBIDDEN,
             keyboard_string: None,
             try_string: None,
+            extra_word_string: None,
             compound_begin: None,
             compound_middle: None,
             compound_end: None,
