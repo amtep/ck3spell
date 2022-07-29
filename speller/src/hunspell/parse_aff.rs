@@ -71,6 +71,7 @@ enum AffixLine<'a> {
     SetCompoundMin(u8),
     AddIconv(char, char),
     AddOconv(char, char),
+    AddCompoundRule(&'a str),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -189,6 +190,16 @@ fn add_oconv(s: &str) -> IResult<&str, AffixLine, AffError> {
     ))(s)
 }
 
+fn add_compound_rule(s: &str) -> IResult<&str, AffixLine, AffError> {
+    alt((
+        value(AffixLine::Empty, tuple((tag("COMPOUNDRULE"), space1, i32))),
+        map(
+            keyword("COMPOUNDRULE", value_string),
+            AffixLine::AddCompoundRule,
+        ),
+    ))(s)
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding,
@@ -200,6 +211,7 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
         set_compound_min,
         add_iconv,
         add_oconv,
+        add_compound_rule,
         success(AffixLine::Empty),
     ))(s)
 }
@@ -256,6 +268,10 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
             }
             AffixLine::AddOconv(c1, c2) => {
                 d.oconv.insert(*c1, *c2);
+            }
+            AffixLine::AddCompoundRule(v) => {
+                d.compound_rules
+                    .push(d.parse_flags(v).map_err(from_anyhow)?);
             }
         };
     }

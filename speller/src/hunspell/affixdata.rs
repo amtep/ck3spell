@@ -52,6 +52,8 @@ pub struct AffixData {
     pub iconv: HashMap<char, char>,
     /// Characters that should be converted after matching.
     pub oconv: HashMap<char, char>,
+    /// Not sure what these do.
+    pub compound_rules: Vec<Vec<AffixFlag>>,
 }
 
 impl AffixData {
@@ -73,6 +75,7 @@ impl AffixData {
             compound_min: 0,
             iconv: HashMap::new(),
             oconv: HashMap::new(),
+            compound_rules: Vec::new(),
         }
     }
 
