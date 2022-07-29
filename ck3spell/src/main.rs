@@ -431,6 +431,30 @@ fn split_lines(contents: &str, speller: &Rc<dyn Speller>) -> Vec<LineInfo> {
     lines
 }
 
+/// Look for Hunspell-format dictionaries for the given `locale` in the
+/// provided directory search path. Return a tuple of paths to the
+/// dictionary file and the affix file.
+pub fn find_dictionary(
+    search_path: Vec<&str>,
+    locale: &str,
+) -> Option<(PathBuf, PathBuf)> {
+    for dir in search_path {
+        eprint!("Looking for dictionary in {}", dir);
+
+        let mut pdic = PathBuf::from(dir);
+        pdic.push(format!("{}.dic", locale));
+
+        let mut paff = PathBuf::from(dir);
+        paff.push(format!("{}.aff", locale));
+
+        if Path::exists(&pdic) && Path::exists(&paff) {
+            eprintln!(" ... found");
+            return Some((pdic, paff));
+        }
+    }
+    None
+}
+
 fn load_file(
     pathname: &Path,
     local_dict: Option<&PathBuf>,
@@ -449,12 +473,13 @@ fn load_file(
         dicts[locale].clone()
     } else {
         eprintln!("Using locale {}", locale);
-        let (dictpath, affixpath) = SpellerHunspellDict::find_dictionary(
-            DICTIONARY_SEARCH_PATH.to_vec(),
-            locale,
-        )
-        .ok_or(anyhow!("Dictionary not found"))?;
-        let mut speller = SpellerHunspellDict::new(&dictpath, &affixpath)?;
+        let mut speller =
+            match find_dictionary(DICTIONARY_SEARCH_PATH.to_vec(), locale) {
+                Some((dictpath, affixpath)) => {
+                    SpellerHunspellDict::new(&dictpath, &affixpath)
+                }
+                None => Err(anyhow!("Dictionary not found")),
+            }?;
         if let Some(local_dict) = local_dict {
             eprint!("Using local dictionary {} ...", local_dict.display());
             let added = speller.set_user_dict(local_dict)?;

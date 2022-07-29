@@ -13,13 +13,6 @@ impl SpellerHunspellDict {
     pub fn new(dictionary: &Path, affixes: &Path) -> Result<Self> {
         todo!();
     }
-
-    /// Look for Hunspell-format dictionaries for the given `locale` in the
-    /// provided directory search path. Return a tuple of paths to the
-    /// dictionary file and the affix file.
-    pub fn find_dictionary(search_path: Vec<& str>, locale: &str) -> Option<(PathBuf, PathBuf)> {
-        todo!();
-    }
 }
 
 impl Speller for SpellerHunspellDict {
