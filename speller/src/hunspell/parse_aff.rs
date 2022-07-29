@@ -9,11 +9,11 @@ use nom::multi::many0;
 use nom::sequence::{delimited, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
+use crate::hunspell::AffixData;
+
 type Input<'a> = &'a str;
 
 const BYTE_ORDER_MARK: char = '\u{FEFF}';
-
-pub struct AffixData {}
 
 enum AffixLine<'a> {
     SetEncoding(&'a str),
@@ -54,7 +54,7 @@ fn line(s: &str) -> IResult<&str, AffixLine> {
 fn affix_file(s: &str) -> IResult<&str, AffixData> {
     let (s, _) = opt(char(BYTE_ORDER_MARK)).parse(s)?; // discard BOM
 
-    let mut d = AffixData {};
+    let mut d = AffixData::new();
     let (s, lines) = many0(terminated(line, line_ending))(s)?;
     for l in lines.iter() {
         match l {
