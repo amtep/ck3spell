@@ -34,6 +34,7 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
         env: &Env,
     ) {
         let mut force_update = false;
+        #[allow(clippy::collapsible_if)]
         if let Event::Command(command) = event {
             if let Some(cursor) = command.get(CURSOR_CHANGED) {
                 if self.old_highlight != data.marked_word() {

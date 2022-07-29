@@ -90,7 +90,7 @@ impl LineInfo {
             highlight_syntax(&self.line.line, env, &self.hunspell);
         if let Some(range) = self.marked_word() {
             self.rendered
-                .add_attribute(range.clone(), Attribute::underline(true));
+                .add_attribute(range, Attribute::underline(true));
         }
     }
 
