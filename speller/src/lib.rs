@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::path::{Path};
+use std::path::Path;
 
 mod hunspell;
 mod hunspell_aff;

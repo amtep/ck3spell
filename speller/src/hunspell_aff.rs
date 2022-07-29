@@ -7,15 +7,13 @@ use nom::combinator::{eof, map, opt};
 use nom::error::ParseError;
 use nom::multi::many0;
 use nom::sequence::{delimited, terminated};
-use nom::{Compare, Err, Finish, InputLength, IResult, Parser};
+use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
 type Input<'a> = &'a str;
 
 const BYTE_ORDER_MARK: char = '\u{FEFF}';
 
-pub struct AffixData {
-    
-}
+pub struct AffixData {}
 
 enum AffixLine<'a> {
     SetEncoding(&'a str),
@@ -24,11 +22,15 @@ enum AffixLine<'a> {
 /// Parse a line starting with a keyword and then a value.
 /// Takes the tag for the keyword, and a parser for the value.
 /// Returns the result of the value parser.
-fn keyword<'a, T, O, E: ParseError<Input<'a>>, F>(key: T, mut value: F) ->
-    impl FnMut(Input<'a>) -> IResult<Input<'a>, O, E>
-    where F: Parser<Input<'a>, O, E>,
-          Input<'a>: Compare<T>,
-          T: InputLength + Copy {
+fn keyword<'a, T, O, E: ParseError<Input<'a>>, F>(
+    key: T,
+    mut value: F,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, O, E>
+where
+    F: Parser<Input<'a>, O, E>,
+    Input<'a>: Compare<T>,
+    T: InputLength + Copy,
+{
     move |s: Input<'a>| {
         let (s, _) = tag(key).parse(s)?;
         let (s, _) = space1.parse(s)?;
@@ -46,19 +48,17 @@ fn set_encoding_line(s: &str) -> IResult<&str, AffixLine> {
 }
 
 fn line(s: &str) -> IResult<&str, AffixLine> {
-    alt((
-        set_encoding_line,
-    ))(s)
+    alt((set_encoding_line,))(s)
 }
 
 fn affix_file(s: &str) -> IResult<&str, AffixData> {
     let (s, _) = opt(char(BYTE_ORDER_MARK)).parse(s)?; // discard BOM
 
-    let mut d = AffixData { };
+    let mut d = AffixData {};
     let (s, lines) = many0(terminated(line, line_ending))(s)?;
     for l in lines.iter() {
         match l {
-            AffixLine::SetEncoding(enc) => (), // Only UTF-8 is accepted anyway
+            AffixLine::SetEncoding(_enc) => (), // Only UTF-8 is accepted anyway
         };
     }
     let (s, _) = eof(s)?;
@@ -66,10 +66,11 @@ fn affix_file(s: &str) -> IResult<&str, AffixData> {
 }
 
 pub fn parse_affix_data(text: &str) -> Result<AffixData> {
-    match delimited(opt(char(BYTE_ORDER_MARK)),
-                   affix_file,
-                   eof).parse(text).finish() {
+    match delimited(opt(char(BYTE_ORDER_MARK)), affix_file, eof)
+        .parse(text)
+        .finish()
+    {
         Ok((_, d)) => Ok(d),
-        Err(e) => Err(anyhow!(e.to_string()))
+        Err(e) => Err(anyhow!(e.to_string())),
     }
 }
