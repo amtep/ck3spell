@@ -65,6 +65,9 @@ enum AffixLine<'a> {
     SetForbidden(&'a str),
     SetKeyboardString(&'a str),
     SetTryString(&'a str),
+    SetCompoundBegin(&'a str),
+    SetCompoundMiddle(&'a str),
+    SetCompoundEnd(&'a str),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -123,12 +126,34 @@ fn set_try_string(s: &str) -> IResult<&str, AffixLine, AffError> {
     map(keyword("TRY", value_string), AffixLine::SetTryString)(s)
 }
 
+fn set_compound_begin(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(
+        keyword("COMPOUNDBEGIN", value_string),
+        AffixLine::SetCompoundBegin,
+    )(s)
+}
+fn set_compound_middle(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(
+        keyword("COMPOUNDMIDDLE", value_string),
+        AffixLine::SetCompoundMiddle,
+    )(s)
+}
+fn set_compound_end(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(
+        keyword("COMPOUNDEND", value_string),
+        AffixLine::SetCompoundEnd,
+    )(s)
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding_line,
         set_forbidden_line,
         set_keyboard_string,
         set_try_string,
+        set_compound_begin,
+        set_compound_middle,
+        set_compound_end,
         success(AffixLine::Empty),
     ))(s)
 }
@@ -137,7 +162,6 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
     let (s, _) = opt(char(BYTE_ORDER_MARK)).parse(s)?; // discard BOM
 
     let mut d = AffixData::new();
-    let mut forbidden_seen = false;
     let (s, lines) = many0(terminated(line, ending))(s)?;
     for l in lines.iter() {
         match l {
@@ -152,18 +176,44 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
             }
             AffixLine::SetForbidden(f) => {
                 let fflag = d.parse_flags(f).map_err(from_anyhow)?;
-                if fflag.len() != 1 || forbidden_seen {
+                if fflag.len() != 1 {
                     return Err(AffError::wrapped(
                         "Found multiple flags for FORBIDDENWORD",
                     ));
                 }
                 d.forbidden = fflag[0];
-                forbidden_seen = true;
             }
             AffixLine::SetKeyboardString(k) => {
                 d.keyboard_string = Some(k.to_string())
             }
             AffixLine::SetTryString(t) => d.try_string = Some(t.to_string()),
+            AffixLine::SetCompoundBegin(f) => {
+                let fflag = d.parse_flags(f).map_err(from_anyhow)?;
+                if fflag.len() != 1 {
+                    return Err(AffError::wrapped(
+                        "Could not parse COMPOUNDBEGIN",
+                    ));
+                }
+                d.compound_begin = Some(fflag[0]);
+            }
+            AffixLine::SetCompoundMiddle(f) => {
+                let fflag = d.parse_flags(f).map_err(from_anyhow)?;
+                if fflag.len() != 1 {
+                    return Err(AffError::wrapped(
+                        "Could not parse COMPOUNDMIDDLE",
+                    ));
+                }
+                d.compound_middle = Some(fflag[0]);
+            }
+            AffixLine::SetCompoundEnd(f) => {
+                let fflag = d.parse_flags(f).map_err(from_anyhow)?;
+                if fflag.len() != 1 {
+                    return Err(AffError::wrapped(
+                        "Could not parse COMPOUNDEND",
+                    ));
+                }
+                d.compound_end = Some(fflag[0]);
+            }
         };
     }
     let (s, _) = eof(s)?;

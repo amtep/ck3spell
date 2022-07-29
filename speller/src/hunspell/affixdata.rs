@@ -22,10 +22,16 @@ pub struct AffixData {
     pub flag_mode: FlagMode,
     /// forbidden is the flag for invalid words.
     pub forbidden: AffixFlag,
-    /// keyboard layout, used to suggest spelling fixes
+    /// keyboard layout, used to suggest spelling fixes.
     pub keyboard_string: Option<String>,
-    /// letters to try when suggesting fixes, from common to rare
+    /// letters to try when suggesting fixes, from common to rare.
     pub try_string: Option<String>,
+    /// The flag for words that may appear at the beginning of compound words.
+    pub compound_begin: Option<AffixFlag>,
+    /// The flag for words that may appear as middle words in compound words.
+    pub compound_middle: Option<AffixFlag>,
+    /// The flag for words that may appear at the end of compound words.
+    pub compound_end: Option<AffixFlag>,
 }
 
 impl AffixData {
@@ -35,6 +41,9 @@ impl AffixData {
             forbidden: DEFAULT_FORBIDDEN,
             keyboard_string: None,
             try_string: None,
+            compound_begin: None,
+            compound_middle: None,
+            compound_end: None,
         }
     }
 
