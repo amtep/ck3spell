@@ -32,6 +32,16 @@ pub struct AffixData {
     pub compound_middle: Option<AffixFlag>,
     /// The flag for words that may appear at the end of compound words.
     pub compound_end: Option<AffixFlag>,
+    /// The flag for words that may have affixes inside compound words.
+    pub compound_permit: Option<AffixFlag>,
+    /// The flag for words that may appear only inside compound words.
+    pub only_in_compound: Option<AffixFlag>,
+    /// The flag for words that should not be suggested.
+    pub no_suggest: Option<AffixFlag>,
+    /// The flag for affixes that may surround a word.
+    pub circumfix: Option<AffixFlag>,
+    /// The flag for words that must have an affix.
+    pub need_affix: Option<AffixFlag>,
 }
 
 impl AffixData {
@@ -44,6 +54,11 @@ impl AffixData {
             compound_begin: None,
             compound_middle: None,
             compound_end: None,
+            compound_permit: None,
+            only_in_compound: None,
+            no_suggest: None,
+            circumfix: None,
+            need_affix: None,
         }
     }
 
