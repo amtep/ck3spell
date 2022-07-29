@@ -72,6 +72,8 @@ enum AffixLine<'a> {
     AddIconv(char, char),
     AddOconv(char, char),
     AddCompoundRule(&'a str),
+    AddRelatedChars(&'a str),
+    AddWordBreaks(&'a str),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -200,6 +202,26 @@ fn add_compound_rule(s: &str) -> IResult<&str, AffixLine, AffError> {
     ))(s)
 }
 
+fn add_related_chars(s: &str) -> IResult<&str, AffixLine, AffError> {
+    alt((
+        value(AffixLine::Empty, tuple((tag("MAP"), space1, i32))),
+        map(
+            keyword("MAP", value_string),
+            AffixLine::AddRelatedChars,
+        ),
+    ))(s)
+}
+
+fn add_word_breaks(s: &str) -> IResult<&str, AffixLine, AffError> {
+    alt((
+        value(AffixLine::Empty, tuple((tag("BREAK"), space1, i32))),
+        map(
+            keyword("BREAK", value_string),
+            AffixLine::AddWordBreaks,
+        ),
+    ))(s)
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding,
@@ -212,6 +234,8 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
         add_iconv,
         add_oconv,
         add_compound_rule,
+        add_related_chars,
+        add_word_breaks,
         success(AffixLine::Empty),
     ))(s)
 }
@@ -272,6 +296,12 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
             AffixLine::AddCompoundRule(v) => {
                 d.compound_rules
                     .push(d.parse_flags(v).map_err(from_anyhow)?);
+            }
+            AffixLine::AddRelatedChars(v) => {
+                d.related_chars.push(v.to_string());
+            }
+            AffixLine::AddWordBreaks(v) => {
+                d.word_breaks.push(v.to_string());
             }
         };
     }

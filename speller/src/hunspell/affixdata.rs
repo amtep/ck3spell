@@ -54,6 +54,10 @@ pub struct AffixData {
     pub oconv: HashMap<char, char>,
     /// Not sure what these do.
     pub compound_rules: Vec<Vec<AffixFlag>>,
+    /// Groups of related characters,
+    pub related_chars: Vec<String>,
+    /// Not sure what these do.
+    pub word_breaks: Vec<String>,
 }
 
 impl AffixData {
@@ -76,6 +80,8 @@ impl AffixData {
             iconv: HashMap::new(),
             oconv: HashMap::new(),
             compound_rules: Vec::new(),
+            related_chars: Vec::new(),
+            word_breaks: Vec::new(),
         }
     }
 
