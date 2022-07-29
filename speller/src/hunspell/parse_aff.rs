@@ -63,6 +63,8 @@ enum AffixLine<'a> {
     Empty,
     SetEncoding(&'a str),
     SetForbidden(&'a str),
+    SetKeyboardString(&'a str),
+    SetTryString(&'a str),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -113,10 +115,20 @@ fn set_forbidden_line(s: &str) -> IResult<&str, AffixLine, AffError> {
     )(s)
 }
 
+fn set_keyboard_string(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(keyword("KEY", value_string), AffixLine::SetKeyboardString)(s)
+}
+
+fn set_try_string(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(keyword("TRY", value_string), AffixLine::SetTryString)(s)
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding_line,
         set_forbidden_line,
+        set_keyboard_string,
+        set_try_string,
         success(AffixLine::Empty),
     ))(s)
 }
@@ -148,6 +160,10 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                 d.forbidden = fflag[0];
                 forbidden_seen = true;
             }
+            AffixLine::SetKeyboardString(k) => {
+                d.keyboard_string = Some(k.to_string())
+            }
+            AffixLine::SetTryString(t) => d.try_string = Some(t.to_string()),
         };
     }
     let (s, _) = eof(s)?;

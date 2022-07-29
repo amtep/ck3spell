@@ -22,6 +22,10 @@ pub struct AffixData {
     pub flag_mode: FlagMode,
     /// forbidden is the flag for invalid words.
     pub forbidden: AffixFlag,
+    /// keyboard layout, used to suggest spelling fixes
+    pub keyboard_string: Option<String>,
+    /// letters to try when suggesting fixes, from common to rare
+    pub try_string: Option<String>,
 }
 
 impl AffixData {
@@ -29,6 +33,8 @@ impl AffixData {
         AffixData {
             flag_mode: FlagMode::CharFlags,
             forbidden: DEFAULT_FORBIDDEN,
+            keyboard_string: None,
+            try_string: None,
         }
     }
 
