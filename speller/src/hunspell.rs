@@ -42,7 +42,7 @@ impl SpellerHunspellDict {
                 format!("Could not read words from {}", dictionary.display())
             })?;
         // Skip the first line because it's just the number of words
-        for mut line in dict_text.lines().next() {
+        for line in dict_text.lines().next() {
             if line.starts_with('\t') {
                 // comment
                 continue;

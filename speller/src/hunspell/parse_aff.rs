@@ -3,7 +3,7 @@ use anyhow::{anyhow, Error, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{
-    char, line_ending, not_line_ending, space0, space1,
+    char, line_ending, not_line_ending, space0, space1, u8,
 };
 use nom::combinator::{cut, eof, map, opt, success, value};
 use nom::error::{Error as NomError, ErrorKind, ParseError};
@@ -11,6 +11,7 @@ use nom::multi::many0;
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
+use crate::hunspell::affixdata::FlagMode;
 use crate::hunspell::AffixData;
 
 type Input<'a> = &'a str;
@@ -43,7 +44,7 @@ impl<'a> ParseError<Input<'a>> for AffError {
         AffError { message }
     }
 
-    fn append(input: Input, kind: ErrorKind, other: Self) -> Self {
+    fn append(_input: Input, _kind: ErrorKind, other: Self) -> Self {
         other
     }
 }
@@ -62,9 +63,11 @@ fn from_anyhow(e: Error) -> Err<AffError> {
 enum AffixLine<'a> {
     Empty,
     SetEncoding(&'a str),
+    SetFlagMode(FlagMode),
     SetKeyboardString(&'a str),
     SetTryString(&'a str),
     SetFlag(&'a str, &'a str),
+    SetCompoundMin(u8),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -116,7 +119,7 @@ const FLAG_NAMES: [&str; 9] = [
     "FORBIDDENWORD",
 ];
 
-fn flag_assign(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn assign_flag(s: &str) -> IResult<&str, AffixLine, AffError> {
     let (s, key) = value_string(s)?;
     if !FLAG_NAMES.contains(&key) {
         return Err(AffError::wrapped("Keyword not a known flag"));
@@ -130,6 +133,18 @@ fn set_encoding(s: &str) -> IResult<&str, AffixLine, AffError> {
     map(keyword("SET", value_string), AffixLine::SetEncoding)(s)
 }
 
+fn flag_mode(s: &str) -> IResult<&str, FlagMode, AffError> {
+    alt((
+        value(FlagMode::DoubleCharFlags, tag("long")),
+        value(FlagMode::NumericFlags, tag("num")),
+        value(FlagMode::Utf8Flags, tag("UTF-8")),
+    ))(s)
+}
+
+fn set_flag_mode(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(keyword("FLAG", flag_mode), AffixLine::SetFlagMode)(s)
+}
+
 fn set_keyboard_string(s: &str) -> IResult<&str, AffixLine, AffError> {
     map(keyword("KEY", value_string), AffixLine::SetKeyboardString)(s)
 }
@@ -138,12 +153,18 @@ fn set_try_string(s: &str) -> IResult<&str, AffixLine, AffError> {
     map(keyword("TRY", value_string), AffixLine::SetTryString)(s)
 }
 
+fn set_compound_min(s: &str) -> IResult<&str, AffixLine, AffError> {
+    map(keyword("COMPOUNDMIN", u8), AffixLine::SetCompoundMin)(s)
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding,
+        set_flag_mode,
         set_keyboard_string,
         set_try_string,
-        flag_assign,
+        assign_flag,
+        set_compound_min,
         success(AffixLine::Empty),
     ))(s)
 }
@@ -164,6 +185,7 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                     )));
                 }
             }
+            AffixLine::SetFlagMode(fm) => d.flag_mode = *fm,
             AffixLine::SetKeyboardString(k) => {
                 d.keyboard_string = Some(k.to_string())
             }
@@ -190,6 +212,7 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                     _ => panic!("Unhandled flag"),
                 }
             }
+            AffixLine::SetCompoundMin(v) => d.compound_min = *v,
         };
     }
     let (s, _) = eof(s)?;

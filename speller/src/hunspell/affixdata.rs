@@ -3,6 +3,7 @@ use itertools::Itertools;
 use std::num::ParseIntError;
 
 /// Represents the format of the flags after words in the dictionary file.
+#[derive(Clone, Copy)]
 pub enum FlagMode {
     /// Single-character flags
     CharFlags,
@@ -42,6 +43,8 @@ pub struct AffixData {
     pub circumfix: Option<AffixFlag>,
     /// The flag for words that must have an affix.
     pub need_affix: Option<AffixFlag>,
+    /// The minimum length of words in compound words.
+    pub compound_min: u8,
 }
 
 impl AffixData {
@@ -59,6 +62,7 @@ impl AffixData {
             no_suggest: None,
             circumfix: None,
             need_affix: None,
+            compound_min: 0,
         }
     }
 
