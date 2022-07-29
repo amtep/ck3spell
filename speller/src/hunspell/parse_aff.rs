@@ -3,12 +3,12 @@ use anyhow::{anyhow, Error, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{
-    anychar, char, i32, line_ending, not_line_ending, space0, space1, u8,
+    anychar, char, line_ending, not_line_ending, space0, space1, u32, u8,
 };
 use nom::combinator::{cut, eof, map, opt, success, value};
 use nom::error::{Error as NomError, ErrorKind, ParseError};
 use nom::multi::many0;
-use nom::sequence::{delimited, preceded, separated_pair, terminated, tuple};
+use nom::sequence::{delimited, preceded, separated_pair, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
 use crate::hunspell::affixdata::FlagMode;
@@ -69,8 +69,8 @@ enum AffixLine<'a> {
     SetExtraWordString(&'a str),
     SetFlag(&'a str, &'a str),
     SetCompoundMin(u8),
-    AddIconv(char, char),
-    AddOconv(char, char),
+    AddIconv((char, char)),
+    AddOconv((char, char)),
     AddCompoundRule(&'a str),
     AddRelatedChars(&'a str),
     AddWordBreaks(&'a str),
@@ -96,6 +96,39 @@ where
         match value.parse(s) {
             Err(Err::Error(e)) => Err(Err::Failure(e)),
             rest => rest,
+        }
+    }
+}
+
+/// Parse a line that is a table entry. Each line of a table
+/// starts with the same keyword. The first word contains the
+/// number of entries that follow, which we ignore.
+///
+/// Takes the tag for the keyword, a parser for the value, and the
+/// `AffixLine` type to convert the value to.
+/// Returns `AffixLine::Empty` for the first line, and the given
+/// `AffixLine` type for the following lines.
+fn table_line<'a, T, O, E: ParseError<Input<'a>>>(
+    key: T,
+    mut value: impl Parser<Input<'a>, O, E>,
+    conv: impl Fn(O) -> AffixLine<'a>,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, AffixLine<'a>, E>
+where
+    Input<'a>: Compare<T>,
+    T: InputLength + Copy,
+{
+    move |s: Input<'a>| {
+        let (s, _) = tag(key).parse(s)?;
+        let (s, _) = space1.parse(s)?;
+        if let Ok((s, _)) = u32::<Input<'a>, E>(s) {
+            return Ok((s, AffixLine::Empty));
+        }
+        // re-implement cut() because I don't know how to pass cut(value)
+        // without errors about copying value.
+        match value.parse(s) {
+            Err(Err::Error(e)) => Err(Err::Failure(e)),
+            Ok((s, v)) => Ok((s, conv(v))),
+            Err(other) => Err(other),
         }
     }
 }
@@ -175,51 +208,23 @@ fn conv(s: &str) -> IResult<&str, (char, char), AffError> {
 }
 
 fn add_iconv(s: &str) -> IResult<&str, AffixLine, AffError> {
-    alt((
-        value(AffixLine::Empty, tuple((tag("ICONV"), space1, i32))),
-        map(keyword("ICONV", conv), |(c1, c2)| {
-            AffixLine::AddIconv(c1, c2)
-        }),
-    ))(s)
+    table_line("ICONV", conv, AffixLine::AddIconv)(s)
 }
 
 fn add_oconv(s: &str) -> IResult<&str, AffixLine, AffError> {
-    alt((
-        value(AffixLine::Empty, tuple((tag("OCONV"), space1, i32))),
-        map(keyword("OCONV", conv), |(c1, c2)| {
-            AffixLine::AddOconv(c1, c2)
-        }),
-    ))(s)
+    table_line("OCONV", conv, AffixLine::AddOconv)(s)
 }
 
 fn add_compound_rule(s: &str) -> IResult<&str, AffixLine, AffError> {
-    alt((
-        value(AffixLine::Empty, tuple((tag("COMPOUNDRULE"), space1, i32))),
-        map(
-            keyword("COMPOUNDRULE", value_string),
-            AffixLine::AddCompoundRule,
-        ),
-    ))(s)
+    table_line("COMPOUNDRULE", value_string, AffixLine::AddCompoundRule)(s)
 }
 
 fn add_related_chars(s: &str) -> IResult<&str, AffixLine, AffError> {
-    alt((
-        value(AffixLine::Empty, tuple((tag("MAP"), space1, i32))),
-        map(
-            keyword("MAP", value_string),
-            AffixLine::AddRelatedChars,
-        ),
-    ))(s)
+    table_line("MAP", value_string, AffixLine::AddRelatedChars)(s)
 }
 
 fn add_word_breaks(s: &str) -> IResult<&str, AffixLine, AffError> {
-    alt((
-        value(AffixLine::Empty, tuple((tag("BREAK"), space1, i32))),
-        map(
-            keyword("BREAK", value_string),
-            AffixLine::AddWordBreaks,
-        ),
-    ))(s)
+    table_line("BREAK", value_string, AffixLine::AddWordBreaks)(s)
 }
 
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
@@ -287,10 +292,10 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                 }
             }
             AffixLine::SetCompoundMin(v) => d.compound_min = *v,
-            AffixLine::AddIconv(c1, c2) => {
+            AffixLine::AddIconv((c1, c2)) => {
                 d.iconv.insert(*c1, *c2);
             }
-            AffixLine::AddOconv(c1, c2) => {
+            AffixLine::AddOconv((c1, c2)) => {
                 d.oconv.insert(*c1, *c2);
             }
             AffixLine::AddCompoundRule(v) => {
