@@ -2,7 +2,9 @@ use anyhow::{Context, Result};
 use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
-use crate::hunspell_aff::{parse_affix_data, AffixData};
+mod parse_aff;
+
+use crate::hunspell::parse_aff::{parse_affix_data, AffixData};
 use crate::Speller;
 
 /// A speller that loads Hunspell dictionaries
