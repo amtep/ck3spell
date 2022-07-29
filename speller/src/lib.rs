@@ -1,7 +1,8 @@
 use anyhow::Result;
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 
 mod hunspell;
+mod hunspell_aff;
 
 pub use crate::hunspell::SpellerHunspellDict;
 

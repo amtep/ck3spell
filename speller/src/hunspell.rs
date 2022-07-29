@@ -1,16 +1,25 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use std::fs::read_to_string;
 use std::path::{Path, PathBuf};
 
 use crate::Speller;
+use crate::hunspell_aff::{AffixData, parse_affix_data};
 
 /// A speller that loads Hunspell dictionaries
 pub struct SpellerHunspellDict {
+    affix_data: AffixData,
     user_dict: Option<PathBuf>,
 }
 
 impl SpellerHunspellDict {
     /// Returns a Speller that uses a Hunspell-format dictionary and affix file.
     pub fn new(dictionary: &Path, affixes: &Path) -> Result<Self> {
+        let affixes_text = read_to_string(affixes).map_err(anyhow::Error::from).with_context(|| format!("Could not read affix data from {}", affixes.display()))?;
+        let affix_data = parse_affix_data(&affixes_text)?;
+        SpellerHunspellDict {
+            affix_data,
+            user_dict: None,
+        };
         todo!();
     }
 }
