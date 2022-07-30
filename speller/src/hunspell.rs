@@ -64,7 +64,7 @@ impl SpellerHunspellDict {
                 format!("Could not read words from {}", dictionary.display())
             })?;
         // Skip the first line because it's just the number of words
-        for line in dict_text.lines().next() {
+        for line in dict_text.lines().skip(1) {
             if line.starts_with('\t') {
                 // comment
                 continue;
@@ -153,16 +153,16 @@ impl Speller for SpellerHunspellDict {
                 && !winfo.need_affix(&self.affix_data)
                 && !winfo.only_in_compound(&self.affix_data);
         }
-        todo!();
+        // TODO
+        return false;
     }
 
     fn suggestions(&self, word: &str) -> Vec<String> {
-        return Vec::new();
-        todo!();
+        return Vec::new(); // TODO
     }
 
     fn add_word(&self, word: &str) -> bool {
-        todo!();
+        return false; // TODO
     }
 
     fn set_user_dict(&mut self, path: &Path) -> Result<i32> {
