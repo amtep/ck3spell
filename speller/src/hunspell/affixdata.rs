@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::num::ParseIntError;
 
 /// Represents the format of the flags after words in the dictionary file.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub enum FlagMode {
     /// Single-character flags
+    #[default]
     CharFlags,
     /// Two-character flags
     DoubleCharFlags,
@@ -20,6 +21,7 @@ pub type AffixFlag = u32;
 
 const DEFAULT_FORBIDDEN: AffixFlag = 0x110000;
 
+#[derive(Default)]
 pub struct AffixData {
     /// Affixes that can be applied to the front of a word
     pub prefixes: HashMap<AffixFlag, Vec<AffixEntry>>,
@@ -76,31 +78,8 @@ pub struct AffixData {
 impl AffixData {
     pub fn new() -> Self {
         AffixData {
-            prefixes: HashMap::new(),
-            suffixes: HashMap::new(),
-            replacements: Vec::new(),
             flag_mode: FlagMode::CharFlags,
-            forbidden: DEFAULT_FORBIDDEN,
-            keyboard_string: None,
-            try_string: None,
-            extra_word_string: None,
-            compound_begin: None,
-            compound_middle: None,
-            compound_end: None,
-            compound_permit: None,
-            only_in_compound: None,
-            no_suggest: None,
-            circumfix: None,
-            need_affix: None,
-            keep_case: None,
-            compound_min: 0,
-            iconv: HashMap::new(),
-            oconv: HashMap::new(),
-            compound_rules: Vec::new(),
-            related_chars: Vec::new(),
-            word_breaks: Vec::new(),
-            fullstrip: false,
-            check_sharps: false,
+            ..Default::default()
         }
     }
 
