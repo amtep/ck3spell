@@ -21,6 +21,11 @@ pub type AffixFlag = u32;
 const DEFAULT_FORBIDDEN: AffixFlag = 0x110000;
 
 pub struct AffixData {
+    /// Affixes that can be applied to the front of a word
+    pub prefixes: HashMap<AffixFlag, Vec<AffixEntry>>,
+    /// Affixes that can be applied to the end of a word
+    pub suffixes: HashMap<AffixFlag, Vec<AffixEntry>>,
+    /// The valid formats for flags used in this affix file
     pub flag_mode: FlagMode,
     /// forbidden is the flag for invalid words.
     pub forbidden: AffixFlag,
@@ -69,6 +74,8 @@ pub struct AffixData {
 impl AffixData {
     pub fn new() -> Self {
         AffixData {
+            prefixes: HashMap::new(),
+            suffixes: HashMap::new(),
             flag_mode: FlagMode::CharFlags,
             forbidden: DEFAULT_FORBIDDEN,
             keyboard_string: None,
@@ -117,6 +124,24 @@ impl AffixData {
                 .map(|d| u32::from_str_radix(d, 10))
                 .collect::<Result<Vec<AffixFlag>, ParseIntError>>()
                 .map_err(anyhow::Error::from),
+        }
+    }
+}
+
+pub struct AffixEntry {
+    allow_cross: bool,
+    strip: String,
+    affix: String,
+    conditions: String,
+}
+
+impl AffixEntry {
+    pub fn new(cross: bool, strip: &str, affix: &str, cond: &str) -> Self {
+        AffixEntry {
+            allow_cross: cross,
+            strip: strip.to_string(),
+            affix: affix.to_string(),
+            conditions: cond.to_string(),
         }
     }
 }

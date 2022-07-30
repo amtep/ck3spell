@@ -3,7 +3,8 @@ use anyhow::{anyhow, Error, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{
-    anychar, char, line_ending, not_line_ending, space0, space1, u32, u8,
+    anychar, char, line_ending, not_line_ending, one_of, space0, space1, u32,
+    u8,
 };
 use nom::combinator::{cut, eof, map, opt, success, value};
 use nom::error::{Error as NomError, ErrorKind, ParseError};
@@ -11,7 +12,7 @@ use nom::multi::many0;
 use nom::sequence::{delimited, preceded, separated_pair, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
-use crate::hunspell::affixdata::FlagMode;
+use crate::hunspell::affixdata::{AffixEntry, FlagMode};
 use crate::hunspell::AffixData;
 
 type Input<'a> = &'a str;
@@ -76,6 +77,9 @@ enum AffixLine<'a> {
     AddWordBreaks(&'a str),
     SetFullstrip,
     SetCheckSharps,
+    NextAllowCross(bool),
+    AddPrefix((&'a str, (&'a str, &'a str, &'a str))),
+    AddSuffix((&'a str, (&'a str, &'a str, &'a str))),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -238,6 +242,42 @@ fn set_checksharps(s: &str) -> IResult<&str, AffixLine, AffError> {
     value(AffixLine::SetCheckSharps, tag("CHECKSHARPS"))(s)
 }
 
+fn affix_entry(s: &str) -> IResult<&str, (&str, &str, &str), AffError> {
+    map(
+        separated_pair(
+            separated_pair(value_string, space1, value_string),
+            space1,
+            value_string,
+        ),
+        |((v1, v2), v3)| (v1, v2, v3),
+    )(s)
+}
+
+fn add_affix<'a, T>(
+    key: T,
+    conv: impl Fn((&'a str, (&'a str, &'a str, &'a str))) -> AffixLine<'a>,
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, AffixLine<'a>, AffError>
+where
+    Input<'a>: Compare<T>,
+    T: InputLength + Copy,
+{
+    move |s: Input<'a>| {
+        let (s, _) = tag(key)(s)?;
+        let (s, _) = space1(s)?;
+        let (s, flag) = value_string(s)?;
+        let (s, _) = space1(s)?;
+        if let Ok((s, entry)) = affix_entry(s) {
+            Ok((s, conv((flag, entry))))
+        } else {
+            // check if it's a valid first line
+            let (s, yn) = one_of("YN")(s)?;
+            let (s, _) = space1(s)?;
+            let (s, _) = u32(s)?;
+            Ok((s, AffixLine::NextAllowCross(yn == 'Y')))
+        }
+    }
+}
+
 fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     alt((
         set_encoding,
@@ -254,6 +294,8 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
         add_word_breaks,
         set_fullstrip,
         set_checksharps,
+        add_affix("PFX", AffixLine::AddPrefix),
+        add_affix("SFX", AffixLine::AddSuffix),
         success(AffixLine::Empty),
     ))(s)
 }
@@ -263,6 +305,7 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
 
     let mut d = AffixData::new();
     let (s, lines) = many0(terminated(line, ending))(s)?;
+    let mut allow_cross = false;
     for l in lines.iter() {
         match l {
             AffixLine::Empty => (),
@@ -324,6 +367,23 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
             }
             AffixLine::SetFullstrip => d.fullstrip = true,
             AffixLine::SetCheckSharps => d.check_sharps = true,
+            AffixLine::NextAllowCross(yn) => allow_cross = *yn,
+            AffixLine::AddPrefix((k, (v1, v2, v3))) => {
+                let entry = AffixEntry::new(allow_cross, v1, v2, v3);
+                let fflag = d.parse_flags(k).map_err(from_anyhow)?;
+                if fflag.len() != 1 {
+                    return Err(AffError::wrapped("Could not parse PFX"));
+                }
+                d.prefixes.entry(fflag[0]).or_default().push(entry);
+            }
+            AffixLine::AddSuffix((k, (v1, v2, v3))) => {
+                let entry = AffixEntry::new(allow_cross, v1, v2, v3);
+                let fflag = d.parse_flags(k).map_err(from_anyhow)?;
+                if fflag.len() != 1 {
+                    return Err(AffError::wrapped("Could not parse SFX"));
+                }
+                d.suffixes.entry(fflag[0]).or_default().push(entry);
+            }
         };
     }
     let (s, _) = eof(s)?;
