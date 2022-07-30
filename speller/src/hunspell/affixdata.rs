@@ -145,6 +145,7 @@ impl AffixEntry {
                     if let Some(winfo) = dict.words.get(&pword) {
                         if winfo.has_flag(self.flag)
                             && !winfo.is_forbidden(&dict.affix_data)
+                            && !winfo.only_in_compound(&dict.affix_data)
                         {
                             return true;
                         }
@@ -164,6 +165,7 @@ impl AffixEntry {
                     if let Some(winfo) = dict.words.get(&sword) {
                         if winfo.has_flag(self.flag)
                             && !winfo.is_forbidden(&dict.affix_data)
+                            && !winfo.only_in_compound(&dict.affix_data)
                         {
                             return true;
                         }
