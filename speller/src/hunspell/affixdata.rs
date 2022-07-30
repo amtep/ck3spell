@@ -25,6 +25,8 @@ pub struct AffixData {
     pub prefixes: HashMap<AffixFlag, Vec<AffixEntry>>,
     /// Affixes that can be applied to the end of a word
     pub suffixes: HashMap<AffixFlag, Vec<AffixEntry>>,
+    /// Replacements to try when suggesting words
+    pub replacements: Vec<(String, String)>,
     /// The valid formats for flags used in this affix file
     pub flag_mode: FlagMode,
     /// forbidden is the flag for invalid words.
@@ -76,6 +78,7 @@ impl AffixData {
         AffixData {
             prefixes: HashMap::new(),
             suffixes: HashMap::new(),
+            replacements: Vec::new(),
             flag_mode: FlagMode::CharFlags,
             forbidden: DEFAULT_FORBIDDEN,
             keyboard_string: None,

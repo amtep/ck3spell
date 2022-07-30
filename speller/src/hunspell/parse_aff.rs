@@ -75,6 +75,7 @@ enum AffixLine<'a> {
     AddCompoundRule(&'a str),
     AddRelatedChars(&'a str),
     AddWordBreaks(&'a str),
+    AddRep((&'a str, &'a str)),
     SetFullstrip,
     SetCheckSharps,
     NextAllowCross(bool),
@@ -234,6 +235,14 @@ fn add_word_breaks(s: &str) -> IResult<&str, AffixLine, AffError> {
     table_line("BREAK", value_string, AffixLine::AddWordBreaks)(s)
 }
 
+fn add_rep(s: &str) -> IResult<&str, AffixLine, AffError> {
+    table_line(
+        "REP",
+        separated_pair(value_string, space1, value_string),
+        AffixLine::AddRep,
+    )(s)
+}
+
 fn set_fullstrip(s: &str) -> IResult<&str, AffixLine, AffError> {
     value(AffixLine::SetFullstrip, tag("FULLSTRIP"))(s)
 }
@@ -292,6 +301,7 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
         add_compound_rule,
         add_related_chars,
         add_word_breaks,
+        add_rep,
         set_fullstrip,
         set_checksharps,
         add_affix("PFX", AffixLine::AddPrefix),
@@ -366,6 +376,9 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
             AffixLine::AddWordBreaks(v) => {
                 saw_word_breaks = true;
                 d.word_breaks.push(v.to_string());
+            }
+            AffixLine::AddRep((mut f, t)) => {
+                d.replacements.push((f.to_string(), t.to_string()));
             }
             AffixLine::SetFullstrip => d.fullstrip = true,
             AffixLine::SetCheckSharps => d.check_sharps = true,
