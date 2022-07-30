@@ -155,12 +155,18 @@ impl AffixEntry {
     }
 }
 
+enum CondState {
+    Matching,
+    GroupStart,
+    InGroup,
+    InGroupFound,
+    InNegatedGroup
+}
+
 /// Takes a rudimentary regexp (containing [] groups and [^] negated groups)
 /// and matches it against the given word.
 pub fn _prefix_condition(cond: &str, word: &str) -> bool {
-    let mut group_pos = 0;
-    let mut found = false;
-    let mut negated = false;
+    let mut state = CondState::Matching;
     let mut witer = word.chars();
     let mut wc = witer.next();
     for c in cond.chars() {
@@ -168,43 +174,48 @@ pub fn _prefix_condition(cond: &str, word: &str) -> bool {
             // word is too short to match
             return false;
         }
-        if group_pos > 0 {
-            if negated {
-                if c == ']' {
-                    group_pos = 0;
-                    wc = witer.next();
+        match state {
+            CondState::Matching => {
+                if c == '[' {
+                    state = CondState::GroupStart;
+                } else if wc != Some(c) {
+                    return false;
                 } else {
-                    if wc == Some(c) {
-                        // hit negated char
-                        return false;
-                    }
-                    group_pos += 1;
-                }
-            } else {
-                if c == ']' {
-                    if !found {
-                        return false;
-                    }
-                    group_pos = 0;
                     wc = witer.next();
-                } else {
-                    if c == '^' && group_pos == 1 {
-                        negated = true;
-                    } else if wc == Some(c) {
-                        found = true;
-                    }
-                    group_pos += 1;
                 }
             }
-        } else if c == '[' {
-            group_pos = 1;
-            found = false;
-            negated = false;
-        } else {
-            if wc != Some(c) {
-                return false;
+            CondState::GroupStart => {
+                if c == '^' {
+                    state = CondState::InNegatedGroup;
+                } else if wc == Some(c) {
+                    state = CondState::InGroupFound;
+                } else {
+                    state = CondState::InGroup;
+                }
             }
-            wc = witer.next();
+            CondState::InGroup => {
+                if c == ']' {
+                    // No group member found
+                    return false;
+                } else if wc == Some(c) {
+                    state = CondState::InGroupFound;
+                }
+            }
+            CondState::InGroupFound => {
+                if c == ']' {
+                    state = CondState::Matching;
+                    wc = witer.next();
+                }
+            }
+            CondState::InNegatedGroup => {
+                if c == ']' {
+                    state = CondState::Matching;
+                    wc = witer.next();
+                } else if wc == Some(c) {
+                    // hit negated char
+                    return false;
+                }
+            }
         }
     }
     true
