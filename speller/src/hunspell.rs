@@ -93,12 +93,36 @@ impl SpellerHunspellDict {
         }
         Ok(())
     }
+
+    fn is_numeric(word: &str) -> bool {
+        // allow numbers with dots or commas
+        // allow -- at the end and - at the front
+        let word = word.strip_suffix("--").unwrap_or(word);
+        let word = word.strip_prefix('-').unwrap_or(word);
+        let mut seen_sep = false;
+        for c in word.chars() {
+            // TODO check for unicode number separators here
+            if c == '.' || c == ',' {
+                if seen_sep {
+                    return false;
+                }
+                seen_sep = true;
+            } else if c.is_digit(10) {
+                seen_sep = false;
+            } else {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 impl Speller for SpellerHunspellDict {
     fn spellcheck(&self, word: &str) -> bool {
         let word = self.affix_data.iconv.conv(word);
-        return true;
+        if word.len() == 0 || Self::is_numeric(&word) {
+            return true;
+        }
         todo!();
     }
 
@@ -142,5 +166,20 @@ impl Speller for SpellerHunspellDict {
             })?;
         }
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_is_numeric() {
+        assert_eq!(true, SpellerHunspellDict::is_numeric("54"));
+        assert_eq!(true, SpellerHunspellDict::is_numeric("-1,000.00"));
+        assert_eq!(true, SpellerHunspellDict::is_numeric("-1,000.--"));
+        assert_eq!(false, SpellerHunspellDict::is_numeric("1,ooo"));
+        assert_eq!(false, SpellerHunspellDict::is_numeric("100,,000"));
+        assert_eq!(false, SpellerHunspellDict::is_numeric(".."));
     }
 }
