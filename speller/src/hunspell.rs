@@ -162,6 +162,11 @@ impl Speller for SpellerHunspellDict {
                 return true;
             }
         }
+        for sfx in self.affix_data.suffixes.iter() {
+            if sfx.check_suffix(&word, self) {
+                return true;
+            }
+        }
         // TODO
         false
     }

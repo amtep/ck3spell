@@ -115,7 +115,8 @@ pub struct AffixEntry {
     flag: AffixFlag,
     strip: String,
     affix: String,
-    conditions: String,
+    condition: String,
+    cond_chars: usize,
 }
 
 impl AffixEntry {
@@ -131,7 +132,8 @@ impl AffixEntry {
             flag,
             strip: strip.to_string(),
             affix: affix.to_string(),
-            conditions: cond.to_string(),
+            condition: cond.to_string(),
+            cond_chars: _count_cond_chars(cond),
         }
     }
 
@@ -139,7 +141,7 @@ impl AffixEntry {
         if let Some(root) = word.strip_prefix(&self.affix) {
             if root.len() > 0 || dict.affix_data.fullstrip {
                 let pword = self.strip.clone() + root;
-                if _prefix_condition(&self.conditions, &pword) {
+                if self._prefix_condition(&pword) {
                     if let Some(winfo) = dict.words.get(&pword) {
                         if winfo.has_flag(self.flag)
                             && !winfo.is_forbidden(&dict.affix_data)
@@ -153,6 +155,57 @@ impl AffixEntry {
         }
         false
     }
+
+    pub fn check_suffix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
+        if let Some(root) = word.strip_suffix(&self.affix) {
+            if root.len() > 0 || dict.affix_data.fullstrip {
+                let sword = root.to_string() + &self.strip;
+                if self._suffix_condition(&sword) {
+                    if let Some(winfo) = dict.words.get(&sword) {
+                        if winfo.has_flag(self.flag)
+                            && !winfo.is_forbidden(&dict.affix_data)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    fn _prefix_condition(&self, word: &str) -> bool {
+        let count = word.chars().count();
+        let witer = word.chars();
+        count >= self.cond_chars && _test_condition(&self.condition, witer)
+    }
+
+    fn _suffix_condition(&self, word: &str) -> bool {
+        let count = word.chars().count();
+        if count >= self.cond_chars {
+            let witer = word.chars().skip(count - self.cond_chars);
+            return _test_condition(&self.condition, witer);
+        }
+        return false;
+    }
+}
+
+fn _count_cond_chars(cond: &str) -> usize {
+    let mut ingroup = false;
+    let mut count = 0;
+    for c in cond.chars() {
+        if ingroup {
+            if c == ']' {
+                ingroup = false;
+            }
+        } else {
+            count += 1;
+            if c == '[' {
+                ingroup = true;
+            }
+        }
+    }
+    count
 }
 
 enum CondState {
@@ -160,14 +213,13 @@ enum CondState {
     GroupStart,
     InGroup,
     InGroupFound,
-    InNegatedGroup
+    InNegatedGroup,
 }
 
 /// Takes a rudimentary regexp (containing [] groups and [^] negated groups)
 /// and matches it against the given word.
-pub fn _prefix_condition(cond: &str, word: &str) -> bool {
+fn _test_condition(cond: &str, mut witer: impl Iterator<Item = char>) -> bool {
     let mut state = CondState::Matching;
-    let mut witer = word.chars();
     let mut wc = witer.next();
     for c in cond.chars() {
         if wc.is_none() {
@@ -225,19 +277,46 @@ pub fn _prefix_condition(cond: &str, word: &str) -> bool {
 mod test {
     use super::*;
 
+    fn help_prefix_condition(cond: &str, word: &str) -> bool {
+        let affix = AffixEntry::new(false, 0, "", "", cond);
+        affix._prefix_condition(word)
+    }
+
+    fn help_suffix_condition(cond: &str, word: &str) -> bool {
+        let affix = AffixEntry::new(false, 0, "", "", cond);
+        affix._suffix_condition(word)
+    }
+
     #[test]
     fn test_prefix_condition() {
-        assert!(_prefix_condition("", "anything"));
-        assert!(_prefix_condition("[aeoui]", "a vowel"));
-        assert!(_prefix_condition("[^hx]", "a negation"));
-        assert!(_prefix_condition("literal", "literal matching"));
-        assert!(_prefix_condition("l[ix]", "li"));
-        assert!(_prefix_condition("c[om]pli[^ca]ted", "cmplixted"));
+        assert!(help_prefix_condition("", "anything"));
+        assert!(help_prefix_condition("[aeoui]", "a vowel"));
+        assert!(help_prefix_condition("[^hx]", "a negation"));
+        assert!(help_prefix_condition("literal", "literal matching"));
+        assert!(help_prefix_condition("l[ix]", "li"));
+        assert!(help_prefix_condition("c[om]pli[^ca]ted", "cmplixted"));
         // a caret not at the start of a group is a normal member;
-        assert!(_prefix_condition("[ae^oui]", "^ vowel"));
+        assert!(help_prefix_condition("[ae^oui]", "^ vowel"));
         // test rejections too;
-        assert!(!_prefix_condition("[^hx]", "h fails"));
-        assert!(!_prefix_condition("literal", "litteral"));
-        assert!(!_prefix_condition("c[om]pli[^ca]t", "cmplict"));
+        assert!(!help_prefix_condition("[^hx]", "h fails"));
+        assert!(!help_prefix_condition("literal", "litteral"));
+        assert!(!help_prefix_condition("c[om]pli[^ca]t", "cmplict"));
+    }
+
+    #[test]
+    fn test_suffix_condition() {
+        assert!(help_suffix_condition("", "anything"));
+        assert!(help_suffix_condition("[aeoui]", "vowel a"));
+        assert!(help_suffix_condition("[^hx]", "negation a"));
+        assert!(help_suffix_condition("literal", "matching literal"));
+        assert!(help_suffix_condition("l[ix]", "li"));
+        assert!(help_suffix_condition("c[om]pli[^ca]ted", "cmplixted"));
+        assert!(help_suffix_condition("c[om]pli[^ca]ted", "very cmplixted"));
+        // a caret not at the start of a group is a normal member;
+        assert!(help_suffix_condition("[ae^oui]", "vowel ^"));
+        // test rejections too;
+        assert!(!help_suffix_condition("[^hx]", "fails h"));
+        assert!(!help_suffix_condition("literal", "litteral"));
+        assert!(!help_suffix_condition("c[om]pli[^ca]t", "very cmplict"));
     }
 }
