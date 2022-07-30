@@ -306,6 +306,7 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
     let mut d = AffixData::new();
     let (s, lines) = many0(terminated(line, ending))(s)?;
     let mut allow_cross = false;
+    let mut saw_word_breaks = false;
     for l in lines.iter() {
         match l {
             AffixLine::Empty => (),
@@ -363,6 +364,7 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                 d.related_chars.push(v.to_string());
             }
             AffixLine::AddWordBreaks(v) => {
+                saw_word_breaks = true;
                 d.word_breaks.push(v.to_string());
             }
             AffixLine::SetFullstrip => d.fullstrip = true,
@@ -385,6 +387,12 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                 d.suffixes.entry(fflag[0]).or_default().push(entry);
             }
         };
+    }
+    if !saw_word_breaks {
+        // default break table
+        d.word_breaks.push("-".to_string());
+        d.word_breaks.push("^-".to_string());
+        d.word_breaks.push("-$".to_string());
     }
     let (s, _) = eof(s)?;
     Ok((s, d))
