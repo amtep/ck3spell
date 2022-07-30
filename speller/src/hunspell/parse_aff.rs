@@ -1,15 +1,14 @@
 /// Parser for hunspell-format .aff files
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, bail, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{
-    anychar, char, line_ending, not_line_ending, one_of, space0, space1, u32,
+    anychar, char, one_of, space0, space1, u32,
     u8,
 };
-use nom::combinator::{cut, eof, map, opt, success, value};
-use nom::error::{Error as NomError, ErrorKind, ParseError};
-use nom::multi::many0;
-use nom::sequence::{delimited, preceded, separated_pair, terminated};
+use nom::combinator::{all_consuming, cut, map, opt, rest, success, value};
+use nom::error::{Error, ErrorKind, ParseError};
+use nom::sequence::{preceded, separated_pair, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
 use crate::hunspell::affixdata::{AffixEntry, FlagMode};
@@ -18,47 +17,6 @@ use crate::hunspell::AffixData;
 type Input<'a> = &'a str;
 
 const BYTE_ORDER_MARK: char = '\u{FEFF}';
-
-struct AffError {
-    message: String,
-}
-
-impl AffError {
-    fn new(message: &str) -> Self {
-        AffError {
-            message: message.to_string(),
-        }
-    }
-
-    fn wrapped(message: &str) -> Err<Self> {
-        Err::Error(Self::new(message))
-    }
-
-    fn from_nom(e: Err<NomError<Input>>) -> Err<Self> {
-        Err::Error(Self::new(&e.to_string()))
-    }
-}
-
-impl<'a> ParseError<Input<'a>> for AffError {
-    fn from_error_kind(input: Input, kind: ErrorKind) -> Self {
-        let message = format!("{:?}:\t{}\n", kind, input);
-        AffError { message }
-    }
-
-    fn append(_input: Input, _kind: ErrorKind, other: Self) -> Self {
-        other
-    }
-}
-
-impl ToString for AffError {
-    fn to_string(&self) -> String {
-        self.message.to_string()
-    }
-}
-
-fn from_anyhow(e: Error) -> Err<AffError> {
-    AffError::wrapped(&e.to_string())
-}
 
 #[derive(Clone)]
 enum AffixLine<'a> {
@@ -141,15 +99,14 @@ where
 }
 
 fn comment(s: &str) -> IResult<&str, ()> {
-    value((), preceded(char('#'), not_line_ending))(s)
+    value((), preceded(char('#'), rest))(s)
 }
 
-fn ending(s: &str) -> IResult<&str, (), AffError> {
-    value((), delimited(space0, opt(comment), line_ending))(s)
-        .map_err(AffError::from_nom)
+fn ending(s: &str) -> IResult<&str, ()> {
+    value((), preceded(space0, opt(comment)))(s)
 }
 
-fn value_string(s: &str) -> IResult<&str, &str, AffError> {
+fn value_string(s: &str) -> IResult<&str, &str> {
     take_till1(|c: char| c.is_whitespace())(s)
 }
 
@@ -166,21 +123,21 @@ const FLAG_NAMES: [&str; 10] = [
     "KEEPCASE",
 ];
 
-fn assign_flag(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn assign_flag(s: &str) -> IResult<&str, AffixLine> {
     let (s, key) = value_string(s)?;
     if !FLAG_NAMES.contains(&key) {
-        return Err(AffError::wrapped("Keyword not a known flag"));
+        return Err(Err::Error(Error::from_error_kind(key, ErrorKind::Tag)));
     }
     let (s, _) = space1(s)?;
     let (s, v) = cut(value_string)(s)?;
     Ok((s, AffixLine::SetFlag(key, v)))
 }
 
-fn set_encoding(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_encoding(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("SET", value_string), AffixLine::SetEncoding)(s)
 }
 
-fn flag_mode(s: &str) -> IResult<&str, FlagMode, AffError> {
+fn flag_mode(s: &str) -> IResult<&str, FlagMode> {
     alt((
         value(FlagMode::DoubleCharFlags, tag("long")),
         value(FlagMode::NumericFlags, tag("num")),
@@ -188,54 +145,54 @@ fn flag_mode(s: &str) -> IResult<&str, FlagMode, AffError> {
     ))(s)
 }
 
-fn set_flag_mode(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_flag_mode(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("FLAG", flag_mode), AffixLine::SetFlagMode)(s)
 }
 
-fn set_keyboard_string(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_keyboard_string(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("KEY", value_string), AffixLine::SetKeyboardString)(s)
 }
 
-fn set_try_string(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_try_string(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("TRY", value_string), AffixLine::SetTryString)(s)
 }
 
-fn set_extra_word_string(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_extra_word_string(s: &str) -> IResult<&str, AffixLine> {
     map(
         keyword("WORDCHARS", value_string),
         AffixLine::SetExtraWordString,
     )(s)
 }
 
-fn set_compound_min(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_compound_min(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("COMPOUNDMIN", u8), AffixLine::SetCompoundMin)(s)
 }
 
-fn conv(s: &str) -> IResult<&str, (char, char), AffError> {
+fn conv(s: &str) -> IResult<&str, (char, char)> {
     separated_pair(anychar, space1, anychar)(s)
 }
 
-fn add_iconv(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn add_iconv(s: &str) -> IResult<&str, AffixLine> {
     table_line("ICONV", conv, AffixLine::AddIconv)(s)
 }
 
-fn add_oconv(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn add_oconv(s: &str) -> IResult<&str, AffixLine> {
     table_line("OCONV", conv, AffixLine::AddOconv)(s)
 }
 
-fn add_compound_rule(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn add_compound_rule(s: &str) -> IResult<&str, AffixLine> {
     table_line("COMPOUNDRULE", value_string, AffixLine::AddCompoundRule)(s)
 }
 
-fn add_related_chars(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn add_related_chars(s: &str) -> IResult<&str, AffixLine> {
     table_line("MAP", value_string, AffixLine::AddRelatedChars)(s)
 }
 
-fn add_word_breaks(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn add_word_breaks(s: &str) -> IResult<&str, AffixLine> {
     table_line("BREAK", value_string, AffixLine::AddWordBreaks)(s)
 }
 
-fn add_rep(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn add_rep(s: &str) -> IResult<&str, AffixLine> {
     table_line(
         "REP",
         separated_pair(value_string, space1, value_string),
@@ -243,15 +200,15 @@ fn add_rep(s: &str) -> IResult<&str, AffixLine, AffError> {
     )(s)
 }
 
-fn set_fullstrip(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_fullstrip(s: &str) -> IResult<&str, AffixLine> {
     value(AffixLine::SetFullstrip, tag("FULLSTRIP"))(s)
 }
 
-fn set_checksharps(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn set_checksharps(s: &str) -> IResult<&str, AffixLine> {
     value(AffixLine::SetCheckSharps, tag("CHECKSHARPS"))(s)
 }
 
-fn affix_entry(s: &str) -> IResult<&str, (&str, &str, &str), AffError> {
+fn affix_entry(s: &str) -> IResult<&str, (&str, &str, &str)> {
     map(
         separated_pair(
             separated_pair(value_string, space1, value_string),
@@ -265,7 +222,7 @@ fn affix_entry(s: &str) -> IResult<&str, (&str, &str, &str), AffError> {
 fn add_affix<'a, T>(
     key: T,
     conv: impl Fn((&'a str, (&'a str, &'a str, &'a str))) -> AffixLine<'a>,
-) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, AffixLine<'a>, AffError>
+) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, AffixLine<'a>>
 where
     Input<'a>: Compare<T>,
     T: InputLength + Copy,
@@ -287,7 +244,7 @@ where
     }
 }
 
-fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
+fn line(s: &str) -> IResult<&str, AffixLine> {
     alt((
         set_encoding,
         set_flag_mode,
@@ -310,25 +267,29 @@ fn line(s: &str) -> IResult<&str, AffixLine, AffError> {
     ))(s)
 }
 
-fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
-    let (s, _) = opt(char(BYTE_ORDER_MARK)).parse(s)?; // discard BOM
+fn full_line(s: &str) -> IResult<&str, AffixLine> {
+    all_consuming(terminated(line, ending))(s)
+}
+
+pub fn parse_affix_data(s: &str) -> Result<AffixData> {
+    let s = s.trim_start_matches(BYTE_ORDER_MARK);
 
     let mut d = AffixData::new();
-    let (s, lines) = many0(terminated(line, ending))(s)?;
     let mut allow_cross = false;
     let mut saw_word_breaks = false;
-    for l in lines.iter() {
-        match l {
+    for l in s.lines() {
+        let (_, afline) = full_line
+            .parse(l)
+            .finish()
+            .map_err(|e| anyhow!(e.to_string()))?;
+        match afline {
             AffixLine::Empty => (),
             AffixLine::SetEncoding(enc) => {
-                if enc != &"UTF-8" {
-                    return Err(AffError::wrapped(&format!(
-                        "Unsupported encoding {}",
-                        enc
-                    )));
+                if enc != "UTF-8" {
+                    bail!(format!("Unsupported encoding {}", enc));
                 }
             }
-            AffixLine::SetFlagMode(fm) => d.flag_mode = *fm,
+            AffixLine::SetFlagMode(fm) => d.flag_mode = fm,
             AffixLine::SetKeyboardString(k) => {
                 d.keyboard_string = Some(k.to_string())
             }
@@ -337,15 +298,12 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                 d.extra_word_string = Some(t.to_string())
             }
             AffixLine::SetFlag(f, v) => {
-                let fflag = d.parse_flags(v).map_err(from_anyhow)?;
+                let fflag = d.parse_flags(v)?;
                 if fflag.len() != 1 {
-                    return Err(AffError::wrapped(&format!(
-                        "Could not parse {}",
-                        f
-                    )));
+                    bail!(format!("Could not parse {}", f));
                 }
                 let v = Some(fflag[0]);
-                match *f {
+                match f {
                     "FORBIDDEN" => d.forbidden = fflag[0],
                     "COMPOUNDBEGIN" => d.compound_begin = v,
                     "COMPOUNDMIDDLE" => d.compound_middle = v,
@@ -359,16 +317,15 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
                     _ => panic!("Unhandled flag"),
                 }
             }
-            AffixLine::SetCompoundMin(v) => d.compound_min = *v,
+            AffixLine::SetCompoundMin(v) => d.compound_min = v,
             AffixLine::AddIconv((c1, c2)) => {
-                d.iconv.insert(*c1, *c2);
+                d.iconv.insert(c1, c2);
             }
             AffixLine::AddOconv((c1, c2)) => {
-                d.oconv.insert(*c1, *c2);
+                d.oconv.insert(c1, c2);
             }
             AffixLine::AddCompoundRule(v) => {
-                d.compound_rules
-                    .push(d.parse_flags(v).map_err(from_anyhow)?);
+                d.compound_rules.push(d.parse_flags(v)?);
             }
             AffixLine::AddRelatedChars(v) => {
                 d.related_chars.push(v.to_string());
@@ -382,20 +339,20 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
             }
             AffixLine::SetFullstrip => d.fullstrip = true,
             AffixLine::SetCheckSharps => d.check_sharps = true,
-            AffixLine::NextAllowCross(yn) => allow_cross = *yn,
+            AffixLine::NextAllowCross(yn) => allow_cross = yn,
             AffixLine::AddPrefix((k, (v1, v2, v3))) => {
                 let entry = AffixEntry::new(allow_cross, v1, v2, v3);
-                let fflag = d.parse_flags(k).map_err(from_anyhow)?;
+                let fflag = d.parse_flags(k)?;
                 if fflag.len() != 1 {
-                    return Err(AffError::wrapped("Could not parse PFX"));
+                    bail!("Could not parse PFX");
                 }
                 d.prefixes.entry(fflag[0]).or_default().push(entry);
             }
             AffixLine::AddSuffix((k, (v1, v2, v3))) => {
                 let entry = AffixEntry::new(allow_cross, v1, v2, v3);
-                let fflag = d.parse_flags(k).map_err(from_anyhow)?;
+                let fflag = d.parse_flags(k)?;
                 if fflag.len() != 1 {
-                    return Err(AffError::wrapped("Could not parse SFX"));
+                    bail!("Could not parse SFX");
                 }
                 d.suffixes.entry(fflag[0]).or_default().push(entry);
             }
@@ -407,16 +364,5 @@ fn affix_file(s: &str) -> IResult<&str, AffixData, AffError> {
         d.word_breaks.push("^-".to_string());
         d.word_breaks.push("-$".to_string());
     }
-    let (s, _) = eof(s)?;
-    Ok((s, d))
-}
-
-pub fn parse_affix_data(text: &str) -> Result<AffixData> {
-    match delimited(opt(char(BYTE_ORDER_MARK)), affix_file, eof)
-        .parse(text)
-        .finish()
-    {
-        Ok((_, d)) => Ok(d),
-        Err(e) => Err(anyhow!(e.to_string())),
-    }
+    Ok(d)
 }
