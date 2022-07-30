@@ -41,6 +41,10 @@ impl WordInfo {
             None => false,
         }
     }
+
+    fn has_flag(&self, flag: AffixFlag) -> bool {
+        self.flags.contains(&flag)
+    }
 }
 
 impl SpellerHunspellDict {
@@ -153,8 +157,13 @@ impl Speller for SpellerHunspellDict {
                 && !winfo.need_affix(&self.affix_data)
                 && !winfo.only_in_compound(&self.affix_data);
         }
+        for pfx in self.affix_data.prefixes.iter() {
+            if pfx.check_prefix(&word, self) {
+                return true;
+            }
+        }
         // TODO
-        return false;
+        false
     }
 
     fn suggestions(&self, word: &str) -> Vec<String> {

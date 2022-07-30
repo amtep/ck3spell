@@ -336,20 +336,26 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
             AffixLine::SetCheckSharps => d.check_sharps = true,
             AffixLine::NextAllowCross(yn) => allow_cross = yn,
             AffixLine::AddPrefix((k, (v1, v2, v3))) => {
-                let entry = AffixEntry::new(allow_cross, v1, v2, v3);
                 let fflag = d.parse_flags(k)?;
                 if fflag.len() != 1 {
                     bail!("Could not parse PFX");
                 }
-                d.prefixes.entry(fflag[0]).or_default().push(entry);
+                let v1 = if v1 == "0" { "" } else { v1 };
+                let v2 = if v2 == "0" { "" } else { v2 };
+                let v3 = if v3 == "." { "" } else { v3 };
+                let entry = AffixEntry::new(allow_cross, fflag[0], v1, v2, v3);
+                d.prefixes.push(entry);
             }
             AffixLine::AddSuffix((k, (v1, v2, v3))) => {
-                let entry = AffixEntry::new(allow_cross, v1, v2, v3);
                 let fflag = d.parse_flags(k)?;
                 if fflag.len() != 1 {
                     bail!("Could not parse SFX");
                 }
-                d.suffixes.entry(fflag[0]).or_default().push(entry);
+                let v1 = if v1 == "0" { "" } else { v1 };
+                let v2 = if v2 == "0" { "" } else { v2 };
+                let v3 = if v3 == "." { "" } else { v3 };
+                let entry = AffixEntry::new(allow_cross, fflag[0], v1, v2, v3);
+                d.suffixes.push(entry);
             }
         };
     }

@@ -1,9 +1,9 @@
 use anyhow::{bail, Result};
 use itertools::Itertools;
-use std::collections::HashMap;
 use std::num::ParseIntError;
 
 use crate::hunspell::replacements::Replacements;
+use crate::hunspell::SpellerHunspellDict;
 
 /// Represents the format of the flags after words in the dictionary file.
 #[derive(Clone, Copy, Default)]
@@ -24,9 +24,9 @@ pub type AffixFlag = u32;
 #[derive(Default)]
 pub struct AffixData {
     /// Affixes that can be applied to the front of a word
-    pub prefixes: HashMap<AffixFlag, Vec<AffixEntry>>,
+    pub prefixes: Vec<AffixEntry>,
     /// Affixes that can be applied to the end of a word
-    pub suffixes: HashMap<AffixFlag, Vec<AffixEntry>>,
+    pub suffixes: Vec<AffixEntry>,
     /// Replacements to try when suggesting words
     pub replacements: Replacements,
     /// The valid formats for flags used in this affix file
@@ -112,18 +112,121 @@ impl AffixData {
 
 pub struct AffixEntry {
     allow_cross: bool,
+    flag: AffixFlag,
     strip: String,
     affix: String,
     conditions: String,
 }
 
 impl AffixEntry {
-    pub fn new(cross: bool, strip: &str, affix: &str, cond: &str) -> Self {
+    pub fn new(
+        cross: bool,
+        flag: AffixFlag,
+        strip: &str,
+        affix: &str,
+        cond: &str,
+    ) -> Self {
         AffixEntry {
             allow_cross: cross,
+            flag,
             strip: strip.to_string(),
             affix: affix.to_string(),
             conditions: cond.to_string(),
         }
+    }
+
+    pub fn check_prefix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
+        if let Some(root) = word.strip_prefix(&self.affix) {
+            if root.len() > 0 || dict.affix_data.fullstrip {
+                let pword = self.strip.clone() + root;
+                if _prefix_condition(&self.conditions, &pword) {
+                    if let Some(winfo) = dict.words.get(&pword) {
+                        if winfo.has_flag(self.flag)
+                            && !winfo.is_forbidden(&dict.affix_data)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                // TODO: check combination with suffixes, if allow_cross
+            }
+        }
+        false
+    }
+}
+
+/// Takes a rudimentary regexp (containing [] groups and [^] negated groups)
+/// and matches it against the given word.
+pub fn _prefix_condition(cond: &str, word: &str) -> bool {
+    let mut group_pos = 0;
+    let mut found = false;
+    let mut negated = false;
+    let mut witer = word.chars();
+    let mut wc = witer.next();
+    for c in cond.chars() {
+        if wc.is_none() {
+            // word is too short to match
+            return false;
+        }
+        if group_pos > 0 {
+            if negated {
+                if c == ']' {
+                    group_pos = 0;
+                    wc = witer.next();
+                } else {
+                    if wc == Some(c) {
+                        // hit negated char
+                        return false;
+                    }
+                    group_pos += 1;
+                }
+            } else {
+                if c == ']' {
+                    if !found {
+                        return false;
+                    }
+                    group_pos = 0;
+                    wc = witer.next();
+                } else {
+                    if c == '^' && group_pos == 1 {
+                        negated = true;
+                    } else if wc == Some(c) {
+                        found = true;
+                    }
+                    group_pos += 1;
+                }
+            }
+        } else if c == '[' {
+            group_pos = 1;
+            found = false;
+            negated = false;
+        } else {
+            if wc != Some(c) {
+                return false;
+            }
+            wc = witer.next();
+        }
+    }
+    true
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_prefix_condition() {
+        assert!(_prefix_condition("", "anything"));
+        assert!(_prefix_condition("[aeoui]", "a vowel"));
+        assert!(_prefix_condition("[^hx]", "a negation"));
+        assert!(_prefix_condition("literal", "literal matching"));
+        assert!(_prefix_condition("l[ix]", "li"));
+        assert!(_prefix_condition("c[om]pli[^ca]ted", "cmplixted"));
+        // a caret not at the start of a group is a normal member;
+        assert!(_prefix_condition("[ae^oui]", "^ vowel"));
+        // test rejections too;
+        assert!(!_prefix_condition("[^hx]", "h fails"));
+        assert!(!_prefix_condition("literal", "litteral"));
+        assert!(!_prefix_condition("c[om]pli[^ca]t", "cmplict"));
     }
 }
