@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
@@ -21,6 +21,26 @@ pub struct SpellerHunspellDict {
 
 struct WordInfo {
     flags: Vec<AffixFlag>,
+}
+
+impl WordInfo {
+    fn is_forbidden(&self, ad: &AffixData) -> bool {
+        self.flags.contains(&ad.forbidden)
+    }
+
+    fn need_affix(&self, ad: &AffixData) -> bool {
+        match ad.need_affix {
+            Some(flag) => self.flags.contains(&flag),
+            None => false,
+        }
+    }
+
+    fn only_in_compound(&self, ad: &AffixData) -> bool {
+        match ad.only_in_compound {
+            Some(flag) => self.flags.contains(&flag),
+            None => false,
+        }
+    }
 }
 
 impl SpellerHunspellDict {
@@ -58,6 +78,11 @@ impl SpellerHunspellDict {
                 dict.affix_data.parse_flags(flagstr).unwrap_or_default();
             let word = word.trim();
             if word.len() > 0 {
+                if dict.words.contains_key(word) {
+                    // There is a use case for having two identical words
+                    // with different affixes. We don't handle this yet.
+                    bail!(format!("Duplicate word {}", word));
+                }
                 dict.words.insert(word.to_string(), WordInfo { flags });
             }
         }
@@ -119,9 +144,14 @@ impl SpellerHunspellDict {
 
 impl Speller for SpellerHunspellDict {
     fn spellcheck(&self, word: &str) -> bool {
-        let word = self.affix_data.iconv.conv(word);
+        let word = self.affix_data.iconv.conv(word.trim());
         if word.len() == 0 || Self::is_numeric(&word) {
             return true;
+        }
+        if let Some(winfo) = self.words.get(&word) {
+            return !winfo.is_forbidden(&self.affix_data)
+                && !winfo.need_affix(&self.affix_data)
+                && !winfo.only_in_compound(&self.affix_data);
         }
         todo!();
     }
