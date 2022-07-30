@@ -232,7 +232,7 @@ fn _test_condition(cond: &str, mut witer: impl Iterator<Item = char>) -> bool {
             CondState::Matching => {
                 if c == '[' {
                     state = CondState::GroupStart;
-                } else if wc != Some(c) {
+                } else if c != '.' && wc != Some(c) {
                     return false;
                 } else {
                     wc = witer.next();
@@ -299,6 +299,12 @@ mod test {
         assert!(help_prefix_condition("c[om]pli[^ca]ted", "cmplixted"));
         // a caret not at the start of a group is a normal member;
         assert!(help_prefix_condition("[ae^oui]", "^ vowel"));
+        // a dot is a wildcard:
+        assert!(help_prefix_condition("any.letter", "anylletter"));
+        // but not in a group:
+        assert!(!help_prefix_condition("any[.]letter", "anylletter"));
+        assert!(help_prefix_condition("any[.]letter", "any.letter"));
+
         // test rejections too;
         assert!(!help_prefix_condition("[^hx]", "h fails"));
         assert!(!help_prefix_condition("literal", "litteral"));
