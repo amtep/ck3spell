@@ -81,7 +81,7 @@ impl SpellerHunspellDict {
             let flags =
                 dict.affix_data.parse_flags(flagstr).unwrap_or_default();
             let word = word.trim();
-            if word.len() > 0 {
+            if !word.is_empty() {
                 if dict.words.contains_key(word) {
                     // There is a use case for having two identical words
                     // with different affixes. We don't handle this yet.
@@ -100,12 +100,12 @@ impl SpellerHunspellDict {
         let mut last_space = None;
         for (i, c) in s.char_indices() {
             if let Some(spos) = last_space {
-                if i - spos <= 2 && !c.is_alphanumeric() {
-                    last_space = None;
-                } else if i - spos == 3 && c != ':' {
+                if (i - spos <= 2 && !c.is_alphanumeric())
+                    || (i - spos == 3 && c != ':')
+                {
                     last_space = None;
                 } else {
-                    return (&s[..spos], Some(&s[spos + 1..].trim()));
+                    return (&s[..spos], Some(s[spos + 1..].trim()));
                 }
             } else if c == ' ' || c == '\t' {
                 last_space = Some(i);
@@ -136,7 +136,7 @@ impl SpellerHunspellDict {
                     return false;
                 }
                 seen_sep = true;
-            } else if c.is_digit(10) {
+            } else if c.is_ascii_digit() {
                 seen_sep = false;
             } else {
                 return false;
@@ -149,7 +149,7 @@ impl SpellerHunspellDict {
 impl Speller for SpellerHunspellDict {
     fn spellcheck(&self, word: &str) -> bool {
         let word = self.affix_data.iconv.conv(word.trim());
-        if word.len() == 0 || Self::is_numeric(&word) {
+        if word.is_empty() || Self::is_numeric(&word) {
             return true;
         }
         if let Some(winfo) = self.words.get(&word) {

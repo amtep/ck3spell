@@ -47,7 +47,7 @@ impl Replacements {
         for rep in self.reps.iter() {
             if rep.from.len() > longest_len && rep.matches(word, at_start) {
                 longest_len = rep.from.len();
-                longest_rep = Some(&rep);
+                longest_rep = Some(rep);
             }
         }
         longest_rep

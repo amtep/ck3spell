@@ -136,9 +136,9 @@ fn set_encoding(s: &str) -> IResult<&str, AffixLine> {
 
 fn flag_mode(s: &str) -> IResult<&str, FlagMode> {
     alt((
-        value(FlagMode::DoubleCharFlags, tag("long")),
-        value(FlagMode::NumericFlags, tag("num")),
-        value(FlagMode::Utf8Flags, tag("UTF-8")),
+        value(FlagMode::DoubleChar, tag("long")),
+        value(FlagMode::Numeric, tag("num")),
+        value(FlagMode::Utf8, tag("UTF-8")),
     ))(s)
 }
 

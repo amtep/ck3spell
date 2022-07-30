@@ -10,13 +10,13 @@ use crate::hunspell::SpellerHunspellDict;
 pub enum FlagMode {
     /// Single-character flags
     #[default]
-    CharFlags,
+    Char,
     /// Two-character flags
-    DoubleCharFlags,
+    DoubleChar,
     /// Flags are comma-separated ASCII integers
-    NumericFlags,
+    Numeric,
     /// Flags are Unicode codepoints in UTF-8 format
-    Utf8Flags,
+    Utf8,
 }
 
 pub type AffixFlag = u32;
@@ -78,17 +78,17 @@ pub struct AffixData {
 impl AffixData {
     pub fn new() -> Self {
         AffixData {
-            flag_mode: FlagMode::CharFlags,
+            flag_mode: FlagMode::Char,
             ..Default::default()
         }
     }
 
     pub fn parse_flags(&self, flags: &str) -> Result<Vec<AffixFlag>> {
         match self.flag_mode {
-            FlagMode::CharFlags | FlagMode::Utf8Flags => {
+            FlagMode::Char | FlagMode::Utf8 => {
                 Ok(flags.chars().map(|c| c as u32).collect())
             }
-            FlagMode::DoubleCharFlags => flags
+            FlagMode::DoubleChar => flags
                 .chars()
                 .chunks(2)
                 .into_iter()
@@ -101,9 +101,9 @@ impl AffixData {
                     Ok(c1 * 256 + c2)
                 })
                 .collect(),
-            FlagMode::NumericFlags => flags
+            FlagMode::Numeric => flags
                 .split(',')
-                .map(|d| u32::from_str_radix(d, 10))
+                .map(|d| d.parse::<u32>())
                 .collect::<Result<Vec<AffixFlag>, ParseIntError>>()
                 .map_err(anyhow::Error::from),
         }
@@ -139,7 +139,7 @@ impl AffixEntry {
 
     pub fn check_prefix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
         if let Some(root) = word.strip_prefix(&self.affix) {
-            if root.len() > 0 || dict.affix_data.fullstrip {
+            if !root.is_empty() || dict.affix_data.fullstrip {
                 let pword = self.strip.clone() + root;
                 if self._prefix_condition(&pword) {
                     if let Some(winfo) = dict.words.get(&pword) {
@@ -158,7 +158,7 @@ impl AffixEntry {
 
     pub fn check_suffix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
         if let Some(root) = word.strip_suffix(&self.affix) {
-            if root.len() > 0 || dict.affix_data.fullstrip {
+            if !root.is_empty() || dict.affix_data.fullstrip {
                 let sword = root.to_string() + &self.strip;
                 if self._suffix_condition(&sword) {
                     if let Some(winfo) = dict.words.get(&sword) {
@@ -186,7 +186,7 @@ impl AffixEntry {
             let witer = word.chars().skip(count - self.cond_chars);
             return _test_condition(&self.condition, witer);
         }
-        return false;
+        false
     }
 }
 
