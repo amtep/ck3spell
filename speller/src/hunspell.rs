@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
-use std::fs::{read_to_string, OpenOptions};
+use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -110,7 +110,23 @@ impl Speller for SpellerHunspellDict {
     }
 
     fn set_user_dict(&mut self, path: &Path) -> Result<i32> {
-        todo!();
+        if !path.exists() {
+            File::create(path).with_context(|| {
+                format!("Could not create {}", path.display())
+            })?;
+        }
+        let dict = read_to_string(path)
+            .with_context(|| format!("Could not read {}", path.display()))?;
+
+        self.user_dict = Some(path.to_path_buf());
+
+        let mut added = 0;
+        for word in dict.lines() {
+            if self.add_word(word) {
+                added += 1;
+            }
+        }
+        Ok(added)
     }
 
     fn add_word_to_user_dict(&self, word: &str) -> Result<bool> {
