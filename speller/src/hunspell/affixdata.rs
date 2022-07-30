@@ -151,7 +151,13 @@ impl AffixEntry {
                         }
                     }
                 }
-                // TODO: check combination with suffixes, if allow_cross
+                if self.allow_cross {
+                    for sfx in dict.affix_data.suffixes.iter() {
+                        if sfx.allow_cross && sfx.check_suffix(&pword, dict) {
+                            return true;
+                        }
+                    }
+                }
             }
         }
         false

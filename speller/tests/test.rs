@@ -90,3 +90,19 @@ fn match_case_words() {
     assert!(!speller.spellcheck("alberta")); // As capitalized in the dict
     assert!(!speller.spellcheck("apPear")); // random middle caps are errors
 }
+
+#[test]
+fn match_cross_words() {
+    let dictpath = Path::new("tests/en_US.dic");
+    let affpath = Path::new("tests/en_US.aff");
+    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+
+    assert!(speller.spellcheck("reappears")); // A + S
+    assert!(speller.spellcheck("reappeared")); // A + D
+    assert!(speller.spellcheck("reappearing")); // A + G
+    assert!(speller.spellcheck("reapplication")); // A + N
+    assert!(speller.spellcheck("reapplications")); // A + X
+    assert!(speller.spellcheck("reapplying")); // A + G
+    assert!(speller.spellcheck("reapplied")); // A + D
+    assert!(speller.spellcheck("reapplies")); // A + S
+}
