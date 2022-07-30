@@ -23,6 +23,7 @@ pub struct SpellerHunspellDict {
     user_dict: Option<PathBuf>,
 }
 
+#[derive(Default)]
 struct WordInfo {
     flags: Vec<AffixFlag>,
 }
@@ -30,6 +31,14 @@ struct WordInfo {
 impl WordInfo {
     fn is_forbidden(&self, ad: &AffixData) -> bool {
         self.flags.contains(&ad.forbidden)
+    }
+
+    fn remove_forbidden(&mut self, ad: &AffixData) {
+        for i in 0..self.flags.len() {
+            if self.flags[i] == ad.forbidden {
+                self.flags.swap_remove(i);
+            }
+        }
     }
 
     fn need_affix(&self, ad: &AffixData) -> bool {
@@ -267,12 +276,20 @@ impl Speller for SpellerHunspellDict {
         }
     }
 
-    fn suggestions(&self, word: &str) -> Vec<String> {
-        return Vec::new(); // TODO
+    fn suggestions(&self, _word: &str) -> Vec<String> {
+        Vec::default() // TODO
     }
 
-    fn add_word(&self, word: &str) -> bool {
-        return false; // TODO
+    fn add_word(&mut self, word: &str) -> bool {
+        let word = self.affix_data.iconv.conv(word.trim());
+        if word.is_empty() {
+            return false;
+        }
+        self.words
+            .entry(word)
+            .and_modify(|winfo| winfo.remove_forbidden(&self.affix_data))
+            .or_insert(WordInfo::default());
+        true
     }
 
     fn set_user_dict(&mut self, path: &Path) -> Result<i32> {
@@ -295,7 +312,7 @@ impl Speller for SpellerHunspellDict {
         Ok(added)
     }
 
-    fn add_word_to_user_dict(&self, word: &str) -> Result<bool> {
+    fn add_word_to_user_dict(&mut self, word: &str) -> Result<bool> {
         if !self.add_word(word) {
             return Ok(false);
         }

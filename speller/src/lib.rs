@@ -17,7 +17,7 @@ pub trait Speller {
     /// Returns false if the word could not be accepted (for example
     /// if it contained characters the dictionary can't handle),
     /// otherwise returns true.
-    fn add_word(&self, word: &str) -> bool;
+    fn add_word(&mut self, word: &str) -> bool;
 
     /// Load words from `path` (one word per line), and in the future
     /// append words to that file when `add_word_to_user_dict` is called.
@@ -27,5 +27,5 @@ pub trait Speller {
 
     /// Accept `word` into the dictionary and add it to the user dict file
     /// that was set with `set_user_dict`.
-    fn add_word_to_user_dict(&self, word: &str) -> Result<bool>;
+    fn add_word_to_user_dict(&mut self, word: &str) -> Result<bool>;
 }

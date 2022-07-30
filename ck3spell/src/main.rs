@@ -3,6 +3,7 @@ use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::{AppLauncher, Color, Key, Lens, WindowDesc};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -82,7 +83,7 @@ pub struct LineInfo {
     rendered: RichText,
     bad_words: Rc<Vec<Range<usize>>>,
     highlight_word_nr: usize,
-    speller: Rc<dyn Speller>, // Should be in Env but can't.
+    speller: Rc<RefCell<dyn Speller>>, // Should be in Env but can't.
 }
 
 impl LineInfo {
@@ -134,11 +135,15 @@ pub struct FileState {
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
-    speller: Rc<dyn Speller>,
+    speller: Rc<RefCell<dyn Speller>>,
 }
 
 impl FileState {
-    fn new(pathname: &Path, contents: &str, speller: Rc<dyn Speller>) -> Self {
+    fn new(
+        pathname: &Path,
+        contents: &str,
+        speller: Rc<RefCell<dyn Speller>>,
+    ) -> Self {
         let filename = if let Some(name) = pathname.file_name() {
             name.to_string_lossy().to_string()
         } else {
@@ -288,6 +293,7 @@ impl AppState {
             Arc::new(
                 self.file
                     .speller
+                    .borrow()
                     .suggestions(word)
                     .iter()
                     .take(9)
@@ -362,7 +368,7 @@ fn locale_from_filename(pathname: &Path) -> Result<&str> {
 fn highlight_syntax(
     line: &Rc<String>,
     env: &Env,
-    speller: &Rc<dyn Speller>,
+    speller: &Rc<RefCell<dyn Speller>>,
 ) -> (RichText, Rc<Vec<Range<usize>>>) {
     let mut text = RichText::new((*line.as_str()).into());
     let mut bad_words = Vec::new();
@@ -382,7 +388,7 @@ fn highlight_syntax(
 
         if let TokenType::Word = token.ttype {
             let word = &line[token.range.clone()];
-            if word.chars().count() > 1 && !speller.spellcheck(word) {
+            if word.chars().count() > 1 && !speller.borrow().spellcheck(word) {
                 color = env.get(MISSPELLED_COLOR);
                 bad_words.push(token.range.clone());
             }
@@ -393,7 +399,10 @@ fn highlight_syntax(
     (text, Rc::new(bad_words))
 }
 
-fn split_lines(contents: &str, speller: &Rc<dyn Speller>) -> Vec<LineInfo> {
+fn split_lines(
+    contents: &str,
+    speller: &Rc<RefCell<dyn Speller>>,
+) -> Vec<LineInfo> {
     let mut lines: Vec<LineInfo> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
     while let Some((nr, line)) = line_iter.next() {
@@ -459,7 +468,7 @@ pub fn find_dictionary(
 fn load_file(
     pathname: &Path,
     local_dict: Option<&PathBuf>,
-    dicts: &mut HashMap<String, Rc<dyn Speller>>,
+    dicts: &mut HashMap<String, Rc<RefCell<dyn Speller>>>,
 ) -> Result<FileState> {
     let mut contents =
         std::fs::read_to_string(pathname).with_context(|| {
@@ -486,7 +495,7 @@ fn load_file(
             let added = speller.set_user_dict(local_dict)?;
             eprintln!("loaded {} words", added);
         }
-        let speller = Rc::new(speller);
+        let speller = Rc::new(RefCell::new(speller));
         dicts.insert(locale.to_string(), speller.clone());
         speller
     };
