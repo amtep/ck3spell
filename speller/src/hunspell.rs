@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 mod affixdata;
 mod parse_aff;
+mod replacements;
 
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
@@ -96,6 +97,7 @@ impl SpellerHunspellDict {
 
 impl Speller for SpellerHunspellDict {
     fn spellcheck(&self, word: &str) -> bool {
+        let word = self.affix_data.iconv.conv(word);
         return true;
         todo!();
     }

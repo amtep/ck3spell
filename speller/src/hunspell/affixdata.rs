@@ -3,6 +3,8 @@ use itertools::Itertools;
 use std::collections::HashMap;
 use std::num::ParseIntError;
 
+use crate::hunspell::replacements::Replacements;
+
 /// Represents the format of the flags after words in the dictionary file.
 #[derive(Clone, Copy, Default)]
 pub enum FlagMode {
@@ -26,7 +28,7 @@ pub struct AffixData {
     /// Affixes that can be applied to the end of a word
     pub suffixes: HashMap<AffixFlag, Vec<AffixEntry>>,
     /// Replacements to try when suggesting words
-    pub replacements: Vec<(String, String)>,
+    pub replacements: Replacements,
     /// The valid formats for flags used in this affix file
     pub flag_mode: FlagMode,
     /// forbidden is the flag for invalid words.
@@ -58,9 +60,9 @@ pub struct AffixData {
     /// The minimum length of words in compound words.
     pub compound_min: u8,
     /// Characters that should be converted before matching.
-    pub iconv: HashMap<char, char>,
+    pub iconv: Replacements,
     /// Characters that should be converted after matching.
-    pub oconv: HashMap<char, char>,
+    pub oconv: Replacements,
     /// Not sure what these do.
     pub compound_rules: Vec<Vec<AffixFlag>>,
     /// Groups of related characters,

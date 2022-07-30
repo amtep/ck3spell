@@ -2,9 +2,7 @@
 use anyhow::{anyhow, bail, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
-use nom::character::complete::{
-    anychar, char, one_of, space0, space1, u32, u8,
-};
+use nom::character::complete::{char, one_of, space0, space1, u32, u8};
 use nom::combinator::{all_consuming, cut, map, opt, rest, success, value};
 use nom::error::{Error, ErrorKind, ParseError};
 use nom::sequence::{preceded, separated_pair, terminated};
@@ -27,8 +25,8 @@ enum AffixLine<'a> {
     SetExtraWordString(&'a str),
     SetFlag(&'a str, &'a str),
     SetCompoundMin(u8),
-    AddIconv((char, char)),
-    AddOconv((char, char)),
+    AddIconv((&'a str, &'a str)),
+    AddOconv((&'a str, &'a str)),
     AddCompoundRule(&'a str),
     AddRelatedChars(&'a str),
     AddWordBreaks(&'a str),
@@ -167,8 +165,8 @@ fn set_compound_min(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("COMPOUNDMIN", u8), AffixLine::SetCompoundMin)(s)
 }
 
-fn conv(s: &str) -> IResult<&str, (char, char)> {
-    separated_pair(anychar, space1, anychar)(s)
+fn conv(s: &str) -> IResult<&str, (&str, &str)> {
+    separated_pair(value_string, space1, value_string)(s)
 }
 
 fn add_iconv(s: &str) -> IResult<&str, AffixLine> {
@@ -192,11 +190,7 @@ fn add_word_breaks(s: &str) -> IResult<&str, AffixLine> {
 }
 
 fn add_rep(s: &str) -> IResult<&str, AffixLine> {
-    table_line(
-        "REP",
-        separated_pair(value_string, space1, value_string),
-        AffixLine::AddRep,
-    )(s)
+    table_line("REP", conv, AffixLine::AddRep)(s)
 }
 
 fn set_fullstrip(s: &str) -> IResult<&str, AffixLine> {
@@ -318,10 +312,10 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
             }
             AffixLine::SetCompoundMin(v) => d.compound_min = v,
             AffixLine::AddIconv((c1, c2)) => {
-                d.iconv.insert(c1, c2);
+                d.iconv.push(c1, c2);
             }
             AffixLine::AddOconv((c1, c2)) => {
-                d.oconv.insert(c1, c2);
+                d.oconv.push(c1, c2);
             }
             AffixLine::AddCompoundRule(v) => {
                 d.compound_rules.push(d.parse_flags(v)?);
@@ -336,7 +330,7 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
             AffixLine::AddRep((f, t)) => {
                 let f = f.replace('_', " ");
                 let t = t.replace('_', " ");
-                d.replacements.push((f, t));
+                d.replacements.push(&f, &t);
             }
             AffixLine::SetFullstrip => d.fullstrip = true,
             AffixLine::SetCheckSharps => d.check_sharps = true,
@@ -372,31 +366,32 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
 mod tests {
     use super::*;
 
-    fn s_pair(s1: &str, s2: &str) -> (String, String) {
-        (s1.to_string(), s2.to_string())
-    }
-
     #[test]
     fn rep_unanchored() {
         let s = "REP eau o";
         let d = parse_affix_data(s).unwrap();
-        assert_eq!(1, d.replacements.len());
-        assert_eq!(s_pair("eau", "o"), d.replacements[0]);
+        assert_eq!("mow", d.replacements.conv("meauw"));
     }
 
     #[test]
     fn rep_anchored() {
-        let s = "REP ^l l'";
+        let s = "REP ^l l'\nREP ies$ isch";
         let d = parse_affix_data(s).unwrap();
-        assert_eq!(1, d.replacements.len());
-        assert_eq!(s_pair("^l", "l'"), d.replacements[0]);
+
+        assert_eq!("l'eau", d.replacements.conv("leau"));
+        assert_eq!("l'ol", d.replacements.conv("lol"));
+        assert_eq!("oil", d.replacements.conv("oil"));
+        assert_eq!("l'", d.replacements.conv("l"));
+
+        assert_eq!("visch", d.replacements.conv("vies"));
+        assert_eq!("vieslijk", d.replacements.conv("vieslijk"));
+        assert_eq!("isch", d.replacements.conv("ies"));
     }
 
     #[test]
     fn rep_with_spaces() {
         let s = "REP alot a_lot";
         let d = parse_affix_data(s).unwrap();
-        assert_eq!(1, d.replacements.len());
-        assert_eq!(s_pair("alot", "a lot"), d.replacements[0]);
+        assert_eq!("a lot", d.replacements.conv("alot"));
     }
 }
