@@ -19,8 +19,6 @@ pub enum FlagMode {
 
 pub type AffixFlag = u32;
 
-const DEFAULT_FORBIDDEN: AffixFlag = 0x110000;
-
 #[derive(Default)]
 pub struct AffixData {
     /// Affixes that can be applied to the front of a word
