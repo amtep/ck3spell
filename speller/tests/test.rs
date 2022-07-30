@@ -76,3 +76,17 @@ fn match_suffixes() {
     assert!(!speller.spellcheck("appleion")); // badly applied N
     assert!(!speller.spellcheck("applyen")); // wrong N
 }
+
+#[test]
+fn match_case_words() {
+    let dictpath = Path::new("tests/en_US.dic");
+    let affpath = Path::new("tests/en_US.aff");
+    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+
+    assert!(speller.spellcheck("ALBERTA"));
+    assert!(speller.spellcheck("Angle"));
+    assert!(speller.spellcheck("ANOINT"));
+
+    assert!(!speller.spellcheck("alberta")); // As capitalized in the dict
+    assert!(!speller.spellcheck("apPear")); // random middle caps are errors
+}

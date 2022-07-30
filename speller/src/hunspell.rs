@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use unicode_titlecase::StrTitleCase;
 
 mod affixdata;
 mod parse_aff;
@@ -44,6 +45,35 @@ impl WordInfo {
 
     fn has_flag(&self, flag: AffixFlag) -> bool {
         self.flags.contains(&flag)
+    }
+}
+
+enum CapStyle {
+    Lowercase,
+    Capitalized,
+    AllCaps,
+    MixedCase,
+    Neutral,
+}
+
+impl CapStyle {
+    fn from_str(word: &str) -> Self {
+        let lcase = word == word.to_lowercase();
+        let ucase = word == word.to_uppercase();
+        if lcase && ucase {
+            CapStyle::Neutral
+        } else if lcase {
+            CapStyle::Lowercase
+        } else if ucase {
+            CapStyle::AllCaps
+        } else {
+            for c in word.chars().skip(1) {
+                if c.is_uppercase() {
+                    return CapStyle::MixedCase;
+                }
+            }
+            CapStyle::Capitalized
+        }
     }
 }
 
@@ -144,15 +174,10 @@ impl SpellerHunspellDict {
         }
         true
     }
-}
 
-impl Speller for SpellerHunspellDict {
-    fn spellcheck(&self, word: &str) -> bool {
-        let word = self.affix_data.iconv.conv(word.trim());
-        if word.is_empty() || Self::is_numeric(&word) {
-            return true;
-        }
-        if let Some(winfo) = self.words.get(&word) {
+    /// Check a word against the dictionary without changing its capitalization.
+    fn _spellcheck(&self, word: &str) -> bool {
+        if let Some(winfo) = self.words.get(word) {
             return !winfo.is_forbidden(&self.affix_data)
                 && !winfo.need_affix(&self.affix_data)
                 && !winfo.only_in_compound(&self.affix_data);
@@ -167,8 +192,25 @@ impl Speller for SpellerHunspellDict {
                 return true;
             }
         }
-        // TODO
         false
+    }
+}
+
+impl Speller for SpellerHunspellDict {
+    fn spellcheck(&self, word: &str) -> bool {
+        let word = self.affix_data.iconv.conv(word.trim());
+        if word.is_empty() || Self::is_numeric(&word) || self._spellcheck(&word)
+        {
+            return true;
+        }
+        match CapStyle::from_str(&word) {
+            CapStyle::AllCaps => {
+                self._spellcheck(&word.to_titlecase_lower_rest())
+                    || self._spellcheck(&word.to_lowercase())
+            }
+            CapStyle::Capitalized => self._spellcheck(&word.to_lowercase()),
+            _ => false,
+        }
     }
 
     fn suggestions(&self, word: &str) -> Vec<String> {
