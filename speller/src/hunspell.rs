@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
-use std::fs::read_to_string;
+use std::fs::{read_to_string, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 mod affixdata;
@@ -82,6 +83,15 @@ impl SpellerHunspellDict {
         }
         (s, None)
     }
+
+    fn _user_dict_adder(&self, word: &str) -> Result<()> {
+        if let Some(user_dict) = &self.user_dict {
+            let mut file = OpenOptions::new().append(true).open(user_dict)?;
+            file.write_all(word.as_bytes())?;
+            file.write_all("\n".as_bytes())?;
+        }
+        Ok(())
+    }
 }
 
 impl Speller for SpellerHunspellDict {
@@ -104,6 +114,15 @@ impl Speller for SpellerHunspellDict {
     }
 
     fn add_word_to_user_dict(&self, word: &str) -> Result<bool> {
-        todo!();
+        if !self.add_word(word) {
+            return Ok(false);
+        }
+
+        if let Some(user_dict) = &self.user_dict {
+            self._user_dict_adder(word).with_context(|| {
+                format!("Could not append to {}", user_dict.display())
+            })?;
+        }
+        Ok(true)
     }
 }
