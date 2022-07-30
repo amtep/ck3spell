@@ -67,7 +67,7 @@ pub struct AffixData {
     pub compound_rules: Vec<Vec<AffixFlag>>,
     /// Groups of related characters,
     pub related_chars: Vec<String>,
-    /// Not sure what these do.
+    /// Try to split words at these characters.
     pub word_breaks: Vec<String>,
     /// Allow affixes to completely remove a root
     pub fullstrip: bool,

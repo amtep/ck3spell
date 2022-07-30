@@ -13,6 +13,9 @@ use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::Speller;
 
+/// A limit on the recursive attempts to break a word at breakpoints such as -
+const MAX_WORD_BREAK_ATTEMPTS: u16 = 1000;
+
 /// A speller that loads Hunspell dictionaries
 pub struct SpellerHunspellDict {
     affix_data: AffixData,
@@ -176,7 +179,7 @@ impl SpellerHunspellDict {
     }
 
     /// Check a word against the dictionary without changing its capitalization.
-    fn _spellcheck(&self, word: &str) -> bool {
+    fn _spellcheck_affixes(&self, word: &str) -> bool {
         if let Some(winfo) = self.words.get(word) {
             return !winfo.is_forbidden(&self.affix_data)
                 && !winfo.need_affix(&self.affix_data)
@@ -194,21 +197,72 @@ impl SpellerHunspellDict {
         }
         false
     }
+
+    fn _spellcheck(&self, word: &str, count: &mut u16) -> bool {
+        if *count > MAX_WORD_BREAK_ATTEMPTS {
+            return false;
+        }
+        *count += 1;
+
+        if self._spellcheck_affixes(word) {
+            return true;
+        }
+
+        // break patterns may be anchored with ^ or $
+        // Try those first.
+        for brk in self.affix_data.word_breaks.iter() {
+            if brk.starts_with('^') {
+                if let Some(bword) = word.strip_prefix(&brk[1..]) {
+                    if self._spellcheck(bword, count) {
+                        return true;
+                    }
+                }
+            } else if brk.ends_with('$') {
+                if let Some(bword) = word.strip_suffix(&brk[..brk.len() - 1]) {
+                    if self._spellcheck(bword, count) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Try breaking words into pieces.
+        for brk in self.affix_data.word_breaks.iter() {
+            if brk.starts_with('^') || brk.ends_with('$') {
+                continue;
+            }
+            if let Some((worda, wordb)) = word.split_once(brk) {
+                if self._spellcheck(worda, count)
+                    && self._spellcheck(wordb, count)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 impl Speller for SpellerHunspellDict {
     fn spellcheck(&self, word: &str) -> bool {
         let word = self.affix_data.iconv.conv(word.trim());
-        if word.is_empty() || Self::is_numeric(&word) || self._spellcheck(&word)
-        {
+        if word.is_empty() || Self::is_numeric(&word) {
             return true;
         }
+        let mut count = 0u16;
+        if self._spellcheck(&word, &mut count) {
+            return true;
+        }
+        count = 0;
         match CapStyle::from_str(&word) {
             CapStyle::AllCaps => {
-                self._spellcheck(&word.to_titlecase_lower_rest())
-                    || self._spellcheck(&word.to_lowercase())
+                let mut count2 = 0u16;
+                self._spellcheck(&word.to_titlecase_lower_rest(), &mut count)
+                    || self._spellcheck(&word.to_lowercase(), &mut count2)
             }
-            CapStyle::Capitalized => self._spellcheck(&word.to_lowercase()),
+            CapStyle::Capitalized => {
+                self._spellcheck(&word.to_lowercase(), &mut count)
+            }
             _ => false,
         }
     }

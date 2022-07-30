@@ -106,3 +106,16 @@ fn match_cross_words() {
     assert!(speller.spellcheck("reapplied")); // A + D
     assert!(speller.spellcheck("reapplies")); // A + S
 }
+
+#[test]
+fn match_broken_words() {
+    let dictpath = Path::new("tests/en_US.dic");
+    let affpath = Path::new("tests/en_US.aff");
+    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+
+    assert!(speller.spellcheck("Alberta-angle"));
+    assert!(speller.spellcheck("----angle---"));
+    // The next one should fail because the speller refuses to recurse
+    // as many times as would be needed to resolve it.
+    assert!(!speller.spellcheck("-a-a-a-a-a-a-a-a-a-a-"));
+}
