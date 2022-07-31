@@ -4,8 +4,8 @@ use speller::{Speller, SpellerHunspellDict};
 
 #[test]
 fn match_root_words() {
-    let dictpath = Path::new("tests/en_US.dic");
-    let affpath = Path::new("tests/en_US.aff");
+    let dictpath = Path::new("tests/files/en_US.dic");
+    let affpath = Path::new("tests/files/en_US.aff");
     let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
 
     assert!(speller.spellcheck("Alberta"));
@@ -23,8 +23,8 @@ fn match_root_words() {
 
 #[test]
 fn match_prefixes() {
-    let dictpath = Path::new("tests/en_US.dic");
-    let affpath = Path::new("tests/en_US.aff");
+    let dictpath = Path::new("tests/files/en_US.dic");
+    let affpath = Path::new("tests/files/en_US.aff");
     let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
 
     assert!(speller.spellcheck("reappear")); // A
@@ -36,8 +36,8 @@ fn match_prefixes() {
 
 #[test]
 fn match_suffixes() {
-    let dictpath = Path::new("tests/en_US.dic");
-    let affpath = Path::new("tests/en_US.aff");
+    let dictpath = Path::new("tests/files/en_US.dic");
+    let affpath = Path::new("tests/files/en_US.aff");
     let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
 
     assert!(speller.spellcheck("Alberta's")); // M
@@ -79,8 +79,8 @@ fn match_suffixes() {
 
 #[test]
 fn match_case_words() {
-    let dictpath = Path::new("tests/en_US.dic");
-    let affpath = Path::new("tests/en_US.aff");
+    let dictpath = Path::new("tests/files/en_US.dic");
+    let affpath = Path::new("tests/files/en_US.aff");
     let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
 
     assert!(speller.spellcheck("ALBERTA"));
@@ -93,8 +93,8 @@ fn match_case_words() {
 
 #[test]
 fn match_cross_words() {
-    let dictpath = Path::new("tests/en_US.dic");
-    let affpath = Path::new("tests/en_US.aff");
+    let dictpath = Path::new("tests/files/en_US.dic");
+    let affpath = Path::new("tests/files/en_US.aff");
     let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
 
     assert!(speller.spellcheck("reappears")); // A + S
@@ -109,8 +109,8 @@ fn match_cross_words() {
 
 #[test]
 fn match_broken_words() {
-    let dictpath = Path::new("tests/en_US.dic");
-    let affpath = Path::new("tests/en_US.aff");
+    let dictpath = Path::new("tests/files/en_US.dic");
+    let affpath = Path::new("tests/files/en_US.aff");
     let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
 
     assert!(speller.spellcheck("Alberta-angle"));
