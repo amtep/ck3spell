@@ -2,11 +2,15 @@ use std::path::Path;
 
 use speller::{Speller, SpellerHunspellDict};
 
+fn load_speller(name: &str) -> impl Speller {
+    let dictpath = format!("tests/files/{}.dic", name);
+    let affpath = format!("tests/files/{}.aff", name);
+    SpellerHunspellDict::new(Path::new(&dictpath), Path::new(&affpath)).unwrap()
+}
+
 #[test]
 fn match_root_words() {
-    let dictpath = Path::new("tests/files/en_US.dic");
-    let affpath = Path::new("tests/files/en_US.aff");
-    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+    let speller = load_speller("en_US");
 
     assert!(speller.spellcheck("Alberta"));
     assert!(speller.spellcheck("angle"));
@@ -23,9 +27,7 @@ fn match_root_words() {
 
 #[test]
 fn match_prefixes() {
-    let dictpath = Path::new("tests/files/en_US.dic");
-    let affpath = Path::new("tests/files/en_US.aff");
-    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+    let speller = load_speller("en_US");
 
     assert!(speller.spellcheck("reappear")); // A
     assert!(speller.spellcheck("disappear")); // E
@@ -36,9 +38,7 @@ fn match_prefixes() {
 
 #[test]
 fn match_suffixes() {
-    let dictpath = Path::new("tests/files/en_US.dic");
-    let affpath = Path::new("tests/files/en_US.aff");
-    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+    let speller = load_speller("en_US");
 
     assert!(speller.spellcheck("Alberta's")); // M
 
@@ -79,9 +79,7 @@ fn match_suffixes() {
 
 #[test]
 fn match_case_words() {
-    let dictpath = Path::new("tests/files/en_US.dic");
-    let affpath = Path::new("tests/files/en_US.aff");
-    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+    let speller = load_speller("en_US");
 
     assert!(speller.spellcheck("ALBERTA"));
     assert!(speller.spellcheck("Angle"));
@@ -93,9 +91,7 @@ fn match_case_words() {
 
 #[test]
 fn match_cross_words() {
-    let dictpath = Path::new("tests/files/en_US.dic");
-    let affpath = Path::new("tests/files/en_US.aff");
-    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+    let speller = load_speller("en_US");
 
     assert!(speller.spellcheck("reappears")); // A + S
     assert!(speller.spellcheck("reappeared")); // A + D
@@ -109,9 +105,7 @@ fn match_cross_words() {
 
 #[test]
 fn match_broken_words() {
-    let dictpath = Path::new("tests/files/en_US.dic");
-    let affpath = Path::new("tests/files/en_US.aff");
-    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+    let speller = load_speller("en_US");
 
     assert!(speller.spellcheck("Alberta-angle"));
     assert!(speller.spellcheck("----angle---"));
@@ -122,9 +116,7 @@ fn match_broken_words() {
 
 #[test]
 fn language_french() {
-    let dictpath = Path::new("tests/files/fr_FR.dic");
-    let affpath = Path::new("tests/files/fr_FR.aff");
-    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+    let speller = load_speller("fr_FR");
 
     assert!(speller.spellcheck("visser")); // a0
     assert!(speller.spellcheck("vissant")); // a0
