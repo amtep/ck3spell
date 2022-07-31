@@ -45,6 +45,7 @@ impl WordInfo {
     }
 }
 
+#[derive(PartialEq)]
 enum CapStyle {
     Lowercase,
     Capitalized,
@@ -113,6 +114,17 @@ impl SpellerHunspellDict {
                     dict.affix_data.special_flags.word_flags(&affix_flags);
                 let winfo = WordInfo::new(word_flags, affix_flags);
                 dict.words.entry(word.to_string()).or_default().push(winfo);
+            }
+        }
+        // Ensure mixed-case words have an all caps entry for lookups
+        // Have to clone the hash because we modify it in the loop
+        // TODO: optimize by making a Vec of words to add in a second loop
+        for (word, winfo) in dict.words.clone().iter() {
+            if CapStyle::from_str(&word) == CapStyle::MixedCase {
+                let v = dict.words.entry(word.to_uppercase()).or_default();
+                if v.is_empty() {
+                    v.push(winfo[0].clone());
+                }
             }
         }
         Ok(dict)

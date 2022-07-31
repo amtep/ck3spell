@@ -178,7 +178,7 @@ fn language_russian() {
 
 #[test]
 fn match_continuation_suffix() {
-    let speller = load_speller("2sfx");
+    let speller = load_speller("2sfx"); // test "flag" from hunspell
 
     assert!(speller.spellcheck("foo"));
     assert!(speller.spellcheck("foos"));
@@ -188,4 +188,14 @@ fn match_continuation_suffix() {
     assert!(speller.spellcheck("unfoos"));
     assert!(speller.spellcheck("unfoosbar"));
     assert!(speller.spellcheck("unfoosbaz"));
+}
+
+#[test]
+fn mixed_case_all_caps() {
+    let speller = load_speller("allcaps2"); // test from hunspell
+
+    assert!(speller.spellcheck("iPod"));
+    assert!(speller.spellcheck("IPOD"));
+    assert!(speller.spellcheck("ipodos"));
+    assert!(speller.spellcheck("IPODOS"));
 }
