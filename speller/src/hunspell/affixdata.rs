@@ -86,6 +86,7 @@ impl AffixData {
     pub fn new() -> Self {
         AffixData {
             flag_mode: FlagMode::Char,
+            compound_min: 3,
             ..Default::default()
         }
     }
