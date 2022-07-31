@@ -163,33 +163,64 @@ impl AffixEntry {
         self.contflags.word_flags = sf.word_flags(&self.contflags.affix_flags);
     }
 
-    pub fn check_prefix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
+    pub fn prefixed_word(
+        &self,
+        word: &str,
+        dict: &SpellerHunspellDict,
+    ) -> Option<String> {
         if let Some(root) = word.strip_prefix(&self.affix) {
             if !root.is_empty() || dict.affix_data.fullstrip {
                 let pword = self.strip.clone() + root;
                 if self._prefix_condition(&pword) {
-                    if let Some(homonyms) = dict.words.get(&pword) {
-                        for winfo in homonyms.iter() {
-                            if winfo.has_affix_flag(self.flag)
-                                && !winfo.word_flags.intersects(
-                                    WordFlags::Forbidden
-                                        | WordFlags::OnlyInCompound,
-                                )
-                            {
-                                return true;
-                            }
-                        }
+                    return Some(pword);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn suffixed_word(
+        &self,
+        word: &str,
+        dict: &SpellerHunspellDict,
+    ) -> Option<String> {
+        if let Some(root) = word.strip_suffix(&self.affix) {
+            if !root.is_empty() || dict.affix_data.fullstrip {
+                let sword = root.to_string() + &self.strip;
+                if self._suffix_condition(&sword) {
+                    return Some(sword);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn check_prefix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
+        if let Some(pword) = self.prefixed_word(word, dict) {
+            if let Some(homonyms) = dict.words.get(&pword) {
+                for winfo in homonyms.iter() {
+                    if winfo.has_affix_flag(self.flag)
+                        && !winfo.word_flags.intersects(
+                            WordFlags::Forbidden | WordFlags::OnlyInCompound,
+                        )
+                    {
+                        return true;
                     }
                 }
-                if self.allow_cross {
-                    for sfx in dict.affix_data.suffixes.iter() {
-                        // Pass our own flag, because we should only cross
-                        // with suffixes on words that have us as a prefix.
-                        if sfx.allow_cross
-                            && sfx.check_suffix(&pword, dict, Some(self.flag))
-                        {
-                            return true;
-                        }
+            }
+            if self.allow_cross {
+                for sfx in dict.affix_data.suffixes.iter() {
+                    // Pass our own flag, because we should only cross
+                    // with suffixes on words that have us as a prefix.
+                    if sfx.allow_cross
+                        && sfx.check_suffix(
+                            &pword,
+                            dict,
+                            Some(self.flag),
+                            false,
+                        )
+                    {
+                        return true;
                     }
                 }
             }
@@ -202,27 +233,32 @@ impl AffixEntry {
         word: &str,
         dict: &SpellerHunspellDict,
         from_prefix: Option<AffixFlag>,
+        from_suffix: bool,
     ) -> bool {
-        if let Some(root) = word.strip_suffix(&self.affix) {
-            if !root.is_empty() || dict.affix_data.fullstrip {
-                let sword = root.to_string() + &self.strip;
-                if self._suffix_condition(&sword) {
-                    if let Some(homonyms) = dict.words.get(&sword) {
-                        for winfo in homonyms.iter() {
-                            if let Some(flag) = from_prefix {
-                                if !winfo.has_affix_flag(flag) {
-                                    continue;
-                                }
-                            }
-                            if winfo.has_affix_flag(self.flag)
-                                && !winfo.word_flags.intersects(
-                                    WordFlags::Forbidden
-                                        | WordFlags::OnlyInCompound,
-                                )
-                            {
-                                return true;
-                            }
+        if let Some(sword) = self.suffixed_word(word, dict) {
+            if let Some(homonyms) = dict.words.get(&sword) {
+                for winfo in homonyms.iter() {
+                    if let Some(flag) = from_prefix {
+                        if !winfo.has_affix_flag(flag) {
+                            continue;
                         }
+                    }
+                    if winfo.has_affix_flag(self.flag)
+                        && !winfo.word_flags.intersects(
+                            WordFlags::Forbidden | WordFlags::OnlyInCompound,
+                        )
+                    {
+                        return true;
+                    }
+                }
+            }
+            // Check if this suffix may be a continuation of another
+            if !from_suffix {
+                for sfx2 in dict.affix_data.suffixes.iter() {
+                    if sfx2.contflags.affix_flags.contains(&self.flag)
+                        && sfx2.check_suffix(&sword, dict, None, true)
+                    {
+                        return true;
                     }
                 }
             }

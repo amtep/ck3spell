@@ -175,3 +175,17 @@ fn language_russian() {
 
     assert!(!speller.spellcheck("стаившими")); // A
 }
+
+#[test]
+fn match_continuation_suffix() {
+    let speller = load_speller("2sfx");
+
+    assert!(speller.spellcheck("foo"));
+    assert!(speller.spellcheck("foos"));
+    assert!(speller.spellcheck("foosbar"));
+    assert!(speller.spellcheck("foosbaz"));
+    assert!(speller.spellcheck("unfoo"));
+    assert!(speller.spellcheck("unfoos"));
+    assert!(speller.spellcheck("unfoosbar"));
+    assert!(speller.spellcheck("unfoosbaz"));
+}
