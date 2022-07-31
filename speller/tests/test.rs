@@ -119,3 +119,16 @@ fn match_broken_words() {
     // as many times as would be needed to resolve it.
     assert!(!speller.spellcheck("-a-a-a-a-a-a-a-a-a-a-"));
 }
+
+#[test]
+fn language_french() {
+    let dictpath = Path::new("tests/files/fr_FR.dic");
+    let affpath = Path::new("tests/files/fr_FR.aff");
+    let speller = SpellerHunspellDict::new(&dictpath, &affpath).unwrap();
+
+    assert!(speller.spellcheck("visser")); // a0
+    assert!(speller.spellcheck("vissant")); // a0
+    assert!(speller.spellcheck("visse")); // a0
+    assert!(speller.spellcheck("vissé")); // p+
+    assert!(speller.spellcheck("vissés")); // p+
+}

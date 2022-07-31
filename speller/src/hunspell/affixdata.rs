@@ -110,6 +110,7 @@ impl AffixData {
     }
 }
 
+#[derive(Debug)]
 pub struct AffixEntry {
     allow_cross: bool,
     flag: AffixFlag,

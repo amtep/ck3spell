@@ -23,7 +23,7 @@ pub struct SpellerHunspellDict {
     user_dict: Option<PathBuf>,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct WordInfo {
     flags: Vec<AffixFlag>,
 }
@@ -190,9 +190,11 @@ impl SpellerHunspellDict {
     /// Check a word against the dictionary without changing its capitalization.
     fn _spellcheck_affixes(&self, word: &str) -> bool {
         if let Some(winfo) = self.words.get(word) {
-            return !winfo.is_forbidden(&self.affix_data)
+            if !winfo.is_forbidden(&self.affix_data)
                 && !winfo.need_affix(&self.affix_data)
-                && !winfo.only_in_compound(&self.affix_data);
+                && !winfo.only_in_compound(&self.affix_data) {
+                return true;
+            }
         }
         for pfx in self.affix_data.prefixes.iter() {
             if pfx.check_prefix(&word, self) {

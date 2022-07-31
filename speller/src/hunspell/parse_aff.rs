@@ -2,10 +2,11 @@
 use anyhow::{anyhow, bail, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
-use nom::character::complete::{char, one_of, space0, space1, u32, u8};
+use nom::character::complete::{char, one_of, satisfy, space0, space1, u32, u8};
 use nom::combinator::{all_consuming, cut, map, opt, rest, success, value};
 use nom::error::{Error, ErrorKind, ParseError};
-use nom::sequence::{preceded, separated_pair, terminated};
+use nom::multi::many0;
+use nom::sequence::{pair, preceded, separated_pair, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
 use crate::hunspell::affixdata::{AffixEntry, FlagMode};
@@ -34,8 +35,7 @@ enum AffixLine<'a> {
     SetFullstrip,
     SetCheckSharps,
     NextAllowCross(bool),
-    AddPrefix((&'a str, (&'a str, &'a str, &'a str))),
-    AddSuffix((&'a str, (&'a str, &'a str, &'a str))),
+    AddAffix((bool, &'a str, (&'a str, &'a str, &'a str))),
 }
 
 /// Parse a line starting with a keyword and then a value.
@@ -201,6 +201,21 @@ fn set_checksharps(s: &str) -> IResult<&str, AffixLine> {
     value(AffixLine::SetCheckSharps, tag("CHECKSHARPS"))(s)
 }
 
+fn morph_id(s: Input) -> IResult<Input, ()> {
+    value((),
+        pair(satisfy(|c| c.is_alphabetic()),
+             satisfy(|c| c.is_alphabetic())
+    ))(s)
+}
+
+fn morph_flag(s: Input) -> IResult<Input, ()> {
+    value((), separated_pair(morph_id, char(':'), value_string))(s)
+}
+
+fn morph_flags(s: Input) -> IResult<Input, ()> {
+    value((), many0(preceded(space1, morph_flag)))(s)
+}
+
 fn affix_entry(s: &str) -> IResult<&str, (&str, &str, &str)> {
     map(
         separated_pair(
@@ -212,9 +227,13 @@ fn affix_entry(s: &str) -> IResult<&str, (&str, &str, &str)> {
     )(s)
 }
 
+fn affix_line(s: Input) -> IResult<Input, (&str, &str, &str)> {
+    terminated(affix_entry, morph_flags)(s)
+}
+
 fn add_affix<'a, T>(
     key: T,
-    conv: impl Fn((&'a str, (&'a str, &'a str, &'a str))) -> AffixLine<'a>,
+    is_pfx: bool,
 ) -> impl FnMut(Input<'a>) -> IResult<Input<'a>, AffixLine<'a>>
 where
     Input<'a>: Compare<T>,
@@ -225,8 +244,8 @@ where
         let (s, _) = space1(s)?;
         let (s, flag) = value_string(s)?;
         let (s, _) = space1(s)?;
-        if let Ok((s, entry)) = affix_entry(s) {
-            Ok((s, conv((flag, entry))))
+        if let Ok((s, entry)) = affix_line(s) {
+            Ok((s, AffixLine::AddAffix((is_pfx, flag, entry))))
         } else {
             // check if it's a valid first line
             let (s, yn) = one_of("YN")(s)?;
@@ -254,8 +273,8 @@ fn line(s: &str) -> IResult<&str, AffixLine> {
         add_rep,
         set_fullstrip,
         set_checksharps,
-        add_affix("PFX", AffixLine::AddPrefix),
-        add_affix("SFX", AffixLine::AddSuffix),
+        add_affix("PFX", true),
+        add_affix("SFX", false),
         success(AffixLine::Empty),
     ))(s)
 }
@@ -297,7 +316,7 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                 }
                 let v = Some(fflag[0]);
                 match f {
-                    "FORBIDDEN" => d.forbidden = fflag[0],
+                    "FORBIDDENWORD" => d.forbidden = fflag[0],
                     "COMPOUNDBEGIN" => d.compound_begin = v,
                     "COMPOUNDMIDDLE" => d.compound_middle = v,
                     "COMPOUNDEND" => d.compound_end = v,
@@ -307,7 +326,7 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                     "CIRCUMFIX" => d.circumfix = v,
                     "NEEDAFFIX" => d.need_affix = v,
                     "KEEPCASE" => d.keep_case = v,
-                    _ => panic!("Unhandled flag"),
+                    _ => panic!("Unhandled flag {}", f),
                 }
             }
             AffixLine::SetCompoundMin(v) => d.compound_min = v,
@@ -335,27 +354,27 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
             AffixLine::SetFullstrip => d.fullstrip = true,
             AffixLine::SetCheckSharps => d.check_sharps = true,
             AffixLine::NextAllowCross(yn) => allow_cross = yn,
-            AffixLine::AddPrefix((k, (v1, v2, v3))) => {
+            AffixLine::AddAffix((is_pfx, k, (mut v1, mut v2, mut v3))) => {
                 let fflag = d.parse_flags(k)?;
                 if fflag.len() != 1 {
                     bail!("Could not parse PFX");
                 }
-                let v1 = if v1 == "0" { "" } else { v1 };
-                let v2 = if v2 == "0" { "" } else { v2 };
-                let v3 = if v3 == "." { "" } else { v3 };
-                let entry = AffixEntry::new(allow_cross, fflag[0], v1, v2, v3);
-                d.prefixes.push(entry);
-            }
-            AffixLine::AddSuffix((k, (v1, v2, v3))) => {
-                let fflag = d.parse_flags(k)?;
-                if fflag.len() != 1 {
-                    bail!("Could not parse SFX");
+                if v1 == "0" {
+                    v1 = "";
                 }
-                let v1 = if v1 == "0" { "" } else { v1 };
-                let v2 = if v2 == "0" { "" } else { v2 };
-                let v3 = if v3 == "." { "" } else { v3 };
+                if let Some((nv2, _contflags)) = v2.split_once('/') {
+                    v2 = nv2;
+                    // TODO: add contflags to AffixEntry
+                }
+                if v3 == "." {
+                    v3 = "";
+                }
                 let entry = AffixEntry::new(allow_cross, fflag[0], v1, v2, v3);
-                d.suffixes.push(entry);
+                if is_pfx {
+                    d.prefixes.push(entry);
+                } else {
+                    d.suffixes.push(entry);
+                }
             }
         };
     }
