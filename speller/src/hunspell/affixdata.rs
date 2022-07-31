@@ -142,7 +142,12 @@ impl AffixEntry {
                 }
                 if self.allow_cross {
                     for sfx in dict.affix_data.suffixes.iter() {
-                        if sfx.allow_cross && sfx.check_suffix(&pword, dict) {
+                        // Pass our own flag as must_have, because we should
+                        // only cross with suffixes on words that have us as
+                        // a prefix.
+                        if sfx.allow_cross
+                            && sfx.check_suffix(&pword, dict, Some(self.flag))
+                        {
                             return true;
                         }
                     }
@@ -152,13 +157,23 @@ impl AffixEntry {
         false
     }
 
-    pub fn check_suffix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
+    pub fn check_suffix(
+        &self,
+        word: &str,
+        dict: &SpellerHunspellDict,
+        must_have: Option<AffixFlag>,
+    ) -> bool {
         if let Some(root) = word.strip_suffix(&self.affix) {
             if !root.is_empty() || dict.affix_data.fullstrip {
                 let sword = root.to_string() + &self.strip;
                 if self._suffix_condition(&sword) {
                     if let Some(homonyms) = dict.words.get(&sword) {
                         for winfo in homonyms.iter() {
+                            if let Some(flag) = must_have {
+                                if !winfo.has_affix_flag(flag) {
+                                    continue;
+                                }
+                            }
                             if winfo.has_affix_flag(self.flag)
                                 && !winfo.word_flags.intersects(
                                     WordFlags::Forbidden

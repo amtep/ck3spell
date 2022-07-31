@@ -142,6 +142,6 @@ fn language_french() {
     assert!(speller.spellcheck("Qu'Néréide")); // Q'
     assert!(speller.spellcheck("Néréides")); // S.
 
-    // But cross flags mixing the words don't work.
-    // assert!(!speller.spellcheck("L'Néréides")); // L'
+    // But mixing suffix and prefix from different homonyms shouldn't work.
+    assert!(!speller.spellcheck("L'Néréides")); // L'
 }

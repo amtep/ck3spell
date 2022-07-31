@@ -195,7 +195,7 @@ impl SpellerHunspellDict {
             }
         }
         for sfx in self.affix_data.suffixes.iter() {
-            if sfx.check_suffix(word, self) {
+            if sfx.check_suffix(word, self, None) {
                 return true;
             }
         }
