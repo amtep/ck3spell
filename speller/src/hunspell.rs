@@ -190,12 +190,12 @@ impl SpellerHunspellDict {
             }
         }
         for pfx in self.affix_data.prefixes.iter() {
-            if pfx.check_prefix(&word, self) {
+            if pfx.check_prefix(word, self) {
                 return true;
             }
         }
         for sfx in self.affix_data.suffixes.iter() {
-            if sfx.check_suffix(&word, self) {
+            if sfx.check_suffix(word, self) {
                 return true;
             }
         }
@@ -215,14 +215,14 @@ impl SpellerHunspellDict {
         // break patterns may be anchored with ^ or $
         // Try those first.
         for brk in self.affix_data.word_breaks.iter() {
-            if brk.starts_with('^') {
-                if let Some(bword) = word.strip_prefix(&brk[1..]) {
+            if let Some(brk) = brk.strip_prefix('^') {
+                if let Some(bword) = word.strip_prefix(brk) {
                     if self._spellcheck(bword, count) {
                         return true;
                     }
                 }
-            } else if brk.ends_with('$') {
-                if let Some(bword) = word.strip_suffix(&brk[..brk.len() - 1]) {
+            } else if let Some(brk) = brk.strip_suffix('$') {
+                if let Some(bword) = word.strip_suffix(brk) {
                     if self._spellcheck(bword, count) {
                         return true;
                     }
@@ -283,7 +283,7 @@ impl Speller for SpellerHunspellDict {
         self.words
             .entry(word)
             .and_modify(|winfo| winfo.word_flags.remove(WordFlags::Forbidden))
-            .or_insert(WordInfo::default());
+            .or_insert_with(WordInfo::default);
         true
     }
 
