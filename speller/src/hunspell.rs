@@ -1,4 +1,5 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
@@ -21,17 +22,24 @@ const MAX_WORD_BREAK_ATTEMPTS: u16 = 1000;
 /// A speller that loads Hunspell dictionaries
 pub struct SpellerHunspellDict {
     affix_data: AffixData,
-    words: HashMap<String, WordInfo>,
+    words: HashMap<String, SmallVec<[WordInfo; 1]>>,
     user_dict: Option<PathBuf>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 struct WordInfo {
     word_flags: WordFlags,
     affix_flags: Vec<AffixFlag>,
 }
 
 impl WordInfo {
+    fn new(word_flags: WordFlags, affix_flags: Vec<AffixFlag>) -> Self {
+        WordInfo {
+            word_flags,
+            affix_flags,
+        }
+    }
+
     fn has_affix_flag(&self, flag: AffixFlag) -> bool {
         self.affix_flags.contains(&flag)
     }
@@ -101,11 +109,6 @@ impl SpellerHunspellDict {
                 dict.affix_data.parse_flags(flagstr).unwrap_or_default();
             let word = word.trim();
             if !word.is_empty() {
-                if dict.words.contains_key(word) {
-                    // There is a use case for having two identical words
-                    // with different affixes. We don't handle this yet.
-                    bail!(format!("Duplicate word {}", word));
-                }
                 let mut word_flags = WordFlags::empty();
                 for flag in affix_flags.iter() {
                     for (wf, af) in dict.affix_data.special_flags.iter() {
@@ -114,13 +117,8 @@ impl SpellerHunspellDict {
                         }
                     }
                 }
-                dict.words.insert(
-                    word.to_string(),
-                    WordInfo {
-                        word_flags,
-                        affix_flags,
-                    },
-                );
+                let winfo = WordInfo::new(word_flags, affix_flags);
+                dict.words.entry(word.to_string()).or_default().push(winfo);
             }
         }
         Ok(dict)
@@ -180,13 +178,15 @@ impl SpellerHunspellDict {
 
     /// Check a word against the dictionary without changing its capitalization.
     fn _spellcheck_affixes(&self, word: &str) -> bool {
-        if let Some(winfo) = self.words.get(word) {
-            if !winfo.word_flags.intersects(
-                WordFlags::Forbidden
-                    | WordFlags::NeedAffix
-                    | WordFlags::OnlyInCompound,
-            ) {
-                return true;
+        if let Some(homonyms) = self.words.get(word) {
+            for winfo in homonyms.iter() {
+                if !winfo.word_flags.intersects(
+                    WordFlags::Forbidden
+                        | WordFlags::NeedAffix
+                        | WordFlags::OnlyInCompound,
+                ) {
+                    return true;
+                }
             }
         }
         for pfx in self.affix_data.prefixes.iter() {
@@ -280,10 +280,12 @@ impl Speller for SpellerHunspellDict {
         if word.is_empty() {
             return false;
         }
-        self.words
-            .entry(word)
-            .and_modify(|winfo| winfo.word_flags.remove(WordFlags::Forbidden))
-            .or_insert_with(WordInfo::default);
+        let homonyms = self.words.entry(word).or_default();
+        if let Some(winfo) = homonyms.iter_mut().next() {
+            winfo.word_flags.remove(WordFlags::Forbidden);
+        } else {
+            homonyms.push(WordInfo::default());
+        }
         true
     }
 

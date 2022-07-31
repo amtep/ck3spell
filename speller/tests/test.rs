@@ -131,4 +131,17 @@ fn language_french() {
     assert!(speller.spellcheck("visse")); // a0
     assert!(speller.spellcheck("vissé")); // p+
     assert!(speller.spellcheck("vissés")); // p+
+
+    // Néréide appears twice in the dictionary, with different affix flags.
+    // Check that all the flags from both words work.
+    assert!(speller.spellcheck("Néréide"));
+    assert!(speller.spellcheck("L'Néréide")); // L'
+    assert!(speller.spellcheck("D'Néréide")); // D'
+    assert!(speller.spellcheck("d'Néréide")); // D'
+    assert!(speller.spellcheck("qu'Néréide")); // Q'
+    assert!(speller.spellcheck("Qu'Néréide")); // Q'
+    assert!(speller.spellcheck("Néréides")); // S.
+
+    // But cross flags mixing the words don't work.
+    // assert!(!speller.spellcheck("L'Néréides")); // L'
 }

@@ -1193,6 +1193,7 @@ dependencies = [
  "bitflags",
  "itertools",
  "nom",
+ "smallvec",
  "unicode_titlecase",
 ]
 

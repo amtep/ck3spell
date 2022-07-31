@@ -127,14 +127,16 @@ impl AffixEntry {
             if !root.is_empty() || dict.affix_data.fullstrip {
                 let pword = self.strip.clone() + root;
                 if self._prefix_condition(&pword) {
-                    if let Some(winfo) = dict.words.get(&pword) {
-                        if winfo.has_affix_flag(self.flag)
-                            && !winfo.word_flags.intersects(
-                                WordFlags::Forbidden
-                                    | WordFlags::OnlyInCompound,
-                            )
-                        {
-                            return true;
+                    if let Some(homonyms) = dict.words.get(&pword) {
+                        for winfo in homonyms.iter() {
+                            if winfo.has_affix_flag(self.flag)
+                                && !winfo.word_flags.intersects(
+                                    WordFlags::Forbidden
+                                        | WordFlags::OnlyInCompound,
+                                )
+                            {
+                                return true;
+                            }
                         }
                     }
                 }
@@ -155,14 +157,16 @@ impl AffixEntry {
             if !root.is_empty() || dict.affix_data.fullstrip {
                 let sword = root.to_string() + &self.strip;
                 if self._suffix_condition(&sword) {
-                    if let Some(winfo) = dict.words.get(&sword) {
-                        if winfo.has_affix_flag(self.flag)
-                            && !winfo.word_flags.intersects(
-                                WordFlags::Forbidden
-                                    | WordFlags::OnlyInCompound,
-                            )
-                        {
-                            return true;
+                    if let Some(homonyms) = dict.words.get(&sword) {
+                        for winfo in homonyms.iter() {
+                            if winfo.has_affix_flag(self.flag)
+                                && !winfo.word_flags.intersects(
+                                    WordFlags::Forbidden
+                                        | WordFlags::OnlyInCompound,
+                                )
+                            {
+                                return true;
+                            }
                         }
                     }
                 }
