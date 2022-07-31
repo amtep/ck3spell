@@ -137,3 +137,41 @@ fn language_french() {
     // But mixing suffix and prefix from different homonyms shouldn't work.
     assert!(!speller.spellcheck("L'Néréides")); // L'
 }
+
+#[test]
+fn language_german() {
+    let speller = load_speller("de_DE");
+
+    assert!(speller.spellcheck("ziemlich"));
+    assert!(speller.spellcheck("ziemliche")); // A
+    assert!(speller.spellcheck("ziemlicher")); // A
+    assert!(speller.spellcheck("unziemlich")); // U
+    assert!(speller.spellcheck("unziemliche")); // U + A
+
+    // None of these are allowed because zirkular is OnlyInCompound
+    assert!(!speller.spellcheck("zirkular"));
+    assert!(!speller.spellcheck("zirkulare")); // E
+    assert!(!speller.spellcheck("zirkularen")); // P
+    assert!(!speller.spellcheck("zirkulars")); // S
+}
+
+#[test]
+fn language_spanish() {
+    let speller = load_speller("es_ES");
+
+    assert!(speller.spellcheck("gres"));
+    assert!(speller.spellcheck("grietás")); // R
+    assert!(speller.spellcheck("grieto")); // E
+    assert!(speller.spellcheck("grietado")); // D
+    assert!(speller.spellcheck("úteros")); // S
+}
+
+#[test]
+fn language_russian() {
+    let speller = load_speller("ru_RU");
+
+    assert!(speller.spellcheck("стащивший"));
+    assert!(speller.spellcheck("стащившими")); // A
+
+    assert!(!speller.spellcheck("стаившими")); // A
+}
