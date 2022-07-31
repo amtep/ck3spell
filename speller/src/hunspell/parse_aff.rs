@@ -2,7 +2,9 @@
 use anyhow::{anyhow, bail, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
-use nom::character::complete::{char, one_of, satisfy, space0, space1, u32, u8};
+use nom::character::complete::{
+    char, one_of, satisfy, space0, space1, u32, u8,
+};
 use nom::combinator::{all_consuming, cut, map, opt, rest, success, value};
 use nom::error::{Error, ErrorKind, ParseError};
 use nom::multi::many0;
@@ -10,6 +12,7 @@ use nom::sequence::{pair, preceded, separated_pair, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
 use crate::hunspell::affixdata::{AffixEntry, FlagMode};
+use crate::hunspell::wordflags::WordFlags;
 use crate::hunspell::AffixData;
 
 type Input<'a> = &'a str;
@@ -24,7 +27,7 @@ enum AffixLine<'a> {
     SetKeyboardString(&'a str),
     SetTryString(&'a str),
     SetExtraWordString(&'a str),
-    SetFlag(&'a str, &'a str),
+    SetFlag(WordFlags, &'a str, &'a str),
     SetCompoundMin(u8),
     AddIconv((&'a str, &'a str)),
     AddOconv((&'a str, &'a str)),
@@ -107,27 +110,34 @@ fn value_string(s: &str) -> IResult<&str, &str> {
     take_till1(|c: char| c.is_whitespace())(s)
 }
 
-const FLAG_NAMES: [&str; 10] = [
-    "FORBIDDENWORD",
-    "COMPOUNDBEGIN",
-    "COMPOUNDMIDDLE",
-    "COMPOUNDEND",
-    "COMPOUNDPERMITFLAG",
-    "ONLYINCOMPOUND",
-    "NOSUGGEST",
-    "CIRCUMFIX",
-    "NEEDAFFIX",
-    "KEEPCASE",
+const FLAG_NAMES: [(&str, WordFlags); 10] = [
+    ("FORBIDDENWORD", WordFlags::Forbidden),
+    ("COMPOUNDBEGIN", WordFlags::CompoundBegin),
+    ("COMPOUNDMIDDLE", WordFlags::CompoundMiddle),
+    ("COMPOUNDEND", WordFlags::CompoundEnd),
+    ("COMPOUNDPERMITFLAG", WordFlags::CompoundPermitAffix),
+    ("ONLYINCOMPOUND", WordFlags::OnlyInCompound),
+    ("NOSUGGEST", WordFlags::NoSuggest),
+    ("CIRCUMFIX", WordFlags::Circumfix),
+    ("NEEDAFFIX", WordFlags::NeedAffix),
+    ("KEEPCASE", WordFlags::KeepCase),
 ];
 
 fn assign_flag(s: &str) -> IResult<&str, AffixLine> {
     let (s, key) = value_string(s)?;
-    if !FLAG_NAMES.contains(&key) {
+    let mut wflag = WordFlags::empty();
+    for (name, flag) in FLAG_NAMES {
+        if name == key {
+            wflag = flag;
+            break;
+        }
+    }
+    if wflag == WordFlags::empty() {
         return Err(Err::Error(Error::from_error_kind(key, ErrorKind::Tag)));
     }
     let (s, _) = space1(s)?;
     let (s, v) = cut(value_string)(s)?;
-    Ok((s, AffixLine::SetFlag(key, v)))
+    Ok((s, AffixLine::SetFlag(wflag, key, v)))
 }
 
 fn set_encoding(s: &str) -> IResult<&str, AffixLine> {
@@ -202,10 +212,13 @@ fn set_checksharps(s: &str) -> IResult<&str, AffixLine> {
 }
 
 fn morph_id(s: Input) -> IResult<Input, ()> {
-    value((),
-        pair(satisfy(|c| c.is_alphabetic()),
-             satisfy(|c| c.is_alphabetic())
-    ))(s)
+    value(
+        (),
+        pair(
+            satisfy(|c| c.is_alphabetic()),
+            satisfy(|c| c.is_alphabetic()),
+        ),
+    )(s)
 }
 
 fn morph_flag(s: Input) -> IResult<Input, ()> {
@@ -309,25 +322,12 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
             AffixLine::SetExtraWordString(t) => {
                 d.extra_word_string = Some(t.to_string())
             }
-            AffixLine::SetFlag(f, v) => {
+            AffixLine::SetFlag(wflag, key, v) => {
                 let fflag = d.parse_flags(v)?;
                 if fflag.len() != 1 {
-                    bail!(format!("Could not parse {}", f));
+                    bail!(format!("Could not parse {}", key));
                 }
-                let v = Some(fflag[0]);
-                match f {
-                    "FORBIDDENWORD" => d.forbidden = fflag[0],
-                    "COMPOUNDBEGIN" => d.compound_begin = v,
-                    "COMPOUNDMIDDLE" => d.compound_middle = v,
-                    "COMPOUNDEND" => d.compound_end = v,
-                    "COMPOUNDPERMITFLAG" => d.compound_permit = v,
-                    "ONLYINCOMPOUND" => d.only_in_compound = v,
-                    "NOSUGGEST" => d.no_suggest = v,
-                    "CIRCUMFIX" => d.circumfix = v,
-                    "NEEDAFFIX" => d.need_affix = v,
-                    "KEEPCASE" => d.keep_case = v,
-                    _ => panic!("Unhandled flag {}", f),
-                }
+                d.special_flags.insert(wflag, fflag[0]);
             }
             AffixLine::SetCompoundMin(v) => d.compound_min = v,
             AffixLine::AddIconv((c1, c2)) => {

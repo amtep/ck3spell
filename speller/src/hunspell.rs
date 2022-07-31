@@ -8,9 +8,11 @@ use unicode_titlecase::StrTitleCase;
 mod affixdata;
 mod parse_aff;
 mod replacements;
+mod wordflags;
 
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
+use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
 
 /// A limit on the recursive attempts to break a word at breakpoints such as -
@@ -25,38 +27,13 @@ pub struct SpellerHunspellDict {
 
 #[derive(Debug, Default)]
 struct WordInfo {
-    flags: Vec<AffixFlag>,
+    word_flags: WordFlags,
+    affix_flags: Vec<AffixFlag>,
 }
 
 impl WordInfo {
-    fn is_forbidden(&self, ad: &AffixData) -> bool {
-        self.flags.contains(&ad.forbidden)
-    }
-
-    fn remove_forbidden(&mut self, ad: &AffixData) {
-        for i in 0..self.flags.len() {
-            if self.flags[i] == ad.forbidden {
-                self.flags.swap_remove(i);
-            }
-        }
-    }
-
-    fn need_affix(&self, ad: &AffixData) -> bool {
-        match ad.need_affix {
-            Some(flag) => self.flags.contains(&flag),
-            None => false,
-        }
-    }
-
-    fn only_in_compound(&self, ad: &AffixData) -> bool {
-        match ad.only_in_compound {
-            Some(flag) => self.flags.contains(&flag),
-            None => false,
-        }
-    }
-
-    fn has_flag(&self, flag: AffixFlag) -> bool {
-        self.flags.contains(&flag)
+    fn has_affix_flag(&self, flag: AffixFlag) -> bool {
+        self.affix_flags.contains(&flag)
     }
 }
 
@@ -120,7 +97,7 @@ impl SpellerHunspellDict {
             // If parsing the flags fails, just ignore them.
             // Printing errors isn't worth it.
             // TODO: maybe collect errors in the struct.
-            let flags =
+            let affix_flags =
                 dict.affix_data.parse_flags(flagstr).unwrap_or_default();
             let word = word.trim();
             if !word.is_empty() {
@@ -129,7 +106,21 @@ impl SpellerHunspellDict {
                     // with different affixes. We don't handle this yet.
                     bail!(format!("Duplicate word {}", word));
                 }
-                dict.words.insert(word.to_string(), WordInfo { flags });
+                let mut word_flags = WordFlags::empty();
+                for flag in affix_flags.iter() {
+                    for (wf, af) in dict.affix_data.special_flags.iter() {
+                        if flag == af {
+                            word_flags.insert(*wf);
+                        }
+                    }
+                }
+                dict.words.insert(
+                    word.to_string(),
+                    WordInfo {
+                        word_flags,
+                        affix_flags,
+                    },
+                );
             }
         }
         Ok(dict)
@@ -190,9 +181,11 @@ impl SpellerHunspellDict {
     /// Check a word against the dictionary without changing its capitalization.
     fn _spellcheck_affixes(&self, word: &str) -> bool {
         if let Some(winfo) = self.words.get(word) {
-            if !winfo.is_forbidden(&self.affix_data)
-                && !winfo.need_affix(&self.affix_data)
-                && !winfo.only_in_compound(&self.affix_data) {
+            if !winfo.word_flags.intersects(
+                WordFlags::Forbidden
+                    | WordFlags::NeedAffix
+                    | WordFlags::OnlyInCompound,
+            ) {
                 return true;
             }
         }
@@ -289,7 +282,7 @@ impl Speller for SpellerHunspellDict {
         }
         self.words
             .entry(word)
-            .and_modify(|winfo| winfo.remove_forbidden(&self.affix_data))
+            .and_modify(|winfo| winfo.word_flags.remove(WordFlags::Forbidden))
             .or_insert(WordInfo::default());
         true
     }

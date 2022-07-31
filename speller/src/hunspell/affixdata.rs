@@ -1,8 +1,10 @@
 use anyhow::{bail, Result};
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::num::ParseIntError;
 
 use crate::hunspell::replacements::Replacements;
+use crate::hunspell::wordflags::WordFlags;
 use crate::hunspell::SpellerHunspellDict;
 
 /// Represents the format of the flags after words in the dictionary file.
@@ -31,32 +33,14 @@ pub struct AffixData {
     pub replacements: Replacements,
     /// The valid formats for flags used in this affix file
     pub flag_mode: FlagMode,
-    /// forbidden is the flag for invalid words.
-    pub forbidden: AffixFlag,
+    /// Known special word flags
+    pub special_flags: HashMap<WordFlags, AffixFlag>,
     /// keyboard layout, used to suggest spelling fixes.
     pub keyboard_string: Option<String>,
     /// letters to try when suggesting fixes, from common to rare.
     pub try_string: Option<String>,
     /// extra letters that may be part of words.
     pub extra_word_string: Option<String>,
-    /// The flag for words that may appear at the beginning of compound words.
-    pub compound_begin: Option<AffixFlag>,
-    /// The flag for words that may appear as middle words in compound words.
-    pub compound_middle: Option<AffixFlag>,
-    /// The flag for words that may appear at the end of compound words.
-    pub compound_end: Option<AffixFlag>,
-    /// The flag for words that may have affixes inside compound words.
-    pub compound_permit: Option<AffixFlag>,
-    /// The flag for words that may appear only inside compound words.
-    pub only_in_compound: Option<AffixFlag>,
-    /// The flag for words that should not be suggested.
-    pub no_suggest: Option<AffixFlag>,
-    /// The flag for affixes that may surround a word.
-    pub circumfix: Option<AffixFlag>,
-    /// The flag for words that must have an affix.
-    pub need_affix: Option<AffixFlag>,
-    /// The flag for words that should not change case.
-    pub keep_case: Option<AffixFlag>,
     /// The minimum length of words in compound words.
     pub compound_min: u8,
     /// Characters that should be converted before matching.
@@ -144,9 +128,11 @@ impl AffixEntry {
                 let pword = self.strip.clone() + root;
                 if self._prefix_condition(&pword) {
                     if let Some(winfo) = dict.words.get(&pword) {
-                        if winfo.has_flag(self.flag)
-                            && !winfo.is_forbidden(&dict.affix_data)
-                            && !winfo.only_in_compound(&dict.affix_data)
+                        if winfo.has_affix_flag(self.flag)
+                            && !winfo.word_flags.intersects(
+                                WordFlags::Forbidden
+                                    | WordFlags::OnlyInCompound,
+                            )
                         {
                             return true;
                         }
@@ -170,9 +156,11 @@ impl AffixEntry {
                 let sword = root.to_string() + &self.strip;
                 if self._suffix_condition(&sword) {
                     if let Some(winfo) = dict.words.get(&sword) {
-                        if winfo.has_flag(self.flag)
-                            && !winfo.is_forbidden(&dict.affix_data)
-                            && !winfo.only_in_compound(&dict.affix_data)
+                        if winfo.has_affix_flag(self.flag)
+                            && !winfo.word_flags.intersects(
+                                WordFlags::Forbidden
+                                    | WordFlags::OnlyInCompound,
+                            )
                         {
                             return true;
                         }

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
+bitflags = "1.3"
 itertools = "0.10"
 nom = "7"
 unicode_titlecase = "1.1.0"
