@@ -362,14 +362,16 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                 if v1 == "0" {
                     v1 = "";
                 }
-                if let Some((nv2, _contflags)) = v2.split_once('/') {
+                let mut cflags = Vec::new();
+                if let Some((nv2, contflags)) = v2.split_once('/') {
                     v2 = nv2;
-                    // TODO: add contflags to AffixEntry
+                    cflags = d.parse_flags(contflags)?;
                 }
                 if v3 == "." {
                     v3 = "";
                 }
-                let entry = AffixEntry::new(allow_cross, fflag[0], v1, v2, v3);
+                let entry =
+                    AffixEntry::new(allow_cross, fflag[0], v1, v2, v3, cflags);
                 if is_pfx {
                     d.prefixes.push(entry);
                 } else {
@@ -384,6 +386,7 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
         d.word_breaks.push("^-".to_string());
         d.word_breaks.push("-$".to_string());
     }
+    d.finalize();
     Ok(d)
 }
 

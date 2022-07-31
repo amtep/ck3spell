@@ -5,7 +5,7 @@ use std::num::ParseIntError;
 
 use crate::hunspell::replacements::Replacements;
 use crate::hunspell::wordflags::WordFlags;
-use crate::hunspell::SpellerHunspellDict;
+use crate::hunspell::{SpellerHunspellDict, WordInfo};
 
 /// Represents the format of the flags after words in the dictionary file.
 #[derive(Clone, Copy, Default)]
@@ -21,6 +21,29 @@ pub enum FlagMode {
     Utf8,
 }
 
+#[derive(Default)]
+pub struct SpecialFlags {
+    inner: HashMap<WordFlags, AffixFlag>,
+}
+
+impl SpecialFlags {
+    pub fn word_flags(&self, affix_flags: &[AffixFlag]) -> WordFlags {
+        let mut word_flags = WordFlags::empty();
+        for flag in affix_flags.iter() {
+            for (wf, af) in self.inner.iter() {
+                if flag == af {
+                    word_flags.insert(*wf);
+                }
+            }
+        }
+        word_flags
+    }
+
+    pub fn insert(&mut self, wf: WordFlags, af: AffixFlag) {
+        self.inner.insert(wf, af);
+    }
+}
+
 pub type AffixFlag = u32;
 
 #[derive(Default)]
@@ -34,7 +57,7 @@ pub struct AffixData {
     /// The valid formats for flags used in this affix file
     pub flag_mode: FlagMode,
     /// Known special word flags
-    pub special_flags: HashMap<WordFlags, AffixFlag>,
+    pub special_flags: SpecialFlags,
     /// keyboard layout, used to suggest spelling fixes.
     pub keyboard_string: Option<String>,
     /// letters to try when suggesting fixes, from common to rare.
@@ -92,6 +115,15 @@ impl AffixData {
                 .map_err(anyhow::Error::from),
         }
     }
+
+    pub fn finalize(&mut self) {
+        for pfx in self.prefixes.iter_mut() {
+            pfx.finalize(&self.special_flags);
+        }
+        for sfx in self.suffixes.iter_mut() {
+            sfx.finalize(&self.special_flags);
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -102,6 +134,7 @@ pub struct AffixEntry {
     affix: String,
     condition: String,
     cond_chars: usize,
+    contflags: WordInfo,
 }
 
 impl AffixEntry {
@@ -111,7 +144,9 @@ impl AffixEntry {
         strip: &str,
         affix: &str,
         cond: &str,
+        cflags: Vec<AffixFlag>,
     ) -> Self {
+        // Not all special flags may be known yet, so leave WordFlags empty.
         AffixEntry {
             allow_cross: cross,
             flag,
@@ -119,7 +154,12 @@ impl AffixEntry {
             affix: affix.to_string(),
             condition: cond.to_string(),
             cond_chars: _count_cond_chars(cond),
+            contflags: WordInfo::new(WordFlags::empty(), cflags),
         }
+    }
+
+    pub fn finalize(&mut self, sf: &SpecialFlags) {
+        self.contflags.word_flags = sf.word_flags(&self.contflags.affix_flags);
     }
 
     pub fn check_prefix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
@@ -294,12 +334,12 @@ mod test {
     use super::*;
 
     fn help_prefix_condition(cond: &str, word: &str) -> bool {
-        let affix = AffixEntry::new(false, 0, "", "", cond);
+        let affix = AffixEntry::new(false, 0, "", "", cond, Vec::new());
         affix._prefix_condition(word)
     }
 
     fn help_suffix_condition(cond: &str, word: &str) -> bool {
-        let affix = AffixEntry::new(false, 0, "", "", cond);
+        let affix = AffixEntry::new(false, 0, "", "", cond, Vec::new());
         affix._suffix_condition(word)
     }
 

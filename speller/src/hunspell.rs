@@ -109,14 +109,8 @@ impl SpellerHunspellDict {
                 dict.affix_data.parse_flags(flagstr).unwrap_or_default();
             let word = word.trim();
             if !word.is_empty() {
-                let mut word_flags = WordFlags::empty();
-                for flag in affix_flags.iter() {
-                    for (wf, af) in dict.affix_data.special_flags.iter() {
-                        if flag == af {
-                            word_flags.insert(*wf);
-                        }
-                    }
-                }
+                let word_flags =
+                    dict.affix_data.special_flags.word_flags(&affix_flags);
                 let winfo = WordInfo::new(word_flags, affix_flags);
                 dict.words.entry(word.to_string()).or_default().push(winfo);
             }
