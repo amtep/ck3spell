@@ -303,6 +303,17 @@ impl SpellerHunspellDict {
             false
         }
     }
+
+    fn _add_word(&mut self, word: String, force: bool) {
+        let homonyms = self.words.entry(word).or_default();
+        if let Some(winfo) = homonyms.iter_mut().next() {
+            if force {
+                winfo.word_flags.remove(WordFlags::Forbidden);
+            }
+        } else {
+            homonyms.push(WordInfo::default());
+        }
+    }
 }
 
 impl Speller for SpellerHunspellDict {
@@ -339,12 +350,20 @@ impl Speller for SpellerHunspellDict {
         if word.is_empty() {
             return false;
         }
-        let homonyms = self.words.entry(word).or_default();
-        if let Some(winfo) = homonyms.iter_mut().next() {
-            winfo.word_flags.remove(WordFlags::Forbidden);
-        } else {
-            homonyms.push(WordInfo::default());
+
+        match CapStyle::from_str(&word) {
+            CapStyle::Lowercase => {
+                self._add_word(word.to_uppercase(), false);
+                self._add_word(word.to_titlecase(), false);
+            }
+            CapStyle::Capitalized | CapStyle::MixedCase => {
+                self._add_word(word.to_uppercase(), false);
+            }
+            _ => (),
         }
+
+        self._add_word(word, true);
+
         true
     }
 
