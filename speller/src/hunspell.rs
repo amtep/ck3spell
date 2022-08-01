@@ -293,9 +293,9 @@ impl SpellerHunspellDict {
             }
         }
 
-        let caps = CapStyle::from_str(&word);
+        let caps = CapStyle::from_str(word);
         let mut count = 0u16;
-        if self._spellcheck(&word, caps, &mut count) {
+        if self._spellcheck(word, caps, &mut count) {
             return true;
         }
 
