@@ -215,3 +215,16 @@ fn mixed_case_all_caps2() {
     assert!(speller.spellcheck("ipodos"));
     assert!(speller.spellcheck("IPODOS"));
 }
+
+#[test]
+fn forbidden_compound() {
+    let speller = load_speller("forbidden-break");
+
+    assert!(speller.spellcheck("foo"));
+    assert!(speller.spellcheck("bar"));
+    assert!(speller.spellcheck("gnu"));
+    assert!(speller.spellcheck("foo-gnu"));
+    assert!(speller.spellcheck("bar-gnu"));
+
+    assert!(!speller.spellcheck("foo-bar")); // This one is marked forbidden
+}

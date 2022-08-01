@@ -122,15 +122,26 @@ impl SpellerHunspellDict {
         // and any phrase might be written in all caps for emphasis,
         // so those should all be detected as correctly spelled.
         let mut addvec = Vec::new();
-        for (word, winfo) in dict.words.iter() {
-            addvec.push((word.to_uppercase(), winfo[0].clone()));
-            addvec.push((word.to_titlecase(), winfo[0].clone()));
-        }
-        for (word, winfo) in addvec.drain(..) {
-            let v = dict.words.entry(word).or_default();
-            if v.is_empty() {
-                v.push(winfo);
+        for (word, homonyms) in dict.words.iter() {
+            for winfo in homonyms.iter() {
+                // "forbidden" entries are case sensitive, so don't upcase them
+                if !winfo.word_flags.contains(WordFlags::Forbidden) {
+                    // Only add the upcased words if they are not themselves forbidden
+                    let allcaps = word.to_uppercase();
+                    if !dict.is_forbidden(&allcaps) {
+                        addvec.push((allcaps, winfo.clone()));
+                    }
+                    let capitalized = word.to_titlecase();
+                    if !dict.is_forbidden(&capitalized) {
+                        addvec.push((capitalized, winfo.clone()));
+                    }
+                }
             }
+        }
+        // Ensure a stable result regardless of hash order above
+        addvec.sort_by(|(a, _), (b, _)| b.cmp(a));
+        for (word, winfo) in addvec.drain(..) {
+            dict.words.entry(word).or_default().push(winfo);
         }
         Ok(dict)
     }
@@ -187,7 +198,19 @@ impl SpellerHunspellDict {
         true
     }
 
-    /// Check a word against the dictionary without changing its capitalization.
+    fn is_forbidden(&self, word: &str) -> bool {
+        if let Some(homonyms) = self.words.get(word) {
+            for winfo in homonyms.iter() {
+                if !winfo.word_flags.contains(WordFlags::Forbidden) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        false
+    }
+
+    /// Check a word against the dictionary and try affix combinations
     fn _spellcheck_affixes(&self, word: &str, caps: CapStyle) -> bool {
         if let Some(homonyms) = self.words.get(word) {
             for winfo in homonyms.iter() {
@@ -213,6 +236,7 @@ impl SpellerHunspellDict {
         false
     }
 
+    // Check a word against the dictionary and try word breaks and affixes
     fn _spellcheck(&self, word: &str, caps: CapStyle, count: &mut u16) -> bool {
         if *count > MAX_WORD_BREAK_ATTEMPTS {
             return false;
@@ -263,6 +287,9 @@ impl Speller for SpellerHunspellDict {
         let word = self.affix_data.iconv.conv(word.trim());
         if word.is_empty() || Self::is_numeric(&word) {
             return true;
+        }
+        if self.is_forbidden(&word) {
+            return false;
         }
         let caps = CapStyle::from_str(&word);
         let mut count = 0u16;
