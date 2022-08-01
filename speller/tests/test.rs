@@ -192,6 +192,22 @@ fn match_continuation_suffix() {
 
 #[test]
 fn mixed_case_all_caps() {
+    let speller = load_speller("allcaps"); // test "allcaps_utf" from hunspell
+
+    assert!(speller.spellcheck("OpenOffice.org"));
+    assert!(speller.spellcheck("OPENOFFICE.ORG"));
+    // All caps words should be able to have all caps affixes
+    assert!(speller.spellcheck("UNICEF's"));
+    assert!(speller.spellcheck("UNICEF'S"));
+
+    // Wrong forms
+    assert!(!speller.spellcheck("Openoffice.org"));
+    assert!(!speller.spellcheck("Unicef"));
+    assert!(!speller.spellcheck("Unicef's"));
+}
+
+#[test]
+fn mixed_case_all_caps2() {
     let speller = load_speller("allcaps2"); // test from hunspell
 
     assert!(speller.spellcheck("iPod"));

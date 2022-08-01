@@ -45,8 +45,8 @@ impl WordInfo {
     }
 }
 
-#[derive(PartialEq)]
-enum CapStyle {
+#[derive(Clone, Copy, PartialEq)]
+pub enum CapStyle {
     Lowercase,
     Capitalized,
     AllCaps,
@@ -116,15 +116,20 @@ impl SpellerHunspellDict {
                 dict.words.entry(word.to_string()).or_default().push(winfo);
             }
         }
-        // Ensure mixed-case words have an all caps entry for lookups
-        // Have to clone the hash because we modify it in the loop
-        // TODO: optimize by making a Vec of words to add in a second loop
-        for (word, winfo) in dict.words.clone().iter() {
-            if CapStyle::from_str(&word) == CapStyle::MixedCase {
-                let v = dict.words.entry(word.to_uppercase()).or_default();
-                if v.is_empty() {
-                    v.push(winfo[0].clone());
-                }
+        // Ensure capitalized and all-caps versions of all words are in the
+        // dictionary.
+        // Any word might be capitalized at the beginning of a sentence,
+        // and any phrase might be written in all caps for emphasis,
+        // so those should all be detected as correctly spelled.
+        let mut addvec = Vec::new();
+        for (word, winfo) in dict.words.iter() {
+            addvec.push((word.to_uppercase(), winfo[0].clone()));
+            addvec.push((word.to_titlecase(), winfo[0].clone()));
+        }
+        for (word, winfo) in addvec.drain(..) {
+            let v = dict.words.entry(word).or_default();
+            if v.is_empty() {
+                v.push(winfo);
             }
         }
         Ok(dict)
@@ -183,7 +188,7 @@ impl SpellerHunspellDict {
     }
 
     /// Check a word against the dictionary without changing its capitalization.
-    fn _spellcheck_affixes(&self, word: &str) -> bool {
+    fn _spellcheck_affixes(&self, word: &str, caps: CapStyle) -> bool {
         if let Some(homonyms) = self.words.get(word) {
             for winfo in homonyms.iter() {
                 if !winfo.word_flags.intersects(
@@ -196,25 +201,25 @@ impl SpellerHunspellDict {
             }
         }
         for pfx in self.affix_data.prefixes.iter() {
-            if pfx.check_prefix(word, self) {
+            if pfx.check_prefix(word, caps, self) {
                 return true;
             }
         }
         for sfx in self.affix_data.suffixes.iter() {
-            if sfx.check_suffix(word, self, None, false) {
+            if sfx.check_suffix(word, caps, self, None, false) {
                 return true;
             }
         }
         false
     }
 
-    fn _spellcheck(&self, word: &str, count: &mut u16) -> bool {
+    fn _spellcheck(&self, word: &str, caps: CapStyle, count: &mut u16) -> bool {
         if *count > MAX_WORD_BREAK_ATTEMPTS {
             return false;
         }
         *count += 1;
 
-        if self._spellcheck_affixes(word) {
+        if self._spellcheck_affixes(word, caps) {
             return true;
         }
 
@@ -223,13 +228,13 @@ impl SpellerHunspellDict {
         for brk in self.affix_data.word_breaks.iter() {
             if let Some(brk) = brk.strip_prefix('^') {
                 if let Some(bword) = word.strip_prefix(brk) {
-                    if self._spellcheck(bword, count) {
+                    if self._spellcheck(bword, caps, count) {
                         return true;
                     }
                 }
             } else if let Some(brk) = brk.strip_suffix('$') {
                 if let Some(bword) = word.strip_suffix(brk) {
-                    if self._spellcheck(bword, count) {
+                    if self._spellcheck(bword, caps, count) {
                         return true;
                     }
                 }
@@ -242,8 +247,8 @@ impl SpellerHunspellDict {
                 continue;
             }
             if let Some((worda, wordb)) = word.split_once(brk) {
-                if self._spellcheck(worda, count)
-                    && self._spellcheck(wordb, count)
+                if self._spellcheck(worda, caps, count)
+                    && self._spellcheck(wordb, caps, count)
                 {
                     return true;
                 }
@@ -259,22 +264,9 @@ impl Speller for SpellerHunspellDict {
         if word.is_empty() || Self::is_numeric(&word) {
             return true;
         }
+        let caps = CapStyle::from_str(&word);
         let mut count = 0u16;
-        if self._spellcheck(&word, &mut count) {
-            return true;
-        }
-        count = 0;
-        match CapStyle::from_str(&word) {
-            CapStyle::AllCaps => {
-                let mut count2 = 0u16;
-                self._spellcheck(&word.to_titlecase_lower_rest(), &mut count)
-                    || self._spellcheck(&word.to_lowercase(), &mut count2)
-            }
-            CapStyle::Capitalized => {
-                self._spellcheck(&word.to_lowercase(), &mut count)
-            }
-            _ => false,
-        }
+        self._spellcheck(&word, caps, &mut count)
     }
 
     fn suggestions(&self, _word: &str) -> Vec<String> {

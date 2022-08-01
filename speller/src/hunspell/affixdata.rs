@@ -5,7 +5,7 @@ use std::num::ParseIntError;
 
 use crate::hunspell::replacements::Replacements;
 use crate::hunspell::wordflags::WordFlags;
-use crate::hunspell::{SpellerHunspellDict, WordInfo};
+use crate::hunspell::{CapStyle, SpellerHunspellDict, WordInfo};
 
 /// Represents the format of the flags after words in the dictionary file.
 #[derive(Clone, Copy, Default)]
@@ -133,6 +133,7 @@ pub struct AffixEntry {
     flag: AffixFlag,
     strip: String,
     affix: String,
+    capsed_affix: String,
     condition: String,
     cond_chars: usize,
     contflags: WordInfo,
@@ -153,6 +154,7 @@ impl AffixEntry {
             flag,
             strip: strip.to_string(),
             affix: affix.to_string(),
+            capsed_affix: affix.to_uppercase(),
             condition: cond.to_string(),
             cond_chars: _count_cond_chars(cond),
             contflags: WordInfo::new(WordFlags::empty(), cflags),
@@ -163,12 +165,13 @@ impl AffixEntry {
         self.contflags.word_flags = sf.word_flags(&self.contflags.affix_flags);
     }
 
-    pub fn prefixed_word(
+    fn _deprefixed_word(
         &self,
         word: &str,
+        prefix: &str,
         dict: &SpellerHunspellDict,
     ) -> Option<String> {
-        if let Some(root) = word.strip_prefix(&self.affix) {
+        if let Some(root) = word.strip_prefix(prefix) {
             if !root.is_empty() || dict.affix_data.fullstrip {
                 let pword = self.strip.clone() + root;
                 if self._prefix_condition(&pword) {
@@ -179,12 +182,29 @@ impl AffixEntry {
         None
     }
 
-    pub fn suffixed_word(
+    fn deprefixed_word(
         &self,
         word: &str,
+        caps: CapStyle,
         dict: &SpellerHunspellDict,
     ) -> Option<String> {
-        if let Some(root) = word.strip_suffix(&self.affix) {
+        if let Some(root) = self._deprefixed_word(word, &self.affix, dict) {
+            return Some(root);
+        } else if caps == CapStyle::AllCaps {
+            if let Some(root) = self._deprefixed_word(word, &self.capsed_affix, dict) {
+                return Some(root);
+            }
+        }
+        None
+    }
+
+    fn _desuffixed_word(
+        &self,
+        word: &str,
+        suffix: &str,
+        dict: &SpellerHunspellDict,
+    ) -> Option<String> {
+        if let Some(root) = word.strip_suffix(suffix) {
             if !root.is_empty() || dict.affix_data.fullstrip {
                 let sword = root.to_string() + &self.strip;
                 if self._suffix_condition(&sword) {
@@ -195,8 +215,24 @@ impl AffixEntry {
         None
     }
 
-    pub fn check_prefix(&self, word: &str, dict: &SpellerHunspellDict) -> bool {
-        if let Some(pword) = self.prefixed_word(word, dict) {
+    fn desuffixed_word(
+        &self,
+        word: &str,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+    ) -> Option<String> {
+        if let Some(root) = self._desuffixed_word(word, &self.affix, dict) {
+            return Some(root);
+        } else if caps == CapStyle::AllCaps {
+            if let Some(root) = self._desuffixed_word(word, &self.capsed_affix, dict) {
+                return Some(root);
+            }
+        }
+        None
+    }
+
+    pub fn check_prefix(&self, word: &str, caps: CapStyle, dict: &SpellerHunspellDict) -> bool {
+        if let Some(pword) = self.deprefixed_word(word, caps, dict) {
             if let Some(homonyms) = dict.words.get(&pword) {
                 for winfo in homonyms.iter() {
                     if winfo.has_affix_flag(self.flag)
@@ -215,6 +251,7 @@ impl AffixEntry {
                     if sfx.allow_cross
                         && sfx.check_suffix(
                             &pword,
+                            caps,
                             dict,
                             Some(self.flag),
                             false,
@@ -231,11 +268,12 @@ impl AffixEntry {
     pub fn check_suffix(
         &self,
         word: &str,
+        caps: CapStyle,
         dict: &SpellerHunspellDict,
         from_prefix: Option<AffixFlag>,
         from_suffix: bool,
     ) -> bool {
-        if let Some(sword) = self.suffixed_word(word, dict) {
+        if let Some(sword) = self.desuffixed_word(word, caps, dict) {
             if let Some(homonyms) = dict.words.get(&sword) {
                 for winfo in homonyms.iter() {
                     if let Some(flag) = from_prefix {
@@ -256,7 +294,7 @@ impl AffixEntry {
             if !from_suffix {
                 for sfx2 in dict.affix_data.suffixes.iter() {
                     if sfx2.contflags.affix_flags.contains(&self.flag)
-                        && sfx2.check_suffix(&sword, dict, None, true)
+                        && sfx2.check_suffix(&sword, caps, dict, None, true)
                     {
                         return true;
                     }
