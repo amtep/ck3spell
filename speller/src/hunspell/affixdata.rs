@@ -66,6 +66,8 @@ pub struct AffixData {
     pub extra_word_string: Option<String>,
     /// The minimum length of words in compound words.
     pub compound_min: u8,
+    /// Limit to ngram suggestions in suggestion list
+    pub max_ngram_suggestions: u8,
     /// Characters that should be converted before matching.
     pub iconv: Replacements,
     /// Characters that should be converted after matching.

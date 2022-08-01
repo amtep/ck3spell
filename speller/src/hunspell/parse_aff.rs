@@ -29,6 +29,7 @@ enum AffixLine<'a> {
     SetExtraWordString(&'a str),
     SetFlag(WordFlags, &'a str, &'a str),
     SetCompoundMin(u8),
+    SetMaxNGramSuggestions(u8),
     AddIconv((&'a str, &'a str)),
     AddOconv((&'a str, &'a str)),
     AddCompoundRule(&'a str),
@@ -175,6 +176,10 @@ fn set_compound_min(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("COMPOUNDMIN", u8), AffixLine::SetCompoundMin)(s)
 }
 
+fn set_max_ngram_suggestions(s: &str) -> IResult<&str, AffixLine> {
+    map(keyword("MAXNGRAMSUGS", u8), AffixLine::SetMaxNGramSuggestions)(s)
+}
+
 fn conv(s: &str) -> IResult<&str, (&str, &str)> {
     separated_pair(value_string, space1, value_string)(s)
 }
@@ -278,6 +283,7 @@ fn line(s: &str) -> IResult<&str, AffixLine> {
         set_extra_word_string,
         assign_flag,
         set_compound_min,
+        set_max_ngram_suggestions,
         add_iconv,
         add_oconv,
         add_compound_rule,
@@ -330,6 +336,7 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                 d.special_flags.insert(wflag, fflag[0]);
             }
             AffixLine::SetCompoundMin(v) => d.compound_min = v,
+            AffixLine::SetMaxNGramSuggestions(v) => d.max_ngram_suggestions = v,
             AffixLine::AddIconv((c1, c2)) => {
                 d.iconv.push(c1, c2);
             }
