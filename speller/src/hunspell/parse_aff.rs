@@ -177,7 +177,10 @@ fn set_compound_min(s: &str) -> IResult<&str, AffixLine> {
 }
 
 fn set_max_ngram_suggestions(s: &str) -> IResult<&str, AffixLine> {
-    map(keyword("MAXNGRAMSUGS", u8), AffixLine::SetMaxNGramSuggestions)(s)
+    map(
+        keyword("MAXNGRAMSUGS", u8),
+        AffixLine::SetMaxNGramSuggestions,
+    )(s)
 }
 
 fn conv(s: &str) -> IResult<&str, (&str, &str)> {

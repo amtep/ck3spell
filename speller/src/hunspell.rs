@@ -284,7 +284,10 @@ impl SpellerHunspellDict {
     fn check_suggestion(&self, word: &str) -> bool {
         if let Some(homonyms) = self.words.get(word) {
             for winfo in homonyms.iter() {
-                if !winfo.word_flags.intersects(WordFlags::Forbidden | WordFlags::NoSuggest) {
+                if !winfo
+                    .word_flags
+                    .intersects(WordFlags::Forbidden | WordFlags::NoSuggest)
+                {
                     return true;
                 }
             }

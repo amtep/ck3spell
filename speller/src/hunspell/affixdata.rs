@@ -199,11 +199,15 @@ impl AffixEntry {
         if let Some(root) = self._deprefixed_word(word, &self.affix, dict) {
             return Some(root);
         } else if caps == CapStyle::AllCaps {
-            if let Some(root) = self._deprefixed_word(word, &self.capsed_affix, dict) {
+            if let Some(root) =
+                self._deprefixed_word(word, &self.capsed_affix, dict)
+            {
                 return Some(root);
             }
         } else if caps == CapStyle::Capitalized {
-            if let Some(root) = self._deprefixed_word(word, &self.titled_affix, dict) {
+            if let Some(root) =
+                self._deprefixed_word(word, &self.titled_affix, dict)
+            {
                 return Some(root);
             }
         }
@@ -236,14 +240,21 @@ impl AffixEntry {
         if let Some(root) = self._desuffixed_word(word, &self.affix, dict) {
             return Some(root);
         } else if caps == CapStyle::AllCaps {
-            if let Some(root) = self._desuffixed_word(word, &self.capsed_affix, dict) {
+            if let Some(root) =
+                self._desuffixed_word(word, &self.capsed_affix, dict)
+            {
                 return Some(root);
             }
         }
         None
     }
 
-    pub fn check_prefix(&self, word: &str, caps: CapStyle, dict: &SpellerHunspellDict) -> bool {
+    pub fn check_prefix(
+        &self,
+        word: &str,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+    ) -> bool {
         if let Some(pword) = self.deprefixed_word(word, caps, dict) {
             if let Some(homonyms) = dict.words.get(&pword) {
                 for winfo in homonyms.iter() {
