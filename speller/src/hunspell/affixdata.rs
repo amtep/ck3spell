@@ -2,6 +2,7 @@ use anyhow::{bail, Result};
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::num::ParseIntError;
+use unicode_titlecase::StrTitleCase;
 
 use crate::hunspell::replacements::Replacements;
 use crate::hunspell::wordflags::WordFlags;
@@ -135,10 +136,13 @@ pub struct AffixEntry {
     flag: AffixFlag,
     strip: String,
     affix: String,
-    capsed_affix: String,
     condition: String,
     cond_chars: usize,
     contflags: WordInfo,
+
+    // All caps and titlecase versions of the affix. Saved here for speed.
+    capsed_affix: String,
+    titled_affix: String,
 }
 
 impl AffixEntry {
@@ -156,10 +160,12 @@ impl AffixEntry {
             flag,
             strip: strip.to_string(),
             affix: affix.to_string(),
-            capsed_affix: affix.to_uppercase(),
             condition: cond.to_string(),
             cond_chars: _count_cond_chars(cond),
             contflags: WordInfo::new(WordFlags::empty(), cflags),
+
+            capsed_affix: affix.to_uppercase(),
+            titled_affix: affix.to_titlecase(),
         }
     }
 
@@ -194,6 +200,10 @@ impl AffixEntry {
             return Some(root);
         } else if caps == CapStyle::AllCaps {
             if let Some(root) = self._deprefixed_word(word, &self.capsed_affix, dict) {
+                return Some(root);
+            }
+        } else if caps == CapStyle::Capitalized {
+            if let Some(root) = self._deprefixed_word(word, &self.titled_affix, dict) {
                 return Some(root);
             }
         }

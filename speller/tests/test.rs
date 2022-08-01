@@ -33,6 +33,10 @@ fn match_prefixes() {
     assert!(speller.spellcheck("disappear")); // E
     assert!(speller.spellcheck("reapply")); // A
 
+    // Capitalized prefixes and all caps prefixes should work too
+    assert!(speller.spellcheck("Reappear"));
+    assert!(speller.spellcheck("REAPPEAR"));
+
     assert!(!speller.spellcheck("unappear")); // U (flag not present)
 }
 
