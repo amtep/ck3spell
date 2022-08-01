@@ -69,4 +69,20 @@ impl Replacements {
         }
         output
     }
+
+    pub fn suggest(&self, word: &str, mut suggest: impl FnMut(String) -> bool) {
+        for (i, _) in word.char_indices() {
+            // TODO: optimize by putting start-anchored reps in a separate list
+            for rep in self.reps.iter() {
+                if rep.matches(&word[i..], i == 0) {
+                    let mut sugg = word[..i].to_string();
+                    sugg += &rep.to;
+                    sugg += &word[i + rep.from.len()..];
+                    if !suggest(sugg) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }

@@ -11,7 +11,7 @@ pub trait Speller {
 
     /// Returns a list of possible corrections to a misspelled word.
     /// The list may be empty.
-    fn suggestions(&self, word: &str) -> Vec<String>;
+    fn suggestions(&self, word: &str, max: usize) -> Vec<String>;
 
     /// Accept `word` into the dictionary.
     /// Returns false if the word could not be accepted (for example

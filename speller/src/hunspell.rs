@@ -280,6 +280,29 @@ impl SpellerHunspellDict {
         }
         false
     }
+
+    fn check_suggestion(&self, word: &str) -> bool {
+        if let Some(homonyms) = self.words.get(word) {
+            for winfo in homonyms.iter() {
+                if !winfo.word_flags.intersects(WordFlags::Forbidden | WordFlags::NoSuggest) {
+                    return true;
+                }
+            }
+        }
+
+        let caps = CapStyle::from_str(&word);
+        let mut count = 0u16;
+        if self._spellcheck(&word, caps, &mut count) {
+            return true;
+        }
+
+        // If the suggestion is two words, check both
+        if let Some((worda, wordb)) = word.split_once(' ') {
+            self.check_suggestion(worda) && self.check_suggestion(wordb)
+        } else {
+            false
+        }
+    }
 }
 
 impl Speller for SpellerHunspellDict {
@@ -296,8 +319,19 @@ impl Speller for SpellerHunspellDict {
         self._spellcheck(&word, caps, &mut count)
     }
 
-    fn suggestions(&self, _word: &str) -> Vec<String> {
-        Vec::default() // TODO
+    fn suggestions(&self, word: &str, max: usize) -> Vec<String> {
+        let word = self.affix_data.iconv.conv(word.trim());
+        let mut suggs = Vec::default();
+        if word.is_empty() {
+            return suggs;
+        }
+        self.affix_data.replacements.suggest(&word, |sugg| {
+            if self.check_suggestion(&sugg) {
+                suggs.push(sugg);
+            }
+            suggs.len() < max
+        });
+        suggs
     }
 
     fn add_word(&mut self, word: &str) -> bool {

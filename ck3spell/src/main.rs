@@ -294,7 +294,7 @@ impl AppState {
                 self.file
                     .speller
                     .borrow()
-                    .suggestions(word)
+                    .suggestions(word, 9)
                     .iter()
                     .take(9)
                     .enumerate()

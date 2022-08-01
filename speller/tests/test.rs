@@ -109,9 +109,6 @@ fn match_broken_words() {
 
     assert!(speller.spellcheck("Alberta-angle"));
     assert!(speller.spellcheck("----angle---"));
-    // The next one should fail because the speller refuses to recurse
-    // as many times as would be needed to resolve it.
-    assert!(!speller.spellcheck("-a-a-a-a-a-a-a-a-a-a-"));
 }
 
 #[test]
@@ -217,7 +214,7 @@ fn mixed_case_all_caps2() {
 }
 
 #[test]
-fn forbidden_compound() {
+fn forbidden_break() {
     let speller = load_speller("forbidden-break");
 
     assert!(speller.spellcheck("foo"));
@@ -227,4 +224,23 @@ fn forbidden_compound() {
     assert!(speller.spellcheck("bar-gnu"));
 
     assert!(!speller.spellcheck("foo-bar")); // This one is marked forbidden
+}
+
+fn sugg(speller: impl Speller, word: &str, sugg: &str, max: usize) -> bool {
+    speller.suggestions(word, max).contains(&sugg.to_string())
+}
+
+#[test]
+fn suggestions() {
+    let speller = load_speller("en_US");
+
+    assert!(sugg(speller, "portmanto", "portmanteau", 3));
+}
+
+#[test]
+fn suggest_a_lot() {
+    let speller = load_speller("en_US");
+
+    // REP with spaces
+    assert!(sugg(speller, "alot", "a lot", 3));
 }
