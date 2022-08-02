@@ -8,16 +8,20 @@ use unicode_titlecase::StrTitleCase;
 
 mod affixdata;
 mod parse_aff;
+mod related_chars;
 mod replacements;
 mod wordflags;
 
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
+use crate::hunspell::related_chars::related_char_suggestions;
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
 
 /// A limit on the recursive attempts to break a word at breakpoints such as -
 const MAX_WORD_BREAK_ATTEMPTS: u16 = 1000;
+/// A limit on the effort put into making related-character suggestions
+const MAX_RELATED_CHAR_SUGGESTIONS: u32 = 1000;
 
 /// A speller that loads Hunspell dictionaries
 pub struct SpellerHunspellDict {
@@ -339,12 +343,29 @@ impl Speller for SpellerHunspellDict {
         if word.is_empty() {
             return suggs;
         }
+
         self.affix_data.replacements.suggest(&word, |sugg| {
             if self.check_suggestion(&sugg) {
                 suggs.push(sugg);
             }
             suggs.len() < max
         });
+        if suggs.len() == max {
+            return suggs;
+        }
+
+        let mut count = 0u32;
+        related_char_suggestions(
+            &self.affix_data.related_chars,
+            &word,
+            |sugg| {
+                if self.check_suggestion(sugg) {
+                    suggs.push(sugg.to_string());
+                }
+                count += 1;
+                suggs.len() < max && count < MAX_RELATED_CHAR_SUGGESTIONS
+            },
+        );
         suggs
     }
 

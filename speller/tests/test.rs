@@ -248,3 +248,10 @@ fn suggest_a_lot() {
     // REP with spaces
     assert!(sugg(speller, "alot", "a lot", 3));
 }
+
+#[test]
+fn suggest_related_chars() {
+    let speller = load_speller("fr_FR");
+
+    assert!(sugg(speller, "Nereide", "Néréide", 3));
+}
