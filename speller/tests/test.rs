@@ -230,7 +230,7 @@ fn forbidden_break() {
     assert!(!speller.spellcheck("foo-bar")); // This one is marked forbidden
 }
 
-fn sugg(speller: impl Speller, word: &str, sugg: &str, max: usize) -> bool {
+fn sugg(speller: &impl Speller, word: &str, sugg: &str, max: usize) -> bool {
     speller.suggestions(word, max).contains(&sugg.to_string())
 }
 
@@ -238,7 +238,7 @@ fn sugg(speller: impl Speller, word: &str, sugg: &str, max: usize) -> bool {
 fn suggestions() {
     let speller = load_speller("en_US");
 
-    assert!(sugg(speller, "portmanto", "portmanteau", 3));
+    assert!(sugg(&speller, "portmanto", "portmanteau", 3));
 }
 
 #[test]
@@ -246,29 +246,42 @@ fn suggest_a_lot() {
     let speller = load_speller("en_US");
 
     // REP with spaces
-    assert!(sugg(speller, "alot", "a lot", 3));
+    assert!(sugg(&speller, "alot", "a lot", 3));
 }
 
 #[test]
 fn suggest_related_chars() {
     let speller = load_speller("fr_FR");
 
-    assert!(sugg(speller, "Nereide", "Néréide", 3));
+    assert!(sugg(&speller, "Nereide", "Néréide", 3));
 }
 
 #[test]
 fn suggest_capsed() {
     let speller = load_speller("en_US");
 
-    assert!(sugg(speller, "alberta", "Alberta", 3));
+    assert!(sugg(&speller, "alberta", "Alberta", 3));
 }
 
 #[test]
 fn suggest_delete_char() {
     let speller = load_speller("en_US");
 
-    assert!(sugg(speller, "appearr", "appear", 3));
-    assert!(sugg(speller, "apppear", "appear", 3));
-    assert!(sugg(speller, "aappear", "appear", 3));
-    assert!(sugg(speller, "disapppear", "disappear", 3));
+    assert!(sugg(&speller, "appearr", "appear", 3));
+    assert!(sugg(&speller, "apppear", "appear", 3));
+    assert!(sugg(&speller, "aappear", "appear", 3));
+    assert!(sugg(&speller, "disapppear", "disappear", 3));
+}
+
+#[test]
+fn suggest_swap_char() {
+    let speller = load_speller("en_US");
+
+    assert!(sugg(&speller, "appaer", "appear", 3));
+    assert!(sugg(&speller, "papear", "appear", 3));
+    assert!(sugg(&speller, "appera", "appear", 3));
+
+    // Swaps at greater distance
+    assert!(sugg(&speller, "apreap", "appear", 3));
+    assert!(sugg(&speller, "eppaar", "appear", 3));
 }

@@ -15,7 +15,7 @@ mod wordflags;
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
-    delete_char_suggestions, related_char_suggestions,
+    delete_char_suggestions, related_char_suggestions, swap_char_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -24,6 +24,8 @@ use crate::Speller;
 const MAX_WORD_BREAK_ATTEMPTS: u16 = 1000;
 /// A limit on the effort put into making related-character suggestions
 const MAX_RELATED_CHAR_SUGGESTIONS: u32 = 1000;
+/// A limit on the effort put into making char-swap suggestions
+const MAX_SWAP_CHAR_SUGGESTIONS: u32 = 1000;
 
 /// A speller that loads Hunspell dictionaries
 pub struct SpellerHunspellDict {
@@ -401,6 +403,15 @@ impl Speller for SpellerHunspellDict {
                 suggs.push(sugg.to_string());
             }
             suggs.len() < max
+        });
+
+        let mut count = 0u32;
+        swap_char_suggestions(&word, |sugg| {
+            if self.check_suggestion(&sugg, &word, &suggs) {
+                suggs.push(sugg.to_string());
+            }
+            count += 1;
+            suggs.len() < max && count < MAX_SWAP_CHAR_SUGGESTIONS
         });
 
         suggs
