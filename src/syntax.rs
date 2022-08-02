@@ -146,6 +146,11 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     fold_many0(
         alt((
             delimited(char('\''), quoted_phrase, pair(char('\''), not(word))),
+            delimited(
+                char('\u{2018}'),
+                quoted_phrase,
+                pair(char('\u{2019}'), not(word)),
+            ),
             map(
                 pair(
                     token(TokenType::WordPart, word),
