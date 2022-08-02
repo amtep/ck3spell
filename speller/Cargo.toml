@@ -10,3 +10,10 @@ itertools = "0.10"
 nom = "7"
 smallvec = "1.9"
 unicode_titlecase = "1.1.0"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "suggestions"
+harness = false
