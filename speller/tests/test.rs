@@ -274,6 +274,17 @@ fn suggest_delete_char() {
 }
 
 #[test]
+fn suggest_add_char() {
+    let speller = load_speller("en_US");
+
+    assert!(sugg(&speller, "apear", "appear", 3));
+    assert!(sugg(&speller, "ppear", "appear", 3));
+    assert!(sugg(&speller, "appea", "appear", 3));
+    assert!(sugg(&speller, "disappea", "disappear", 3));
+    assert!(sugg(&speller, "isappear", "disappear", 3));
+}
+
+#[test]
 fn suggest_swap_char() {
     let speller = load_speller("en_US");
 

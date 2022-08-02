@@ -15,7 +15,8 @@ mod wordflags;
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
-    delete_char_suggestions, related_char_suggestions, swap_char_suggestions,
+    add_char_suggestions, delete_char_suggestions, related_char_suggestions,
+    swap_char_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -397,6 +398,9 @@ impl Speller for SpellerHunspellDict {
                 suggs.len() < max && count < MAX_RELATED_CHAR_SUGGESTIONS
             },
         );
+        if suggs.len() == max {
+            return suggs;
+        }
 
         delete_char_suggestions(&word, |sugg| {
             if self.check_suggestion(&sugg, &word, &suggs) {
@@ -404,6 +408,9 @@ impl Speller for SpellerHunspellDict {
             }
             suggs.len() < max
         });
+        if suggs.len() == max {
+            return suggs;
+        }
 
         let mut count = 0u32;
         swap_char_suggestions(&word, |sugg| {
@@ -413,6 +420,18 @@ impl Speller for SpellerHunspellDict {
             count += 1;
             suggs.len() < max && count < MAX_SWAP_CHAR_SUGGESTIONS
         });
+        if suggs.len() == max {
+            return suggs;
+        }
+
+        if let Some(try_chars) = &self.affix_data.try_string {
+            add_char_suggestions(&word, try_chars, |sugg| {
+                if self.check_suggestion(&sugg, &word, &suggs) {
+                    suggs.push(sugg);
+                }
+                suggs.len() < max
+            });
+        }
 
         suggs
     }

@@ -95,3 +95,31 @@ pub fn swap_char_suggestions(
         }
     }
 }
+
+pub fn add_char_suggestions(
+    word: &str,
+    try_chars: &str,
+    mut suggest: impl FnMut(String) -> bool,
+) {
+    // Try them in order; the affix file put them in order of likelihood
+    for tc in try_chars.chars() {
+        // Try the char in front of each char
+        let sugg_len = word.len() + tc.len_utf8();
+        for (i, _) in word.char_indices() {
+            let mut sugg = String::with_capacity(sugg_len);
+            sugg.push_str(&word[..i]);
+            sugg.push(tc);
+            sugg.push_str(&word[i..]);
+            if !suggest(sugg) {
+                return;
+            }
+        }
+        // Also try it at the end
+        let mut sugg = String::with_capacity(word.len() + tc.len_utf8());
+        sugg.push_str(word);
+        sugg.push(tc);
+        if !suggest(sugg) {
+            return;
+        }
+    }
+}
