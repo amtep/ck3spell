@@ -17,3 +17,6 @@ criterion = "0.3"
 [[bench]]
 name = "suggestions"
 harness = false
+
+[profile.bench]
+debug = true
