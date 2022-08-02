@@ -3,7 +3,7 @@ use std::mem::swap;
 pub fn related_char_suggestions(
     related: &[String],
     word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
+    mut suggest: impl FnMut(String) -> bool,
 ) {
     // Try all possible combinations of replacements of related characters.
     // This can result in a huge number of candidates for long words.
@@ -26,7 +26,7 @@ pub fn related_char_suggestions(
                         let mut newcnd: Vec<char> = cnd.clone();
                         newcnd[i] = newc;
                         let newword = newcnd.iter().collect::<String>();
-                        if !suggest(&newword) {
+                        if !suggest(newword) {
                             return;
                         }
                         new_candidates.push(newcnd);

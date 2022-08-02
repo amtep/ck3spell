@@ -255,3 +255,10 @@ fn suggest_related_chars() {
 
     assert!(sugg(speller, "Nereide", "Néréide", 3));
 }
+
+#[test]
+fn suggest_capsed() {
+    let speller = load_speller("en_US");
+
+    assert!(sugg(speller, "alberta", "Alberta", 3));
+}

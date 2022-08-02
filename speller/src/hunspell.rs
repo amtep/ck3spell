@@ -285,7 +285,16 @@ impl SpellerHunspellDict {
         false
     }
 
-    fn check_suggestion(&self, word: &str) -> bool {
+    fn check_suggestion(
+        &self,
+        word: &str,
+        origword: &str,
+        suggs: &Vec<String>,
+    ) -> bool {
+        if word == origword || suggs.iter().any(|w| w == word) {
+            return false;
+        }
+
         if let Some(homonyms) = self.words.get(word) {
             for winfo in homonyms.iter() {
                 if !winfo
@@ -305,7 +314,8 @@ impl SpellerHunspellDict {
 
         // If the suggestion is two words, check both
         if let Some((worda, wordb)) = word.split_once(' ') {
-            self.check_suggestion(worda) && self.check_suggestion(wordb)
+            self.check_suggestion(worda, origword, suggs)
+                && self.check_suggestion(wordb, origword, suggs)
         } else {
             false
         }
@@ -340,12 +350,29 @@ impl Speller for SpellerHunspellDict {
     fn suggestions(&self, word: &str, max: usize) -> Vec<String> {
         let word = self.affix_data.iconv.conv(word.trim());
         let mut suggs = Vec::default();
-        if word.is_empty() {
+        if word.is_empty() || max == 0 {
+            return suggs;
+        }
+
+        // Try lowercased, capitalized, or all caps
+        // TODO: also match mixed case words, such as "ipod" -> "iPod"
+        if self.check_suggestion(&word.to_lowercase(), &word, &suggs) {
+            suggs.push(word.to_lowercase());
+        } else if self.check_suggestion(
+            &word.to_titlecase_lower_rest(),
+            &word,
+            &suggs,
+        ) {
+            suggs.push(word.to_titlecase_lower_rest());
+        } else if self.check_suggestion(&word.to_uppercase(), &word, &suggs) {
+            suggs.push(word.to_uppercase());
+        }
+        if suggs.len() == max {
             return suggs;
         }
 
         self.affix_data.replacements.suggest(&word, |sugg| {
-            if self.check_suggestion(&sugg) {
+            if self.check_suggestion(&sugg, &word, &suggs) {
                 suggs.push(sugg);
             }
             suggs.len() < max
@@ -359,7 +386,7 @@ impl Speller for SpellerHunspellDict {
             &self.affix_data.related_chars,
             &word,
             |sugg| {
-                if self.check_suggestion(sugg) {
+                if self.check_suggestion(&sugg, &word, &suggs) {
                     suggs.push(sugg.to_string());
                 }
                 count += 1;
