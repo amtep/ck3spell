@@ -17,9 +17,9 @@ Because of that need, the localization texts often contain small blocks of code,
 * Can add words to a permanent local dictionary
 
 ## Dependencies
-`ck3spell` uses the `hunspell` library.
+`ck3spell` uses `hunspell` dictionaries but not the `hunspell` library.
 
-On Debian and Ubuntu, you should install the `libhunspell-dev` package, and one or more of its dictionary packages depending on which languages you want to check.
+On Debian and Ubuntu, you should install one or hunspell dictionary packages depending on which languages you want to check.
 
 * English: `hunspell-en-us`
 * German: `hunspell-de-de`
@@ -27,7 +27,13 @@ On Debian and Ubuntu, you should install the `libhunspell-dev` package, and one 
 * French: `hunspell-fr`
 * Russian: `hunspell-ru`
 
+`ck3spell` uses the `GTK-3` library on Linux.
+
+On Debian and Ubuntu, you should install the `libgtk-3-dev` package before compiling `ck3spell`.
+
 ## TODO
+* Improve suggestions for fixing words
+* Improve the compound word detection for German
 * Support Korean and Chinese.
 * Check words that are part text and part code. Such combination words are important for some languages which use bits of code to get the word endings right. (for example 'luchador'/'luchadora' in Spanish).
 * Support installation and dictionary bundling on Windows and Mac.
