@@ -262,3 +262,13 @@ fn suggest_capsed() {
 
     assert!(sugg(speller, "alberta", "Alberta", 3));
 }
+
+#[test]
+fn suggest_delete_char() {
+    let speller = load_speller("en_US");
+
+    assert!(sugg(speller, "appearr", "appear", 3));
+    assert!(sugg(speller, "apppear", "appear", 3));
+    assert!(sugg(speller, "aappear", "appear", 3));
+    assert!(sugg(speller, "disapppear", "disappear", 3));
+}

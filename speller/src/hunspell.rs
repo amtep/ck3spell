@@ -8,13 +8,15 @@ use unicode_titlecase::StrTitleCase;
 
 mod affixdata;
 mod parse_aff;
-mod related_chars;
 mod replacements;
+mod suggestions;
 mod wordflags;
 
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
-use crate::hunspell::related_chars::related_char_suggestions;
+use crate::hunspell::suggestions::{
+    delete_char_suggestions, related_char_suggestions,
+};
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
 
@@ -393,6 +395,14 @@ impl Speller for SpellerHunspellDict {
                 suggs.len() < max && count < MAX_RELATED_CHAR_SUGGESTIONS
             },
         );
+
+        delete_char_suggestions(&word, |sugg| {
+            if self.check_suggestion(&sugg, &word, &suggs) {
+                suggs.push(sugg.to_string());
+            }
+            suggs.len() < max
+        });
+
         suggs
     }
 

@@ -38,3 +38,17 @@ pub fn related_char_suggestions(
         }
     }
 }
+
+pub fn delete_char_suggestions(
+    word: &str,
+    mut suggest: impl FnMut(String) -> bool,
+) {
+    for (i, c) in word.char_indices() {
+        let mut sugg = String::with_capacity(word.len());
+        sugg.push_str(&word[..i]);
+        sugg.push_str(&word[i + c.len_utf8()..]);
+        if !suggest(sugg) {
+            return;
+        }
+    }
+}
