@@ -391,7 +391,7 @@ impl Speller for SpellerHunspellDict {
             &word,
             |sugg| {
                 if self.check_suggestion(&sugg, &word, &suggs) {
-                    suggs.push(sugg.to_string());
+                    suggs.push(sugg);
                 }
                 count += 1;
                 suggs.len() < max && count < MAX_RELATED_CHAR_SUGGESTIONS
@@ -400,7 +400,7 @@ impl Speller for SpellerHunspellDict {
 
         delete_char_suggestions(&word, |sugg| {
             if self.check_suggestion(&sugg, &word, &suggs) {
-                suggs.push(sugg.to_string());
+                suggs.push(sugg);
             }
             suggs.len() < max
         });
@@ -408,7 +408,7 @@ impl Speller for SpellerHunspellDict {
         let mut count = 0u32;
         swap_char_suggestions(&word, |sugg| {
             if self.check_suggestion(&sugg, &word, &suggs) {
-                suggs.push(sugg.to_string());
+                suggs.push(sugg);
             }
             count += 1;
             suggs.len() < max && count < MAX_SWAP_CHAR_SUGGESTIONS
