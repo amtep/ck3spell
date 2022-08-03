@@ -182,11 +182,23 @@ impl AffixData {
     ) -> bool {
         if caps == CapStyle::AllCaps {
             self.rev_suffix_capsed.lookup(word, |i| {
-               self.suffixes[i].check_suffix(word, caps, dict, from_prefix, false)
+                self.suffixes[i].check_suffix(
+                    word,
+                    caps,
+                    dict,
+                    from_prefix,
+                    false,
+                )
             })
         } else {
             self.rev_suffix.lookup(word, |i| {
-               self.suffixes[i].check_suffix(word, caps, dict, from_prefix, false)
+                self.suffixes[i].check_suffix(
+                    word,
+                    caps,
+                    dict,
+                    from_prefix,
+                    false,
+                )
             })
         }
     }
@@ -329,9 +341,15 @@ impl AffixEntry {
                     }
                 }
             }
-            if self.allow_cross 
-                && dict.affix_data.check_suffix(&pword, caps, dict, Some(self.flag)) {
-                    return true;
+            if self.allow_cross
+                && dict.affix_data.check_suffix(
+                    &pword,
+                    caps,
+                    dict,
+                    Some(self.flag),
+                )
+            {
+                return true;
             }
         }
         false
@@ -372,7 +390,10 @@ impl AffixEntry {
                 if let Some(v) = dict.affix_data.rev_cont.get(&self.flag) {
                     for &i in v.iter() {
                         let sfx2 = &dict.affix_data.suffixes[i];
-                        debug_assert!(sfx2.contflags.affix_flags.contains(&self.flag));
+                        debug_assert!(sfx2
+                            .contflags
+                            .affix_flags
+                            .contains(&self.flag));
                         if sfx2.check_suffix(&sword, caps, dict, None, true) {
                             return true;
                         }

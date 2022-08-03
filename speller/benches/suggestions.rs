@@ -7,7 +7,10 @@ use speller::{Speller, SpellerHunspellDict};
 fn load_speller(name: &str) -> impl Speller {
     // Relative path of the files depends on whether we are called by
     // cargo bench or cargo flamegraph
-    println!("Current directory: {}", Path::new(".").canonicalize().unwrap().display());
+    println!(
+        "Current directory: {}",
+        Path::new(".").canonicalize().unwrap().display()
+    );
     for dir in ["benches/files", "speller/benches/files"].iter() {
         let dictpath = PathBuf::from(&format!("{}/{}.dic", dir, name));
         let affpath = PathBuf::from(&format!("{}/{}.aff", dir, name));
@@ -20,7 +23,9 @@ fn load_speller(name: &str) -> impl Speller {
             continue;
         }
         match SpellerHunspellDict::new(&dictpath, &affpath) {
-            Ok(dict) => { return dict; }
+            Ok(dict) => {
+                return dict;
+            }
             Err(e) => eprintln!("{:#}", e.to_string()),
         }
     }

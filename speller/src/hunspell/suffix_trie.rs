@@ -16,8 +16,8 @@ impl<T: Copy + Default> SuffixTrie<T> {
         let mut pos = sufb.len();
         loop {
             if pos == 0 {
-               ptr.end_here.push(t);
-               break;
+                ptr.end_here.push(t);
+                break;
             }
             pos -= 1;
             if ptr.more.is_empty() {
