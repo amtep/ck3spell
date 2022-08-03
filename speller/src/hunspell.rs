@@ -9,6 +9,7 @@ use unicode_titlecase::StrTitleCase;
 mod affixdata;
 mod parse_aff;
 mod replacements;
+mod suffix_trie;
 mod suggestions;
 mod wordflags;
 
