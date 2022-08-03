@@ -83,6 +83,10 @@ pub struct AffixData {
     pub fullstrip: bool,
     /// Not sure what this does. Used by German.
     pub check_sharps: bool,
+
+    /// Cache. Maps affix flags to the affix entries that have that flag
+    /// as a continuation flag.
+    rev_cont: HashMap<AffixFlag, Vec<usize>>,
 }
 
 impl AffixData {
@@ -120,6 +124,15 @@ impl AffixData {
         }
     }
 
+    fn recalc_rev_cont(&mut self) {
+        self.rev_cont.clear();
+        for (i, sfx1) in self.suffixes.iter().enumerate() {
+            for af in sfx1.contflags.affix_flags.iter() {
+                self.rev_cont.entry(*af).or_default().push(i);
+            }
+        }
+    }
+
     pub fn finalize(&mut self) {
         for pfx in self.prefixes.iter_mut() {
             pfx.finalize(&self.special_flags);
@@ -127,6 +140,7 @@ impl AffixData {
         for sfx in self.suffixes.iter_mut() {
             sfx.finalize(&self.special_flags);
         }
+        self.recalc_rev_cont();
     }
 }
 
@@ -313,13 +327,16 @@ impl AffixEntry {
                     }
                 }
             }
-            // Check if this suffix may be a continuation of another
+            // Check if this suffix may be a continuation of another.
+            // Requires the rev_cont cache to be up to date.
             if !from_suffix {
-                for sfx2 in dict.affix_data.suffixes.iter() {
-                    if sfx2.contflags.affix_flags.contains(&self.flag)
-                        && sfx2.check_suffix(&sword, caps, dict, None, true)
-                    {
-                        return true;
+                if let Some(v) = dict.affix_data.rev_cont.get(&self.flag) {
+                    for &i in v.iter() {
+                        let sfx2 = &dict.affix_data.suffixes[i];
+                        debug_assert!(sfx2.contflags.affix_flags.contains(&self.flag));
+                        if sfx2.check_suffix(&sword, caps, dict, None, true) {
+                            return true;
+                        }
                     }
                 }
             }
