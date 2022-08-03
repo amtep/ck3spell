@@ -178,14 +178,15 @@ impl AffixData {
         word: &str,
         caps: CapStyle,
         dict: &SpellerHunspellDict,
+        from_prefix: Option<AffixFlag>,
     ) -> bool {
         if caps == CapStyle::AllCaps {
             self.rev_suffix_capsed.lookup(word, |i| {
-               self.suffixes[i].check_suffix(word, caps, dict, None, false)
+               self.suffixes[i].check_suffix(word, caps, dict, from_prefix, false)
             })
         } else {
             self.rev_suffix.lookup(word, |i| {
-               self.suffixes[i].check_suffix(word, caps, dict, None, false)
+               self.suffixes[i].check_suffix(word, caps, dict, from_prefix, false)
             })
         }
     }
@@ -328,22 +329,9 @@ impl AffixEntry {
                     }
                 }
             }
-            if self.allow_cross {
-                for sfx in dict.affix_data.suffixes.iter() {
-                    // Pass our own flag, because we should only cross
-                    // with suffixes on words that have us as a prefix.
-                    if sfx.allow_cross
-                        && sfx.check_suffix(
-                            &pword,
-                            caps,
-                            dict,
-                            Some(self.flag),
-                            false,
-                        )
-                    {
-                        return true;
-                    }
-                }
+            if self.allow_cross 
+                && dict.affix_data.check_suffix(&pword, caps, dict, Some(self.flag)) {
+                    return true;
             }
         }
         false
@@ -357,6 +345,10 @@ impl AffixEntry {
         from_prefix: Option<AffixFlag>,
         from_suffix: bool,
     ) -> bool {
+        if from_prefix.is_some() && !self.allow_cross {
+            return false;
+        }
+
         if let Some(sword) = self.desuffixed_word(word, caps, dict) {
             if let Some(homonyms) = dict.words.get(&sword) {
                 for winfo in homonyms.iter() {
