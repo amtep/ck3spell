@@ -34,6 +34,7 @@ enum AffixLine<'a> {
     AddOconv((&'a str, &'a str)),
     AddCompoundRule(&'a str),
     AddRelatedChars(&'a str),
+    ClearBreakTable,
     AddWordBreaks(&'a str),
     AddRep((&'a str, &'a str)),
     SetFullstrip,
@@ -204,7 +205,13 @@ fn add_related_chars(s: &str) -> IResult<&str, AffixLine> {
 }
 
 fn add_word_breaks(s: &str) -> IResult<&str, AffixLine> {
-    table_line("BREAK", value_string, AffixLine::AddWordBreaks)(s)
+    map(
+        table_line("BREAK", value_string, AffixLine::AddWordBreaks),
+        |al| match al {
+            AffixLine::Empty => AffixLine::ClearBreakTable,
+            _ => al,
+        },
+    )(s)
 }
 
 fn add_rep(s: &str) -> IResult<&str, AffixLine> {
@@ -310,7 +317,12 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
 
     let mut d = AffixData::new();
     let mut allow_cross = false;
-    let mut saw_word_breaks = false;
+
+    // default break table
+    d.word_breaks.push("-".to_string());
+    d.word_breaks.push("^-".to_string());
+    d.word_breaks.push("-$".to_string());
+
     for l in s.lines() {
         let (_, afline) = full_line
             .parse(l)
@@ -352,8 +364,8 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
             AffixLine::AddRelatedChars(v) => {
                 d.related_chars.push(v.to_string());
             }
+            AffixLine::ClearBreakTable => d.word_breaks.clear(),
             AffixLine::AddWordBreaks(v) => {
-                saw_word_breaks = true;
                 d.word_breaks.push(v.to_string());
             }
             AffixLine::AddRep((f, t)) => {
@@ -389,12 +401,6 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                 }
             }
         };
-    }
-    if !saw_word_breaks {
-        // default break table
-        d.word_breaks.push("-".to_string());
-        d.word_breaks.push("^-".to_string());
-        d.word_breaks.push("-$".to_string());
     }
     d.finalize();
     Ok(d)
