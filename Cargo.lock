@@ -1490,6 +1490,7 @@ dependencies = [
  "itertools",
  "nom",
  "smallvec",
+ "unicode-casing",
  "unicode_titlecase",
 ]
 
@@ -1773,6 +1774,12 @@ checksum = "96bd2f2237fe450fcd0a1d2f5f4e91711124f7857ba2e964247776ebeeb7b0c4"
 dependencies = [
  "unic-common",
 ]
+
+[[package]]
+name = "unicode-casing"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "623f59e6af2a98bdafeb93fa277ac8e1e40440973001ca15cf4ae1541cd16d56"
 
 [[package]]
 name = "unicode-ident"

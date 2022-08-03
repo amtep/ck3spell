@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use unicode_casing::CharExt;
 use unicode_titlecase::StrTitleCase;
 
 mod affixdata;
@@ -60,27 +61,54 @@ pub enum CapStyle {
     Lowercase,
     Capitalized,
     AllCaps,
-    MixedCase,
+    Mixed,
     Neutral,
 }
 
 impl CapStyle {
     fn from_str(word: &str) -> Self {
-        let lcase = word == word.to_lowercase();
-        let ucase = word == word.to_uppercase();
-        if lcase && ucase {
-            CapStyle::Neutral
-        } else if lcase {
+        let mut iter = word.chars();
+        let c1 = match iter.next() {
+            Some(c1) => c1,
+            None => {
+                return CapStyle::Neutral;
+            }
+        };
+        if c1.is_lowercase() {
+            for c in iter {
+                if c.is_uppercase() || c.is_titlecase() {
+                    return CapStyle::Mixed;
+                }
+            }
             CapStyle::Lowercase
-        } else if ucase {
-            CapStyle::AllCaps
-        } else {
-            for c in word.chars().skip(1) {
-                if c.is_uppercase() {
-                    return CapStyle::MixedCase;
+        } else if c1.is_uppercase() {
+            let mut seen_ucase = false;
+            let mut seen_lcase = false;
+            for c in iter {
+                if c.is_lowercase() {
+                    seen_lcase = true;
+                } else if c.is_uppercase() {
+                    seen_ucase = true;
+                } else if c.is_titlecase() {
+                    return CapStyle::Mixed;
+                }
+            }
+            if seen_ucase && seen_lcase {
+                CapStyle::Mixed
+            } else if seen_lcase {
+                CapStyle::Capitalized
+            } else {
+                CapStyle::AllCaps
+            }
+        } else if c1.is_titlecase() {
+            for c in iter {
+                if c.is_uppercase() || c.is_titlecase() {
+                    return CapStyle::Mixed;
                 }
             }
             CapStyle::Capitalized
+        } else {
+            CapStyle::from_str(&word[c1.len_utf8()..])
         }
     }
 }
@@ -439,7 +467,7 @@ impl Speller for SpellerHunspellDict {
                 self._add_word(word.to_uppercase(), false);
                 self._add_word(word.to_titlecase(), false);
             }
-            CapStyle::Capitalized | CapStyle::MixedCase => {
+            CapStyle::Capitalized | CapStyle::Mixed => {
                 self._add_word(word.to_uppercase(), false);
             }
             _ => (),
