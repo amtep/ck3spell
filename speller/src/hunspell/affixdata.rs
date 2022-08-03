@@ -84,9 +84,13 @@ pub struct AffixData {
     /// Not sure what this does. Used by German.
     pub check_sharps: bool,
 
-    /// Cache. Maps affix flags to the affix entries that have that flag
+    /// Cache. Maps affix flags to the suffix entries that have that flag
     /// as a continuation flag.
     rev_cont: HashMap<AffixFlag, Vec<usize>>,
+
+    /// Cache. Maps suffixes to the suffix entries that add that suffix.
+    /// It also contains all-capsed versions of the suffix.
+    rev_suffix: Vec<(String, Vec<usize>)>,
 }
 
 impl AffixData {
@@ -126,10 +130,28 @@ impl AffixData {
 
     fn recalc_rev_cont(&mut self) {
         self.rev_cont.clear();
-        for (i, sfx1) in self.suffixes.iter().enumerate() {
-            for af in sfx1.contflags.affix_flags.iter() {
+        for (i, sfx) in self.suffixes.iter().enumerate() {
+            for af in sfx.contflags.affix_flags.iter() {
                 self.rev_cont.entry(*af).or_default().push(i);
             }
+        }
+    }
+
+    fn _insert_rev_suffix(rev: &mut Vec<(String, Vec<usize>)>, i: usize, affix: &str) {
+        for (aff, v) in rev.iter_mut() {
+            if affix == aff {
+                v.push(i);
+                return;
+            }
+        }
+        rev.push((affix.to_string(), vec![i]));
+    }
+
+    fn recalc_rev_suffix(&mut self) {
+        self.rev_suffix.clear();
+        for (i, sfx) in self.suffixes.iter().enumerate() {
+            Self::_insert_rev_suffix(&mut self.rev_suffix, i, &sfx.affix);
+            Self::_insert_rev_suffix(&mut self.rev_suffix, i, &sfx.capsed_affix);
         }
     }
 
@@ -141,6 +163,51 @@ impl AffixData {
             sfx.finalize(&self.special_flags);
         }
         self.recalc_rev_cont();
+        self.recalc_rev_suffix();
+    }
+
+    pub fn check_prefix(
+        &self,
+        word: &str,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+    ) -> bool {
+        for pfx in self.prefixes.iter() {
+            if pfx.check_prefix(word, caps, dict) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn _suffix_stripped<'a>(&self, word: &'a str, suffix: &str, fullstrip: bool) -> Option<&'a str> {
+        if let Some(root) = word.strip_suffix(suffix) {
+            if fullstrip || !root.is_empty() {
+                return Some(root);
+            }
+        }
+        None
+    }
+
+    pub fn check_suffix(
+        &self,
+        word: &str,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+    ) -> bool {
+        let fullstrip = dict.affix_data.fullstrip;
+        for (aff, v) in self.rev_suffix.iter() {
+             if let Some(root) = self._suffix_stripped(word, aff, fullstrip) {
+                 for &i in v.iter() {
+                     let sfx = &self.suffixes[i];
+                     debug_assert!(sfx.affix == *aff || sfx.capsed_affix == *aff);
+                     if sfx.check_suffix_root(root, caps, dict) {
+                         return true;
+                     }
+                 }
+             }
+        }
+        false
     }
 }
 
@@ -302,6 +369,48 @@ impl AffixEntry {
         false
     }
 
+    // This function receives a word that has already had this entry's suffix
+    // stripped and replaced.
+    pub fn _check_desuffixed(
+        &self,
+        sword: &str,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+        from_prefix: Option<AffixFlag>,
+        from_suffix: bool,
+    ) -> bool {
+        if let Some(homonyms) = dict.words.get(sword) {
+            for winfo in homonyms.iter() {
+                if let Some(flag) = from_prefix {
+                    if !winfo.has_affix_flag(flag) {
+                        continue;
+                    }
+                }
+                if winfo.has_affix_flag(self.flag)
+                    && !winfo.word_flags.intersects(
+                        WordFlags::Forbidden | WordFlags::OnlyInCompound,
+                    )
+                {
+                    return true;
+                }
+            }
+        }
+        // Check if this suffix may be a continuation of another.
+        // Requires the rev_cont cache to be up to date.
+        if !from_suffix {
+            if let Some(v) = dict.affix_data.rev_cont.get(&self.flag) {
+                for &i in v.iter() {
+                    let sfx2 = &dict.affix_data.suffixes[i];
+                    debug_assert!(sfx2.contflags.affix_flags.contains(&self.flag));
+                    if sfx2.check_suffix(&sword, caps, dict, None, true) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
     pub fn check_suffix(
         &self,
         word: &str,
@@ -311,35 +420,22 @@ impl AffixEntry {
         from_suffix: bool,
     ) -> bool {
         if let Some(sword) = self.desuffixed_word(word, caps, dict) {
-            if let Some(homonyms) = dict.words.get(&sword) {
-                for winfo in homonyms.iter() {
-                    if let Some(flag) = from_prefix {
-                        if !winfo.has_affix_flag(flag) {
-                            continue;
-                        }
-                    }
-                    if winfo.has_affix_flag(self.flag)
-                        && !winfo.word_flags.intersects(
-                            WordFlags::Forbidden | WordFlags::OnlyInCompound,
-                        )
-                    {
-                        return true;
-                    }
-                }
-            }
-            // Check if this suffix may be a continuation of another.
-            // Requires the rev_cont cache to be up to date.
-            if !from_suffix {
-                if let Some(v) = dict.affix_data.rev_cont.get(&self.flag) {
-                    for &i in v.iter() {
-                        let sfx2 = &dict.affix_data.suffixes[i];
-                        debug_assert!(sfx2.contflags.affix_flags.contains(&self.flag));
-                        if sfx2.check_suffix(&sword, caps, dict, None, true) {
-                            return true;
-                        }
-                    }
-                }
-            }
+            return self._check_desuffixed(&sword, caps, dict, from_prefix, from_suffix);
+        }
+        false
+    }
+
+    // Special interface for AffixData::check_suffix, which strips the suffix
+    // as part of its optimized lookup.
+    pub fn check_suffix_root(
+        &self,
+        root: &str,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+    ) -> bool {
+        let sword = root.to_string() + &self.strip;
+        if self._suffix_condition(&sword) {
+            return self._check_desuffixed(&sword, caps, dict, None, false);
         }
         false
     }

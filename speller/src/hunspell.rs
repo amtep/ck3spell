@@ -232,17 +232,8 @@ impl SpellerHunspellDict {
                 }
             }
         }
-        for pfx in self.affix_data.prefixes.iter() {
-            if pfx.check_prefix(word, caps, self) {
-                return true;
-            }
-        }
-        for sfx in self.affix_data.suffixes.iter() {
-            if sfx.check_suffix(word, caps, self, None, false) {
-                return true;
-            }
-        }
-        false
+        self.affix_data.check_prefix(word, caps, self)
+         || self.affix_data.check_suffix(word, caps, self)
     }
 
     // Check a word against the dictionary and try word breaks and affixes
