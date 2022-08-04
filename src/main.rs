@@ -1,8 +1,9 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::{AppLauncher, Color, Key, Lens, WindowDesc};
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Write;
@@ -27,8 +28,9 @@ use crate::ui::ui_builder;
 
 #[derive(Parser)]
 struct Cli {
-    /// File to spell check.
-    pathname: PathBuf,
+    /// Files to spell check.
+    #[clap(required(true))]
+    pathnames: Vec<PathBuf>,
     /// Dictionary for accepted words.
     #[clap(short, long)]
     local_dict: Option<PathBuf>,
@@ -118,31 +120,61 @@ pub struct Suggestion {
 }
 
 #[derive(Clone, Data, Lens)]
-pub struct AppState {
+pub struct FileState {
     /// File to spell check.
     pathname: Rc<PathBuf>,
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
-    cursor: Cursor,
-    suggestions: Arc<Vec<Suggestion>>,
-    editing_linenr: usize, // 1-based
-    editing_text: Arc<String>,
-    /// Handle to the hunspell library object. Should be in Env but can't.
     hunspell: Rc<Hunspell>,
 }
 
-impl AppState {
+impl FileState {
     fn new(pathname: &Path, contents: &str, hunspell: Rc<Hunspell>) -> Self {
         let filename = if let Some(name) = pathname.file_name() {
             name.to_string_lossy().to_string()
         } else {
             "".to_string()
         };
-        AppState {
+        FileState {
             pathname: Rc::new(pathname.to_path_buf()),
             filename: Rc::new(filename),
             lines: Arc::new(split_lines(contents, &hunspell.clone())),
+            hunspell,
+        }
+    }
+
+    fn save(&self) -> Result<()> {
+        let mut file = File::create(&*self.pathname).with_context(|| {
+            format!("Could not write to {}", self.pathname.display())
+        })?;
+        file.write_all("\u{FEFF}".as_bytes())?; // Unicode BOM
+        for lineinfo in self.lines.iter() {
+            file.write_all(lineinfo.line.line.as_bytes())?;
+            file.write_all(lineinfo.line.line_end.to_str().as_bytes())?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Data, Lens)]
+pub struct AppState {
+    /// Currently shown and edited file.
+    file: FileState,
+    files: Rc<Vec<FileState>>,
+    file_idx: usize, // 0-based
+    cursor: Cursor,
+    suggestions: Arc<Vec<Suggestion>>,
+    editing_linenr: usize, // 1-based
+    editing_text: Arc<String>,
+}
+
+impl AppState {
+    fn new(files: Rc<Vec<FileState>>) -> Self {
+        AppState {
+            file: files[0].clone(),
+            files: files.clone(),
+            file_idx: 0,
             cursor: Cursor {
                 linenr: 1,
                 wordnr: 0,
@@ -150,7 +182,6 @@ impl AppState {
             suggestions: Arc::new(Vec::new()),
             editing_linenr: 0,
             editing_text: Arc::new(String::new()),
-            hunspell,
         }
     }
 
@@ -162,7 +193,7 @@ impl AppState {
             cursor.wordnr = 0;
             while cursor.linenr > 1 {
                 cursor.linenr -= 1;
-                let nwords = self.lines[cursor.linenr - 1].bad_words.len();
+                let nwords = self.file.lines[cursor.linenr - 1].bad_words.len();
                 if nwords > 0 {
                     cursor.wordnr = nwords;
                     break;
@@ -175,15 +206,15 @@ impl AppState {
 
     fn cursor_next(&mut self) {
         let mut cursor = self.cursor;
-        let nwords = self.lines[cursor.linenr - 1].bad_words.len();
-        let nlines = self.lines.len();
+        let nwords = self.file.lines[cursor.linenr - 1].bad_words.len();
+        let nlines = self.file.lines.len();
         if cursor.wordnr < nwords {
             cursor.wordnr += 1;
         } else {
             cursor.wordnr = 0;
             while cursor.linenr < nlines {
                 cursor.linenr += 1;
-                let nwords = self.lines[cursor.linenr - 1].bad_words.len();
+                let nwords = self.file.lines[cursor.linenr - 1].bad_words.len();
                 if nwords > 0 {
                     cursor.wordnr = 1;
                     break;
@@ -198,11 +229,14 @@ impl AppState {
         if self.cursor.wordnr == 0 {
             return None;
         }
-        if let Some(range) = self.lines[self.cursor.linenr - 1]
+        if let Some(range) = self.file.lines[self.cursor.linenr - 1]
             .bad_words
             .get(self.cursor.wordnr - 1)
         {
-            Some(&self.lines[self.cursor.linenr - 1].line.line[range.clone()])
+            Some(
+                &self.file.lines[self.cursor.linenr - 1].line.line
+                    [range.clone()],
+            )
         } else {
             None
         }
@@ -223,15 +257,16 @@ impl AppState {
     fn update_suggestions(&mut self) {
         self.suggestions = if let Some(word) = self.cursor_word() {
             Arc::new(
-                self.hunspell
+                self.file
+                    .hunspell
                     .suggestions(word)
                     .iter()
+                    .take(9)
                     .enumerate()
                     .map(|(i, s)| Suggestion {
                         suggestion_nr: i + 1,
                         suggestion: s.clone(),
                     })
-                    .take(9)
                     .collect(),
             )
         } else {
@@ -240,22 +275,17 @@ impl AppState {
     }
 
     fn save_file(&self) -> Result<()> {
-        let mut file = File::create(&*self.pathname).with_context(|| {
-            format!("Could not write to {}", self.pathname.display())
-        })?;
-        file.write_all("\u{FEFF}".as_bytes())?; // Unicode BOM
-        for lineinfo in self.lines.iter() {
-            file.write_all(lineinfo.line.line.as_bytes())?;
-            file.write_all(lineinfo.line.line_end.to_str().as_bytes())?;
-        }
-        Ok(())
+        self.file.save()
     }
 
     fn change_line(&mut self, linenr: usize, f: impl Fn(&mut LineInfo)) {
-        let mut lines = (*self.lines).clone();
+        let mut files = (*self.files).clone();
+        let mut lines = (*files[self.file_idx].lines).clone();
         if let Some(lineinfo) = lines.get_mut(linenr - 1) {
             f(lineinfo);
-            self.lines = Arc::new(lines);
+            files[self.file_idx].lines = Arc::new(lines);
+            self.files = Rc::new(files);
+            self.file = self.files[self.file_idx].clone();
         }
     }
 }
@@ -360,30 +390,59 @@ fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<LineInfo> {
     lines
 }
 
-fn main() -> Result<()> {
-    let args = Cli::parse();
-
+fn load_file(
+    pathname: &Path,
+    local_dict: Option<&PathBuf>,
+    hunspell_dicts: &mut HashMap<String, Rc<Hunspell>>,
+) -> Result<FileState> {
     let mut contents =
-        std::fs::read_to_string(&args.pathname).with_context(|| {
-            format!("Could not read file {}", args.pathname.display())
+        std::fs::read_to_string(pathname).with_context(|| {
+            format!("Could not read file {}", pathname.display())
         })?;
     if contents.starts_with('\u{feff}') {
         contents.remove(0); // Remove BOM
     }
 
-    let locale = locale_from_filename(&args.pathname)?;
-    eprintln!("Using locale {}", locale);
-    let dictpath = Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
-    let mut hunspell = Hunspell::new(Path::new(dictpath), locale)?;
-    if let Some(local_dict) = args.local_dict {
-        eprint!("Using local dictionary {} ...", local_dict.display());
-        let added = hunspell.set_user_dict(&local_dict)?;
-        eprintln!("loaded {} words", added);
+    let locale = locale_from_filename(pathname)?;
+    let hunspell = if hunspell_dicts.contains_key(locale) {
+        hunspell_dicts[locale].clone()
+    } else {
+        eprintln!("Using locale {}", locale);
+        let dictpath =
+            Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
+        let mut hunspell = Hunspell::new(Path::new(dictpath), locale)?;
+        if let Some(local_dict) = local_dict {
+            eprint!("Using local dictionary {} ...", local_dict.display());
+            let added = hunspell.set_user_dict(&local_dict)?;
+            eprintln!("loaded {} words", added);
+        }
+        let hunspell = Rc::new(hunspell);
+        hunspell_dicts.insert(locale.to_string(), hunspell.clone());
+        hunspell
+    };
+
+    Ok(FileState::new(pathname, &contents, hunspell))
+}
+
+fn main() -> Result<()> {
+    let args = Cli::parse();
+    let mut hunspell_dicts = HashMap::new();
+    let mut files = Vec::new();
+
+    for pathname in args.pathnames.iter() {
+        match load_file(pathname, args.local_dict.as_ref(), &mut hunspell_dicts)
+        {
+            Ok(file) => files.push(file),
+            Err(err) => eprintln!("{:#}", err),
+        }
+    }
+    if files.is_empty() {
+        bail!("No files could be spellchecked.");
     }
 
-    let data = AppState::new(&args.pathname, &contents, Rc::new(hunspell));
+    let data = AppState::new(Rc::new(files));
     let main_window = WindowDesc::new(ui_builder())
-        .title(WINDOW_TITLE.to_owned() + " " + data.filename.as_ref())
+        .title(WINDOW_TITLE.to_owned() + " " + data.file.filename.as_ref())
         .window_size((1000.0, 500.0));
     AppLauncher::with_window(main_window)
         .log_to_console()

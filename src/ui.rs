@@ -16,7 +16,7 @@ use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
 use crate::linescroller::LineScroller;
 use crate::syntaxhighlighter::SyntaxHighlighter;
-use crate::{AppState, LineInfo, Suggestion};
+use crate::{AppState, FileState, LineInfo, Suggestion};
 
 fn make_line_item() -> impl Widget<LineInfo> {
     let linenr =
@@ -62,8 +62,8 @@ fn buttons_builder() -> impl Widget<AppState> {
     let accept = Button::new("Accept word")
         .on_click(|ctx, data: &mut AppState, _| {
             if let Some(cursor_word) = data.cursor_word() {
-                data.hunspell.add_word(cursor_word);
-                data.hunspell.add_word_user_dict(cursor_word);
+                data.file.hunspell.add_word(cursor_word);
+                data.file.hunspell.add_word_user_dict(cursor_word);
                 ctx.submit_command(DICTIONARY_UPDATED);
             }
         })
@@ -72,7 +72,10 @@ fn buttons_builder() -> impl Widget<AppState> {
         Button::new("Edit line").on_click(|_, data: &mut AppState, _| {
             data.editing_linenr = data.cursor.linenr;
             data.editing_text = Arc::new(
-                data.lines[data.cursor.linenr - 1].line.line.to_string(),
+                data.file.lines[data.cursor.linenr - 1]
+                    .line
+                    .line
+                    .to_string(),
             );
         });
     let save =
@@ -130,7 +133,9 @@ fn lower_box_builder() -> impl Widget<AppState> {
 }
 
 pub fn ui_builder() -> impl Widget<AppState> {
-    let lines = LineList::new(make_line_item).lens(AppState::lines);
+    let lines = LineList::new(make_line_item)
+        .lens(FileState::lines)
+        .lens(AppState::file);
     let display = LineScroller::new(lines);
     let word = Label::dynamic(|data: &AppState, _| {
         if let Some(cursor_word) = data.cursor_word() {
