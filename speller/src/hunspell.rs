@@ -249,6 +249,21 @@ impl SpellerHunspellDict {
         false
     }
 
+    fn is_forbidden_or_nosuggest(&self, word: &str) -> bool {
+        if let Some(homonyms) = self.words.get(word) {
+            for winfo in homonyms.iter() {
+                if !winfo
+                    .word_flags
+                    .intersects(WordFlags::Forbidden | WordFlags::NoSuggest)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        false
+    }
+
     /// Check a word against the dictionary and try affix combinations
     fn _spellcheck_affixes(&self, word: &str, caps: CapStyle) -> bool {
         if let Some(homonyms) = self.words.get(word) {
@@ -321,15 +336,8 @@ impl SpellerHunspellDict {
             return false;
         }
 
-        if let Some(homonyms) = self.words.get(word) {
-            for winfo in homonyms.iter() {
-                if !winfo
-                    .word_flags
-                    .intersects(WordFlags::Forbidden | WordFlags::NoSuggest)
-                {
-                    return true;
-                }
-            }
+        if self.is_forbidden_or_nosuggest(word) {
+            return false;
         }
 
         let caps = CapStyle::from_str(word);

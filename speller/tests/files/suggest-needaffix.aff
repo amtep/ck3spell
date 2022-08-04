@@ -1,0 +1,6 @@
+NEEDAFFIX a
+NOSUGGEST s
+
+PFX b Y 1
+PFX b 0 a .
+

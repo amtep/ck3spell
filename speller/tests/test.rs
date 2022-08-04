@@ -296,3 +296,15 @@ fn suggest_swap_char() {
     assert!(sugg(&speller, "apreap", "appear", 3));
     assert!(sugg(&speller, "eppaar", "appear", 3));
 }
+
+#[test]
+fn suggest_needaffix() {
+    let speller = load_speller("suggest-needaffix");
+
+    assert!(speller.spellcheck("atypical"));
+    assert!(!speller.spellcheck("typical"));
+
+    assert!(sugg(&speller, "attypical", "atypical", 3));
+    assert!(!sugg(&speller, "typicall", "typical", 3));
+    assert!(!sugg(&speller, "attypical", "typical", 3));
+}
