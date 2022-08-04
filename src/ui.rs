@@ -10,13 +10,49 @@ use std::sync::Arc;
 
 use crate::appcontroller::AppController;
 use crate::commands::{
-    APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED, GOTO_LINE,
+    APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED, FILE_CHANGED,
+    GOTO_LINE,
 };
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
 use crate::linescroller::LineScroller;
 use crate::syntaxhighlighter::SyntaxHighlighter;
-use crate::{AppState, LineInfo, Suggestion};
+use crate::{AppState, FileState, LineInfo, Suggestion};
+
+fn make_file_header() -> impl Widget<AppState> {
+    let prev = Button::new("Prev")
+        .on_click(|ctx, data: &mut AppState, _| {
+            data.file_prev();
+            ctx.submit_command(FILE_CHANGED);
+        })
+        .disabled_if(|data: &AppState, _| data.file_idx == 0);
+    let next = Button::new("Next")
+        .on_click(|ctx, data: &mut AppState, _| {
+            data.file_next();
+            ctx.submit_command(FILE_CHANGED);
+        })
+        .disabled_if(|data: &AppState, _| {
+            data.file_idx == data.files.len() - 1
+        });
+    let file_label = Label::dynamic(|data: &AppState, _| {
+        format!(
+            "{} ({} {})",
+            data.file.filename,
+            data.files.len(),
+            if data.files.len() == 1 {
+                "file"
+            } else {
+                "files"
+            }
+        )
+    });
+    Flex::row()
+        .with_child(prev)
+        .with_default_spacer()
+        .with_child(next)
+        .with_default_spacer()
+        .with_flex_child(file_label, 1.0)
+}
 
 fn make_line_item() -> impl Widget<LineInfo> {
     let linenr =
@@ -62,8 +98,8 @@ fn buttons_builder() -> impl Widget<AppState> {
     let accept = Button::new("Accept word")
         .on_click(|ctx, data: &mut AppState, _| {
             if let Some(cursor_word) = data.cursor_word() {
-                data.hunspell.add_word(cursor_word);
-                data.hunspell.add_word_user_dict(cursor_word);
+                data.file.hunspell.add_word(cursor_word);
+                data.file.hunspell.add_word_user_dict(cursor_word);
                 ctx.submit_command(DICTIONARY_UPDATED);
             }
         })
@@ -72,20 +108,27 @@ fn buttons_builder() -> impl Widget<AppState> {
         Button::new("Edit line").on_click(|_, data: &mut AppState, _| {
             data.editing_linenr = data.cursor.linenr;
             data.editing_text = Arc::new(
-                data.lines[data.cursor.linenr - 1].line.line.to_string(),
+                data.file.lines[data.cursor.linenr - 1]
+                    .line
+                    .line
+                    .to_string(),
             );
         });
-    let save =
-        Button::new("Save and Exit").on_click(|ctx, data: &mut AppState, _| {
+    let save = Button::new("Save and Close").on_click(
+        |ctx, data: &mut AppState, _| {
             if let Err(err) =
                 data.save_file().with_context(|| "Could not save file")
             {
                 eprintln!("{:#}", err);
             }
-            ctx.submit_command(QUIT_APP);
-        });
-    let quit = Button::new("Quit without Saving")
-        .on_click(|ctx, _, _| ctx.submit_command(QUIT_APP));
+            if data.files.len() == 1 {
+                ctx.submit_command(QUIT_APP);
+            } else {
+                data.drop_file();
+                ctx.submit_command(FILE_CHANGED);
+            }
+        },
+    );
     Flex::row()
         .with_child(prev)
         .with_default_spacer()
@@ -96,8 +139,6 @@ fn buttons_builder() -> impl Widget<AppState> {
         .with_child(edit)
         .with_default_spacer()
         .with_child(save)
-        .with_default_spacer()
-        .with_child(quit)
 }
 
 fn make_suggestion() -> impl Widget<Suggestion> {
@@ -130,7 +171,10 @@ fn lower_box_builder() -> impl Widget<AppState> {
 }
 
 pub fn ui_builder() -> impl Widget<AppState> {
-    let lines = LineList::new(make_line_item).lens(AppState::lines);
+    let file_header = make_file_header().border(Color::WHITE, 2.0);
+    let lines = LineList::new(make_line_item)
+        .lens(FileState::lines)
+        .lens(AppState::file);
     let display = LineScroller::new(lines);
     let word = Label::dynamic(|data: &AppState, _| {
         if let Some(cursor_word) = data.cursor_word() {
@@ -146,6 +190,8 @@ pub fn ui_builder() -> impl Widget<AppState> {
         .with_child(buttons_builder())
         .with_default_spacer();
     Flex::column()
+        .with_child(file_header)
+        .with_spacer(2.0)
         .with_flex_child(display.border(Color::WHITE, 2.0), 1.0)
         .with_spacer(2.0)
         .with_child(buttons_row)
