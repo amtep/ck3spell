@@ -17,10 +17,7 @@ impl<W: Widget<AppState>> LineScroller<W> {
     pub fn new(child: W) -> LineScroller<W> {
         LineScroller {
             scroll: WidgetPod::new(Scroll::new(child).vertical()),
-            old_cursor: Cursor {
-                linenr: 1,
-                wordnr: 0,
-            },
+            old_cursor: Cursor::default(),
         }
     }
 }

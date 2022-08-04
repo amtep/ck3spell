@@ -113,6 +113,15 @@ pub struct Cursor {
     wordnr: usize,
 }
 
+impl Default for Cursor {
+    fn default() -> Cursor {
+        Cursor {
+            linenr: 1,
+            wordnr: 0,
+        }
+    }
+}
+
 #[derive(Clone, Data)]
 pub struct Suggestion {
     suggestion_nr: usize, // 1-based
@@ -175,14 +184,35 @@ impl AppState {
             file: files[0].clone(),
             files: files.clone(),
             file_idx: 0,
-            cursor: Cursor {
-                linenr: 1,
-                wordnr: 0,
-            },
+            cursor: Cursor::default(),
             suggestions: Arc::new(Vec::new()),
             editing_linenr: 0,
             editing_text: Arc::new(String::new()),
         }
+    }
+
+    fn file_prev(&mut self) {
+        if self.file_idx == 0 {
+            return;
+        }
+
+        self.update_cursor(Cursor::default());
+        self.update_suggestions();
+
+        self.file_idx -= 1;
+        self.file = self.files[self.file_idx].clone();
+    }
+
+    fn file_next(&mut self) {
+        if self.file_idx == self.files.len() - 1 {
+            return;
+        }
+
+        self.update_cursor(Cursor::default());
+        self.update_suggestions();
+
+        self.file_idx += 1;
+        self.file = self.files[self.file_idx].clone();
     }
 
     fn cursor_prev(&mut self) {
@@ -279,8 +309,10 @@ impl AppState {
     }
 
     fn change_line(&mut self, linenr: usize, f: impl Fn(&mut LineInfo)) {
+        // This takes the self.file version of the file as authoritative,
+        // and copies it into the self.files vec.
         let mut files = (*self.files).clone();
-        let mut lines = (*files[self.file_idx].lines).clone();
+        let mut lines = (*self.file.lines).clone();
         if let Some(lineinfo) = lines.get_mut(linenr - 1) {
             f(lineinfo);
             files[self.file_idx].lines = Arc::new(lines);

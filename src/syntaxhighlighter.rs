@@ -4,7 +4,7 @@ use druid::{Point, WidgetPod};
 use std::ops::Range;
 use std::rc::Rc;
 
-use crate::commands::{CURSOR_CHANGED, DICTIONARY_UPDATED};
+use crate::commands::{CURSOR_CHANGED, DICTIONARY_UPDATED, FILE_CHANGED};
 use crate::{LineInfo, LINE_COLOR};
 
 pub struct SyntaxHighlighter<W> {
@@ -45,6 +45,8 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
                 if !data.bad_words.is_empty() {
                     force_update = true;
                 }
+            } else if command.is(FILE_CHANGED) {
+                force_update = true;
             }
         }
         if self.old_line.is_none()

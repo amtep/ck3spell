@@ -12,6 +12,8 @@ pub const CURSOR_CHANGED: Selector<Cursor> = Selector::new("cursor_changed");
 
 pub const DICTIONARY_UPDATED: Selector = Selector::new("dictionary_updated");
 
+pub const FILE_CHANGED: Selector = Selector::new("file_changed");
+
 pub const APPLY_SUGGESTION: Selector<Rc<String>> =
     Selector::new("apply_suggestion");
 
