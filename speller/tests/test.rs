@@ -116,6 +116,48 @@ fn match_broken_words() {
 }
 
 #[test]
+fn match_ordinals() {
+    let speller = load_speller("en_US");
+
+    assert!(speller.spellcheck("1st"));
+    assert!(speller.spellcheck("2nd"));
+    assert!(speller.spellcheck("3rd"));
+    assert!(speller.spellcheck("5th"));
+    assert!(speller.spellcheck("10th"));
+    assert!(speller.spellcheck("11th"));
+    assert!(speller.spellcheck("12th"));
+    assert!(speller.spellcheck("13th"));
+    assert!(speller.spellcheck("20th"));
+    assert!(speller.spellcheck("21st"));
+    assert!(speller.spellcheck("22nd"));
+    assert!(speller.spellcheck("23rd"));
+    assert!(speller.spellcheck("1000th"));
+    assert!(speller.spellcheck("1001st"));
+    assert!(speller.spellcheck("1002nd"));
+    assert!(speller.spellcheck("1003rd"));
+    assert!(speller.spellcheck("1004th"));
+
+    assert!(!speller.spellcheck("1nd"));
+    assert!(!speller.spellcheck("1rd"));
+    assert!(!speller.spellcheck("1th"));
+    assert!(!speller.spellcheck("2th"));
+    assert!(!speller.spellcheck("3th"));
+    assert!(!speller.spellcheck("5nd"));
+    assert!(!speller.spellcheck("10st"));
+    assert!(!speller.spellcheck("11st"));
+    assert!(!speller.spellcheck("12nd"));
+    assert!(!speller.spellcheck("13rd"));
+    assert!(!speller.spellcheck("20st"));
+    assert!(!speller.spellcheck("21th"));
+    assert!(!speller.spellcheck("22th"));
+    assert!(!speller.spellcheck("23th"));
+    assert!(!speller.spellcheck("1000st"));
+    assert!(!speller.spellcheck("1001th"));
+    assert!(!speller.spellcheck("1002rd"));
+    assert!(!speller.spellcheck("1003st"));
+}
+
+#[test]
 fn language_french() {
     let speller = load_speller("fr_FR");
 

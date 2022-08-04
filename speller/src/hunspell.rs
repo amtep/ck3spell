@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::str::CharIndices;
 use unicode_casing::CharExt;
 use unicode_titlecase::StrTitleCase;
 
@@ -220,16 +221,16 @@ impl SpellerHunspellDict {
         // allow -- at the end and - at the front
         let word = word.strip_suffix("--").unwrap_or(word);
         let word = word.strip_prefix('-').unwrap_or(word);
-        let mut seen_sep = false;
+        let mut seen_digit = false;
         for c in word.chars() {
             // TODO check for unicode number separators here
             if c == '.' || c == ',' {
-                if seen_sep {
+                if !seen_digit {
                     return false;
                 }
-                seen_sep = true;
+                seen_digit = false;
             } else if c.is_ascii_digit() {
-                seen_sep = false;
+                seen_digit = true;
             } else {
                 return false;
             }
@@ -264,6 +265,17 @@ impl SpellerHunspellDict {
         false
     }
 
+    fn has_affix_flag(&self, word: &str, flag: AffixFlag) -> bool {
+        if let Some(homonyms) = self.words.get(word) {
+            for winfo in homonyms.iter() {
+                if winfo.has_affix_flag(flag) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// Check a word against the dictionary and try affix combinations
     fn _spellcheck_affixes(&self, word: &str, caps: CapStyle) -> bool {
         if let Some(homonyms) = self.words.get(word) {
@@ -281,6 +293,67 @@ impl SpellerHunspellDict {
             || self.affix_data.check_suffix(word, caps, self, None)
     }
 
+    fn _spellcheck_compoundrule<'a>(
+        &self,
+        word: &'a str,
+        v: &mut Vec<&'a str>,
+        mut iter: CharIndices,
+    ) -> bool {
+        let mut wlen = 0;
+        let mut wstart = None;
+        while let Some((i, c)) = iter.next() {
+            if wstart.is_none() {
+                wstart = Some(i);
+            }
+            wlen += 1;
+            if wlen < self.affix_data.compound_min {
+                continue;
+            }
+            let piece = &word[wstart.unwrap()..i + c.len_utf8()];
+            if !self.words.contains_key(piece) {
+                continue;
+            }
+            // Found a possible word piece.
+            // Recurse to try the piece.
+            v.push(piece);
+            if self._spellcheck_compoundrule(word, v, iter.clone()) {
+                return true;
+            }
+            // Then loop to try not using the piece.
+            v.pop();
+        }
+        if wlen > 0 {
+            // too-small leftover piece at the end
+            return false;
+        }
+        for rule in self.affix_data.compound_rules.iter() {
+            if rule.matches(v, |word, flag| self.has_affix_flag(word, flag)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Check a word against the dictionary and try compound words
+    fn _spellcheck_compound(&self, word: &str, caps: CapStyle) -> bool {
+        if self._spellcheck_affixes(word, caps) {
+            return true;
+        }
+
+        // For COMPOUNDRULE, divide the word into pieces that are all
+        // directly in the dictionary (no prefix/suffix processing).
+        if !self.affix_data.compound_rules.is_empty()
+            && self._spellcheck_compoundrule(
+                word,
+                &mut Vec::new(),
+                word.char_indices(),
+            )
+        {
+            return true;
+        }
+        false
+    }
+
     // Check a word against the dictionary and try word breaks and affixes
     fn _spellcheck(&self, word: &str, caps: CapStyle, count: &mut u16) -> bool {
         if *count > MAX_WORD_BREAK_ATTEMPTS {
@@ -288,7 +361,7 @@ impl SpellerHunspellDict {
         }
         *count += 1;
 
-        if self._spellcheck_affixes(word, caps) {
+        if self._spellcheck_compound(word, caps) {
             return true;
         }
 
@@ -533,5 +606,6 @@ mod test {
         assert_eq!(false, SpellerHunspellDict::is_numeric("1,ooo"));
         assert_eq!(false, SpellerHunspellDict::is_numeric("100,,000"));
         assert_eq!(false, SpellerHunspellDict::is_numeric(".."));
+        assert_eq!(false, SpellerHunspellDict::is_numeric(".50"));
     }
 }

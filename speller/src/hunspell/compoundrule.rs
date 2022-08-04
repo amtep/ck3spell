@@ -6,11 +6,13 @@ pub struct CompoundRule {
     v: Vec<CompoundElement>,
 }
 
+#[derive(Debug)]
 pub enum CompoundElement {
     Multi(AffixFlag),
     Optional(AffixFlag),
     Once(AffixFlag),
 }
+use CompoundElement::*;
 
 impl CompoundRule {
     pub fn from_str(s: &str, ad: &AffixData) -> Result<Self> {
@@ -23,40 +25,83 @@ impl CompoundRule {
                     if flag.len() != 1 {
                         bail!("COMPOUNDRULE: expected 1 flag");
                     }
-                    rule.v.push(CompoundElement::Once(flag[0]));
+                    rule.v.push(Once(flag[0]));
                     paren_start = None;
                 }
             } else if c == '(' {
                 paren_start = Some(i + 1);
             } else if c == '*' {
                 let node = match rule.v.last() {
-                    None
-                    | Some(CompoundElement::Multi(_))
-                    | Some(CompoundElement::Optional(_)) => {
+                    None | Some(Multi(_)) | Some(Optional(_)) => {
                         bail!("COMPOUNDRULE: * must follow flag");
                     }
-                    Some(CompoundElement::Once(f)) => {
-                        CompoundElement::Multi(*f)
-                    }
+                    Some(Once(f)) => Multi(*f),
                 };
                 *rule.v.last_mut().unwrap() = node;
             } else if c == '?' {
                 let node = match rule.v.last() {
-                    None
-                    | Some(CompoundElement::Multi(_))
-                    | Some(CompoundElement::Optional(_)) => {
+                    None | Some(Multi(_)) | Some(Optional(_)) => {
                         bail!("COMPOUNDRULE: ? must follow flag");
                     }
-                    Some(CompoundElement::Once(f)) => {
-                        CompoundElement::Optional(*f)
-                    }
+                    Some(Once(f)) => Optional(*f),
                 };
                 *rule.v.last_mut().unwrap() = node;
             } else {
                 let flag = ad.parse_flags(&s[i..i + c.len_utf8()])?;
-                rule.v.push(CompoundElement::Once(flag[0]));
+                rule.v.push(Once(flag[0]));
             }
         }
         Ok(rule)
+    }
+
+    pub fn _matches(
+        &self,
+        words: &[&str],
+        pos: usize,
+        check: &impl Fn(&str, AffixFlag) -> bool,
+    ) -> bool {
+        if let Some(word) = words.get(0) {
+            match self.v.get(pos) {
+                None => false,
+                Some(Once(f)) => {
+                    if check(word, *f) {
+                        self._matches(&words[1..], pos + 1, check)
+                    } else {
+                        false
+                    }
+                }
+                Some(Optional(f)) => {
+                    if check(word, *f) {
+                        self._matches(&words[1..], pos + 1, check)
+                            || self._matches(words, pos + 1, check)
+                    } else {
+                        self._matches(words, pos + 1, check)
+                    }
+                }
+                Some(Multi(f)) => {
+                    if check(word, *f) {
+                        self._matches(&words[1..], pos, check)
+                            || self._matches(words, pos + 1, check)
+                    } else {
+                        self._matches(words, pos + 1, check)
+                    }
+                }
+            }
+        } else {
+            match self.v.get(pos) {
+                None => true,
+                Some(Once(_)) => false,
+                Some(Optional(_)) => self._matches(words, pos + 1, check),
+                Some(Multi(_)) => self._matches(words, pos + 1, check),
+            }
+        }
+    }
+
+    pub fn matches(
+        &self,
+        words: &[&str],
+        check: impl Fn(&str, AffixFlag) -> bool,
+    ) -> bool {
+        self._matches(words, 0, &check)
     }
 }
