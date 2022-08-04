@@ -6,7 +6,9 @@ use nom::character::complete::{
 };
 use nom::combinator::{eof, map, not, opt, peek, recognize, rest};
 use nom::multi::{fold_many0, many0_count, separated_list1};
-use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
+use nom::sequence::{
+    delimited, pair, preceded, separated_pair, terminated, tuple,
+};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
 use std::fmt::Debug;
@@ -41,6 +43,10 @@ fn is_word_char(c: char) -> bool {
 
 fn is_word_char_no_apostrophes(c: char) -> bool {
     c.is_alphanumeric() || c == '-'
+}
+
+fn is_word_char_no_dash(c: char) -> bool {
+    c != '-' && is_word_char(c)
 }
 
 fn token<'a, F: 'a, O>(
@@ -126,6 +132,13 @@ fn word_no_apostrophes(s: Span) -> IResult<Span, Span> {
     take_while1(is_word_char_no_apostrophes)(s)
 }
 
+fn word_no_double_dash(s: Span) -> IResult<Span, Span> {
+    recognize(separated_list1(
+        char('-'),
+        take_while1(is_word_char_no_dash),
+    ))(s)
+}
+
 fn quoted_phrase(s: Span) -> IResult<Span, Vec<Token>> {
     map(
         separated_list1(space1, token(TokenType::Word, word_no_apostrophes)),
@@ -145,6 +158,7 @@ fn icon_tag(s: Span) -> IResult<Span, Span> {
 fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     fold_many0(
         alt((
+            terminated(token(TokenType::Word, word_no_double_dash), tag("--")),
             delimited(char('\''), quoted_phrase, pair(char('\''), not(word))),
             delimited(
                 char('\u{2018}'),
