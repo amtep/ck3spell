@@ -10,7 +10,8 @@ use std::sync::Arc;
 
 use crate::appcontroller::AppController;
 use crate::commands::{
-    APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED, FILE_CHANGED, GOTO_LINE,
+    APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED, FILE_CHANGED,
+    GOTO_LINE,
 };
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
@@ -113,17 +114,21 @@ fn buttons_builder() -> impl Widget<AppState> {
                     .to_string(),
             );
         });
-    let save =
-        Button::new("Save and Exit").on_click(|ctx, data: &mut AppState, _| {
+    let save = Button::new("Save and Close").on_click(
+        |ctx, data: &mut AppState, _| {
             if let Err(err) =
                 data.save_file().with_context(|| "Could not save file")
             {
                 eprintln!("{:#}", err);
             }
-            ctx.submit_command(QUIT_APP);
-        });
-    let quit = Button::new("Quit without Saving")
-        .on_click(|ctx, _, _| ctx.submit_command(QUIT_APP));
+            if data.files.len() == 1 {
+                ctx.submit_command(QUIT_APP);
+            } else {
+                data.drop_file();
+                ctx.submit_command(FILE_CHANGED);
+            }
+        },
+    );
     Flex::row()
         .with_child(prev)
         .with_default_spacer()
@@ -134,8 +139,6 @@ fn buttons_builder() -> impl Widget<AppState> {
         .with_child(edit)
         .with_default_spacer()
         .with_child(save)
-        .with_default_spacer()
-        .with_child(quit)
 }
 
 fn make_suggestion() -> impl Widget<Suggestion> {

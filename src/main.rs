@@ -308,6 +308,16 @@ impl AppState {
         self.file.save()
     }
 
+    fn drop_file(&mut self) {
+        self.update_cursor(Cursor::default());
+        self.update_suggestions();
+
+        let mut files = (*self.files).clone();
+        files.remove(self.file_idx);
+        self.files = Rc::new(files);
+        self.file = self.files[self.file_idx].clone();
+    }
+
     fn change_line(&mut self, linenr: usize, f: impl Fn(&mut LineInfo)) {
         // This takes the self.file version of the file as authoritative,
         // and copies it into the self.files vec.
@@ -445,7 +455,7 @@ fn load_file(
         let mut hunspell = Hunspell::new(Path::new(dictpath), locale)?;
         if let Some(local_dict) = local_dict {
             eprint!("Using local dictionary {} ...", local_dict.display());
-            let added = hunspell.set_user_dict(&local_dict)?;
+            let added = hunspell.set_user_dict(local_dict)?;
             eprintln!("loaded {} words", added);
         }
         let hunspell = Rc::new(hunspell);
