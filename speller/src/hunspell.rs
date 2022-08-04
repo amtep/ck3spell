@@ -8,6 +8,7 @@ use unicode_casing::CharExt;
 use unicode_titlecase::StrTitleCase;
 
 mod affixdata;
+mod compoundrule;
 mod parse_aff;
 mod replacements;
 mod suffix_trie;

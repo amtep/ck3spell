@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::num::ParseIntError;
 use unicode_titlecase::StrTitleCase;
 
+use crate::hunspell::compoundrule::CompoundRule;
 use crate::hunspell::replacements::Replacements;
 use crate::hunspell::suffix_trie::SuffixTrie;
 use crate::hunspell::wordflags::WordFlags;
@@ -74,8 +75,8 @@ pub struct AffixData {
     pub iconv: Replacements,
     /// Characters that should be converted after matching.
     pub oconv: Replacements,
-    /// Not sure what these do.
-    pub compound_rules: Vec<Vec<AffixFlag>>,
+    /// Pre-programmed valid patterns for compound words
+    pub compound_rules: Vec<CompoundRule>,
     /// Groups of related characters,
     pub related_chars: Vec<String>,
     /// Try to split words at these characters.

@@ -12,6 +12,7 @@ use nom::sequence::{pair, preceded, separated_pair, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
 use crate::hunspell::affixdata::{AffixEntry, FlagMode};
+use crate::hunspell::compoundrule::CompoundRule;
 use crate::hunspell::wordflags::WordFlags;
 use crate::hunspell::AffixData;
 
@@ -359,7 +360,7 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                 d.oconv.push(c1, c2);
             }
             AffixLine::AddCompoundRule(v) => {
-                d.compound_rules.push(d.parse_flags(v)?);
+                d.compound_rules.push(CompoundRule::from_str(v, &d)?);
             }
             AffixLine::AddRelatedChars(v) => {
                 d.related_chars.push(v.to_string());
