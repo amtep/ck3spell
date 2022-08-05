@@ -391,6 +391,9 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                     v2 = nv2;
                     cflags = d.parse_flags(contflags)?;
                 }
+                if v2 == "0" {
+                    v2 = "";
+                }
                 if v3 == "." {
                     v3 = "";
                 }
