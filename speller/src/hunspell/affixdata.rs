@@ -179,7 +179,7 @@ impl AffixData {
         word: &str,
         caps: CapStyle,
         dict: &SpellerHunspellDict,
-        from_prefix: Option<AffixFlag>,
+        from_prefix: Option<&AffixEntry>,
     ) -> bool {
         if caps == CapStyle::AllCaps {
             self.rev_suffix_capsed.lookup(word, |i| {
@@ -331,24 +331,22 @@ impl AffixEntry {
         dict: &SpellerHunspellDict,
     ) -> bool {
         if let Some(pword) = self.deprefixed_word(word, caps, dict) {
-            if let Some(homonyms) = dict.words.get(&pword) {
-                for winfo in homonyms.iter() {
-                    if winfo.has_affix_flag(self.flag)
-                        && !winfo.word_flags.intersects(
-                            WordFlags::Forbidden | WordFlags::OnlyInCompound,
-                        )
-                    {
-                        return true;
+            if !self.contflags.needs_affix() {
+                if let Some(homonyms) = dict.words.get(&pword) {
+                    for winfo in homonyms.iter() {
+                        if winfo.has_affix_flag(self.flag)
+                            && !winfo.word_flags.intersects(
+                                WordFlags::Forbidden
+                                    | WordFlags::OnlyInCompound,
+                            )
+                        {
+                            return true;
+                        }
                     }
                 }
             }
             if self.allow_cross
-                && dict.affix_data.check_suffix(
-                    &pword,
-                    caps,
-                    dict,
-                    Some(self.flag),
-                )
+                && dict.affix_data.check_suffix(&pword, caps, dict, Some(self))
             {
                 return true;
             }
@@ -361,27 +359,37 @@ impl AffixEntry {
         word: &str,
         caps: CapStyle,
         dict: &SpellerHunspellDict,
-        from_prefix: Option<AffixFlag>,
+        from_prefix: Option<&AffixEntry>,
         from_suffix: bool,
     ) -> bool {
-        if from_prefix.is_some() && !self.allow_cross {
-            return false;
+        // Does this suffix itself need a further affix?
+        // Check if the word has a second suffix, or a prefix that
+        // does not itself have the NeedAffix flag.
+        let mut needs_affix = self.contflags.needs_affix() && !from_suffix;
+        if let Some(pfx) = from_prefix {
+            if !self.allow_cross {
+                return false;
+            }
+            needs_affix = needs_affix && pfx.contflags.needs_affix();
         }
 
         if let Some(sword) = self.desuffixed_word(word, caps, dict) {
-            if let Some(homonyms) = dict.words.get(&sword) {
-                for winfo in homonyms.iter() {
-                    if let Some(flag) = from_prefix {
-                        if !winfo.has_affix_flag(flag) {
-                            continue;
+            if !needs_affix {
+                if let Some(homonyms) = dict.words.get(&sword) {
+                    for winfo in homonyms.iter() {
+                        if let Some(pfx) = from_prefix {
+                            if !winfo.has_affix_flag(pfx.flag) {
+                                continue;
+                            }
                         }
-                    }
-                    if winfo.has_affix_flag(self.flag)
-                        && !winfo.word_flags.intersects(
-                            WordFlags::Forbidden | WordFlags::OnlyInCompound,
-                        )
-                    {
-                        return true;
+                        if winfo.has_affix_flag(self.flag)
+                            && !winfo.word_flags.intersects(
+                                WordFlags::Forbidden
+                                    | WordFlags::OnlyInCompound,
+                            )
+                        {
+                            return true;
+                        }
                     }
                 }
             }

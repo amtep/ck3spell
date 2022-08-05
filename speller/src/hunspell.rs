@@ -56,6 +56,10 @@ impl WordInfo {
     fn has_affix_flag(&self, flag: AffixFlag) -> bool {
         self.affix_flags.contains(&flag)
     }
+
+    fn needs_affix(&self) -> bool {
+        self.word_flags.intersects(WordFlags::NeedAffix)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]

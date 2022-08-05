@@ -272,6 +272,28 @@ fn forbidden_break() {
     assert!(!speller.spellcheck("foo-bar")); // This one is marked forbidden
 }
 
+#[test]
+fn needaffix_continuation() {
+    // test "needaffix5" from hunspell
+    let speller = load_speller("needaffix-continuation");
+
+    assert!(speller.spellcheck("foo"));
+    assert!(speller.spellcheck("prefoo"));
+    assert!(speller.spellcheck("foosuf"));
+    assert!(speller.spellcheck("prefoosuf"));
+    assert!(speller.spellcheck("foosufbar"));
+    assert!(speller.spellcheck("prefoosufbar"));
+    assert!(speller.spellcheck("pseudoprefoosuf"));
+    assert!(speller.spellcheck("pseudoprefoosufbar"));
+    assert!(speller.spellcheck("pseudoprefoopseudosufbar"));
+    assert!(speller.spellcheck("prefoopseudosuf"));
+    assert!(speller.spellcheck("prefoopseudosufbar"));
+
+    assert!(!speller.spellcheck("pseudoprefoo"));
+    assert!(!speller.spellcheck("foopseudosuf"));
+    assert!(!speller.spellcheck("pseudoprefoopseudosuf"));
+}
+
 fn sugg(speller: &impl Speller, word: &str, sugg: &str, max: usize) -> bool {
     speller.suggestions(word, max).contains(&sugg.to_string())
 }
