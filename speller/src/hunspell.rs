@@ -395,6 +395,49 @@ impl SpellerHunspellDict {
         false
     }
 
+    /// This is similar to _spellcheck_compoundrule, but we don't check for
+    /// specific word flags and we allow affixes.
+    fn _spellcheck_compounding<'a>(
+        &self,
+        word: &'a str,
+        caps: CapStyle,
+        v: &mut Vec<&'a str>,
+        mut iter: CharIndices,
+    ) -> bool {
+        let mut wlen = 0;
+        let mut wstart = None;
+        while let Some((i, c)) = iter.next() {
+            if wstart.is_none() {
+                wstart = Some(i);
+            }
+            wlen += 1;
+            if wlen < self.affix_data.compound_min {
+                continue;
+            }
+            let iafter = i + c.len_utf8();
+            if wstart.unwrap() == 0 && iafter == word.len() {
+                // If the "piece" is the whole word, then it's not compound.
+                continue;
+            }
+            let piece = &word[wstart.unwrap()..iafter];
+            let compound = if v.is_empty() { Compound::Begin } else if iafter == word.len() { Compound::End } else { Compound::Middle };
+            let piece_caps = if caps == CapStyle::Capitalized && compound != Compound::Begin { CapStyle::Lowercase } else { caps };
+            if !self._spellcheck_affixes(piece, piece_caps, compound) {
+                continue;
+            }
+            // Found a possible word piece.
+            // Recurse to try the piece.
+            v.push(piece);
+            if self._spellcheck_compounding(word, caps, v, iter.clone()) {
+                return true;
+            }
+            // Then loop to try not using the piece.
+            v.pop();
+        }
+        // Success if we exactly consumed `word`.
+        wlen == 0
+    }
+
     /// Check a word against the dictionary and try compound words
     fn _spellcheck_compound(&self, word: &str, caps: CapStyle) -> bool {
         if self._spellcheck_affixes(word, caps, Compound::None) {
@@ -412,7 +455,9 @@ impl SpellerHunspellDict {
         {
             return true;
         }
-        false
+
+        // Early return for dictionaries that don't support compounding.
+        self.affix_data.special_flags.has_compounds() && self._spellcheck_compounding(word, caps, &mut Vec::new(), word.char_indices())
     }
 
     // Check a word against the dictionary and try word breaks and affixes

@@ -394,3 +394,14 @@ fn test_sharps() {
 
     assert!(!speller.spellcheck("MÜßIG"));
 }
+
+#[test]
+fn test_compounding() {
+    let speller = load_speller("de_DE");
+
+    assert!(speller.spellcheck("Abdeckzirkular"));
+    assert!(speller.spellcheck("Abdeck-Abdeckzirkular"));
+
+    assert!(!speller.spellcheck("Abdeck")); // needs affix
+    assert!(!speller.spellcheck("-Abdeck")); // only in compound
+}
