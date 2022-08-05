@@ -372,3 +372,25 @@ fn suggest_needaffix() {
     assert!(!sugg(&speller, "typicall", "typical", 3));
     assert!(!sugg(&speller, "attypical", "typical", 3));
 }
+
+#[test]
+fn test_sharps() {
+    // From hunspell checksharpsutf test
+    let speller = load_speller("checksharps");
+
+    assert!(speller.spellcheck("müßig"));
+    assert!(speller.spellcheck("Müßig"));
+    assert!(speller.spellcheck("MÜSSIG"));
+    assert!(speller.spellcheck("Ausstoß"));
+    assert!(speller.spellcheck("Abstoß."));
+    assert!(speller.spellcheck("Außenabmessung"));
+    assert!(speller.spellcheck("Prozessionsstraße"));
+    assert!(speller.spellcheck("Außenmaße"));
+    assert!(speller.spellcheck("AUSSTOSS"));
+    assert!(speller.spellcheck("ABSTOSS."));
+    assert!(speller.spellcheck("AUSSENABMESSUNG"));
+    assert!(speller.spellcheck("PROZESSIONSSTRASSE"));
+    assert!(speller.spellcheck("AUSSENMASSE"));
+
+    assert!(!speller.spellcheck("MÜßIG"));
+}
