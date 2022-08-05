@@ -11,7 +11,7 @@ use crate::hunspell::wordflags::WordFlags;
 use crate::hunspell::{CapStyle, SpellerHunspellDict, WordInfo};
 
 /// Represents the format of the flags after words in the dictionary file.
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub enum FlagMode {
     /// Single-character flags
     #[default]
@@ -24,7 +24,7 @@ pub enum FlagMode {
     Utf8,
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SpecialFlags {
     inner: HashMap<WordFlags, AffixFlag>,
 }
@@ -49,7 +49,7 @@ impl SpecialFlags {
 
 pub type AffixFlag = u32;
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct AffixData {
     /// Affixes that can be applied to the front of a word
     pub prefixes: Vec<AffixEntry>,
@@ -205,7 +205,7 @@ impl AffixData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AffixEntry {
     allow_cross: bool,
     flag: AffixFlag,

@@ -2,11 +2,12 @@ use anyhow::{bail, Result};
 
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 
+#[derive(Clone, Debug)]
 pub struct CompoundRule {
     v: Vec<CompoundElement>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum CompoundElement {
     Multi(AffixFlag),
     Optional(AffixFlag),

@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 struct Rep {
     anchor_begin: bool,
     anchor_end: bool,
@@ -18,7 +18,7 @@ impl Rep {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Replacements {
     reps: Vec<Rep>,
 }

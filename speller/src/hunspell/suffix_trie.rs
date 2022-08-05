@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SuffixTrie<T> {
     end_here: Vec<T>,
     more: Vec<SuffixTrie<T>>,

@@ -33,6 +33,7 @@ const MAX_RELATED_CHAR_SUGGESTIONS: u32 = 1000;
 const MAX_SWAP_CHAR_SUGGESTIONS: u32 = 1000;
 
 /// A speller that loads Hunspell dictionaries
+#[derive(Clone, Debug)]
 pub struct SpellerHunspellDict {
     affix_data: AffixData,
     words: HashMap<String, SmallVec<[WordInfo; 1]>>,

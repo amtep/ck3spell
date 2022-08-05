@@ -1,3 +1,5 @@
+#![warn(missing_debug_implementations)]
+
 use anyhow::Result;
 use std::path::Path;
 
