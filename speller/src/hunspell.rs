@@ -230,6 +230,14 @@ impl SpellerHunspellDict {
         Ok(dict)
     }
 
+    pub fn get_errors(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        for e in self.affix_data.errors.iter() {
+            v.push(e.clone());
+        }
+        v
+    }
+
     fn split_morphological_fields(s: &str) -> (&str, Option<&str>) {
         // Parsing these is tricky because they are separated from the
         // word by a space, but the word may itself contain a space.

@@ -490,6 +490,9 @@ fn load_file(
                 }
                 None => Err(anyhow!("Dictionary not found")),
             }?;
+        for e in speller.get_errors() {
+            eprintln!("Dictionary error: {}", e);
+        }
         if let Some(local_dict) = local_dict {
             eprint!("Using local dictionary {} ...", local_dict.display());
             let added = speller.set_user_dict(local_dict)?;

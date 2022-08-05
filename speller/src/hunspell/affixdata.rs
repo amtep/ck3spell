@@ -91,6 +91,8 @@ pub struct AffixData {
     pub fullstrip: bool,
     /// Not sure what this does. Used by German.
     pub check_sharps: bool,
+    /// Any errors reported by the .aff file parser
+    pub errors: Vec<String>,
 
     /// Cache. Maps affix flags to the suffix entries that have that flag
     /// as a continuation flag.

@@ -1,5 +1,5 @@
 /// Parser for hunspell-format .aff files
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{
@@ -7,7 +7,7 @@ use nom::character::complete::{
 };
 use nom::combinator::{all_consuming, cut, map, opt, rest, success, value};
 use nom::error::{Error, ErrorKind, ParseError};
-use nom::multi::many0;
+use nom::multi::many1;
 use nom::sequence::{pair, preceded, separated_pair, terminated};
 use nom::{Compare, Err, Finish, IResult, InputLength, Parser};
 
@@ -243,7 +243,12 @@ fn morph_flag(s: Input) -> IResult<Input, ()> {
 }
 
 fn morph_flags(s: Input) -> IResult<Input, ()> {
-    value((), many0(preceded(space1, morph_flag)))(s)
+    alt((
+        value((), many1(preceded(space1, morph_flag))),
+        // The morph flag space can also contain stuff like "<ZERO>>"
+        value((), preceded(space1, value_string)),
+        value((), space0),
+    ))(s)
 }
 
 fn affix_entry(s: &str) -> IResult<&str, (&str, &str, &str)> {
@@ -329,7 +334,10 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
         let (_, afline) = full_line
             .parse(l)
             .finish()
-            .map_err(|e| anyhow!(e.to_string()))?;
+            .unwrap_or_else(|e| {
+                d.errors.push(e.to_string());
+                ("", AffixLine::Empty)
+            });
         match afline {
             AffixLine::Empty => (),
             AffixLine::SetEncoding(enc) => {
