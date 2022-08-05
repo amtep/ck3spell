@@ -113,7 +113,7 @@ fn value_string(s: &str) -> IResult<&str, &str> {
     take_till1(|c: char| c.is_whitespace())(s)
 }
 
-const FLAG_NAMES: [(&str, WordFlags); 10] = [
+const FLAG_NAMES: [(&str, WordFlags); 11] = [
     ("FORBIDDENWORD", WordFlags::Forbidden),
     ("COMPOUNDBEGIN", WordFlags::CompoundBegin),
     ("COMPOUNDMIDDLE", WordFlags::CompoundMiddle),
@@ -123,6 +123,7 @@ const FLAG_NAMES: [(&str, WordFlags); 10] = [
     ("NOSUGGEST", WordFlags::NoSuggest),
     ("CIRCUMFIX", WordFlags::Circumfix),
     ("NEEDAFFIX", WordFlags::NeedAffix),
+    ("PSEUDOROOT", WordFlags::NeedAffix), // backwards compat for NEEDAFFIX
     ("KEEPCASE", WordFlags::KeepCase),
 ];
 
