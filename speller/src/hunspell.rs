@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
+use fnv::FnvHashMap;
 use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::fs::{read_to_string, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -36,7 +36,7 @@ const MAX_SWAP_CHAR_SUGGESTIONS: u32 = 1000;
 #[derive(Clone, Debug)]
 pub struct SpellerHunspellDict {
     affix_data: AffixData,
-    words: HashMap<String, SmallVec<[WordInfo; 1]>>,
+    words: FnvHashMap<String, SmallVec<[WordInfo; 1]>>,
     user_dict: Option<PathBuf>,
 }
 
@@ -131,7 +131,7 @@ impl SpellerHunspellDict {
         let affix_data = parse_affix_data(&affixes_text)?;
         let mut dict = SpellerHunspellDict {
             affix_data,
-            words: HashMap::new(),
+            words: FnvHashMap::default(),
             user_dict: None,
         };
 
