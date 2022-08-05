@@ -12,7 +12,6 @@ mod affixdata;
 mod compoundrule;
 mod parse_aff;
 mod replacements;
-mod suffix_trie;
 mod suggestions;
 mod wordflags;
 

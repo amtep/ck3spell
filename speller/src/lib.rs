@@ -3,6 +3,7 @@
 use anyhow::Result;
 use std::path::Path;
 
+mod affix_trie;
 mod hunspell;
 
 pub use crate::hunspell::SpellerHunspellDict;

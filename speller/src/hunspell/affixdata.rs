@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::num::ParseIntError;
 use unicode_titlecase::StrTitleCase;
 
+use crate::affix_trie::{PrefixTrie, SuffixTrie};
 use crate::hunspell::compoundrule::CompoundRule;
 use crate::hunspell::replacements::Replacements;
-use crate::hunspell::suffix_trie::SuffixTrie;
 use crate::hunspell::wordflags::WordFlags;
 use crate::hunspell::{CapStyle, SpellerHunspellDict, WordInfo};
 
@@ -94,6 +94,13 @@ pub struct AffixData {
     rev_suffix: SuffixTrie<usize>,
     /// Cache. All-caps version of `rev_suffix`.
     rev_suffix_capsed: SuffixTrie<usize>,
+
+    /// Cache. Maps prefixes to the prefix entries that add that prefix.
+    rev_prefix: PrefixTrie<usize>,
+    /// Cache. All-caps version of `rev_prefix`.
+    rev_prefix_capsed: PrefixTrie<usize>,
+    /// Cache. Titlecase version of `rev_prefix`.
+    rev_prefix_titled: PrefixTrie<usize>,
 }
 
 impl AffixData {
@@ -149,6 +156,17 @@ impl AffixData {
         }
     }
 
+    fn recalc_rev_prefix(&mut self) {
+        self.rev_prefix.clear();
+        self.rev_prefix_capsed.clear();
+        self.rev_prefix_titled.clear();
+        for (i, pfx) in self.prefixes.iter().enumerate() {
+            self.rev_prefix.insert(&pfx.affix, i);
+            self.rev_prefix_capsed.insert(&pfx.capsed_affix, i);
+            self.rev_prefix_titled.insert(&pfx.titled_affix, i);
+        }
+    }
+
     pub fn finalize(&mut self) {
         for pfx in self.prefixes.iter_mut() {
             pfx.finalize(&self.special_flags);
@@ -158,6 +176,7 @@ impl AffixData {
         }
         self.recalc_rev_cont();
         self.recalc_rev_suffix();
+        self.recalc_rev_prefix();
     }
 
     pub fn check_prefix(
@@ -166,12 +185,19 @@ impl AffixData {
         caps: CapStyle,
         dict: &SpellerHunspellDict,
     ) -> bool {
-        for pfx in self.prefixes.iter() {
-            if pfx.check_prefix(word, caps, dict) {
-                return true;
-            }
+        if caps == CapStyle::AllCaps {
+            self.rev_prefix_capsed.lookup(word, |i| {
+                self.prefixes[i].check_prefix(word, caps, dict)
+            })
+        } else if caps == CapStyle::Capitalized {
+            self.rev_prefix_titled.lookup(word, |i| {
+                self.prefixes[i].check_prefix(word, caps, dict)
+            })
+        } else {
+            self.rev_prefix.lookup(word, |i| {
+                self.prefixes[i].check_prefix(word, caps, dict)
+            })
         }
-        false
     }
 
     pub fn check_suffix(
