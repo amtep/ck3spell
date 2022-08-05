@@ -60,41 +60,48 @@ impl CompoundRule {
         words: &[&str],
         pos: usize,
         check: &impl Fn(&str, AffixFlag) -> bool,
+        partial_ok: bool,
     ) -> bool {
         if let Some(word) = words.get(0) {
             match self.v.get(pos) {
                 None => false,
                 Some(Once(f)) => {
                     if check(word, *f) {
-                        self._matches(&words[1..], pos + 1, check)
+                        self._matches(&words[1..], pos + 1, check, partial_ok)
                     } else {
                         false
                     }
                 }
                 Some(Optional(f)) => {
                     if check(word, *f) {
-                        self._matches(&words[1..], pos + 1, check)
-                            || self._matches(words, pos + 1, check)
+                        self._matches(&words[1..], pos + 1, check, partial_ok)
+                            || self._matches(words, pos + 1, check, partial_ok)
                     } else {
-                        self._matches(words, pos + 1, check)
+                        self._matches(words, pos + 1, check, partial_ok)
                     }
                 }
                 Some(Multi(f)) => {
                     if check(word, *f) {
-                        self._matches(&words[1..], pos, check)
-                            || self._matches(words, pos + 1, check)
+                        self._matches(&words[1..], pos, check, partial_ok)
+                            || self._matches(words, pos + 1, check, partial_ok)
                     } else {
-                        self._matches(words, pos + 1, check)
+                        self._matches(words, pos + 1, check, partial_ok)
                     }
                 }
             }
+        } else if partial_ok {
+            true
         } else {
-            match self.v.get(pos) {
-                None => true,
-                Some(Once(_)) => false,
-                Some(Optional(_)) => self._matches(words, pos + 1, check),
-                Some(Multi(_)) => self._matches(words, pos + 1, check),
+            for elem in self.v.iter().skip(pos) {
+                match elem {
+                    Once(_) => {
+                        return false;
+                    }
+                    Optional(_) => (),
+                    Multi(_) => (),
+                }
             }
+            true
         }
     }
 
@@ -103,6 +110,14 @@ impl CompoundRule {
         words: &[&str],
         check: impl Fn(&str, AffixFlag) -> bool,
     ) -> bool {
-        self._matches(words, 0, &check)
+        self._matches(words, 0, &check, false)
+    }
+
+    pub fn partial_match(
+        &self,
+        words: &[&str],
+        check: impl Fn(&str, AffixFlag) -> bool,
+    ) -> bool {
+        self._matches(words, 0, &check, true)
     }
 }

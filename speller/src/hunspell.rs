@@ -321,8 +321,18 @@ impl SpellerHunspellDict {
             // Found a possible word piece.
             // Recurse to try the piece.
             v.push(piece);
-            if self._spellcheck_compoundrule(word, v, iter.clone()) {
-                return true;
+            // Only try the piece if at least one rule would match these pieces.
+            // This avoids a lot of backtracking for words that would never
+            // work anyway.
+            for rule in self.affix_data.compound_rules.iter() {
+                if rule.partial_match(v, |word, flag| {
+                    self.has_affix_flag(word, flag)
+                }) {
+                    if self._spellcheck_compoundrule(word, v, iter.clone()) {
+                        return true;
+                    }
+                    break;
+                }
             }
             // Then loop to try not using the piece.
             v.pop();
