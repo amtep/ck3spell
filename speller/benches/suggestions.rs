@@ -35,20 +35,35 @@ fn load_speller(name: &str) -> impl Speller {
 fn suggest_fr(c: &mut Criterion) {
     let speller = load_speller("fr_FR");
 
+    dbg!(speller.suggestions("Nereide", 9));
+
     // Tickle both add_char_suggestions and related_char_suggestions
     c.bench_function("suggest_fr_nereide", |b| {
-        b.iter(|| speller.suggestions(black_box("Nereide"), 3))
+        b.iter(|| speller.suggestions(black_box("Nereide"), 9))
     });
 }
 
 fn suggest_en(c: &mut Criterion) {
     let speller = load_speller("en_US");
 
+    dbg!(speller.suggestions("disapearance", 9));
+
     c.bench_function("suggest_en_disapearance", |b| {
-        b.iter(|| speller.suggestions(black_box("disapearance"), 3))
+        b.iter(|| speller.suggestions(black_box("disapearance"), 9))
+    });
+}
+
+fn suggest_de(c: &mut Criterion) {
+    let speller = load_speller("de_DE");
+
+    dbg!(speller.suggestions("Arbeitscompter", 9));
+
+    c.bench_function("suggest_de_compound", |b| {
+        b.iter(|| speller.suggestions(black_box("Arbeitscompter"), 9))
     });
 }
 
 criterion_group!(benches_fr, suggest_fr);
 criterion_group!(benches_en, suggest_en);
-criterion_main!(benches_fr, benches_en);
+criterion_group!(benches_de, suggest_de);
+criterion_main!(benches_fr, benches_en, benches_de);
