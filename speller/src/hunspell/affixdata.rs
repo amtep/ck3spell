@@ -256,7 +256,10 @@ impl AffixEntry {
     ) -> Option<String> {
         if let Some(root) = word.strip_prefix(prefix) {
             if !root.is_empty() || dict.affix_data.fullstrip {
-                let pword = self.strip.clone() + root;
+                let mut pword =
+                    String::with_capacity(self.strip.len() + root.len());
+                pword.push_str(&self.strip);
+                pword.push_str(root);
                 if self._prefix_condition(&pword) {
                     return Some(pword);
                 }
@@ -297,7 +300,10 @@ impl AffixEntry {
     ) -> Option<String> {
         if let Some(root) = word.strip_suffix(suffix) {
             if !root.is_empty() || dict.affix_data.fullstrip {
-                let sword = root.to_string() + &self.strip;
+                let mut sword =
+                    String::with_capacity(root.len() + self.strip.len());
+                sword.push_str(root);
+                sword.push_str(&self.strip);
                 if self._suffix_condition(&sword) {
                     return Some(sword);
                 }
