@@ -8,7 +8,7 @@ use crate::affix_trie::{PrefixTrie, SuffixTrie};
 use crate::hunspell::compoundrule::CompoundRule;
 use crate::hunspell::replacements::Replacements;
 use crate::hunspell::wordflags::WordFlags;
-use crate::hunspell::{CapStyle, SpellerHunspellDict, WordInfo};
+use crate::hunspell::{CapStyle, Compound, SpellerHunspellDict, WordInfo};
 
 /// Represents the format of the flags after words in the dictionary file.
 #[derive(Clone, Copy, Debug, Default)]
@@ -27,6 +27,7 @@ pub enum FlagMode {
 #[derive(Clone, Debug, Default)]
 pub struct SpecialFlags {
     inner: HashMap<WordFlags, AffixFlag>,
+    all: WordFlags,
 }
 
 impl SpecialFlags {
@@ -44,6 +45,11 @@ impl SpecialFlags {
 
     pub fn insert(&mut self, wf: WordFlags, af: AffixFlag) {
         self.inner.insert(wf, af);
+        self.all.insert(wf);
+    }
+
+    pub fn has_compounds(&self) -> bool {
+        self.all.intersects(WordFlags::CompoundBegin)
     }
 }
 
@@ -183,19 +189,20 @@ impl AffixData {
         &self,
         word: &str,
         caps: CapStyle,
+        compound: Compound,
         dict: &SpellerHunspellDict,
     ) -> bool {
         if caps == CapStyle::AllCaps {
             self.rev_prefix_capsed.lookup(word, |i| {
-                self.prefixes[i].check_prefix(word, caps, dict)
+                self.prefixes[i].check_prefix(word, caps, compound, dict)
             })
         } else if caps == CapStyle::Capitalized {
             self.rev_prefix_titled.lookup(word, |i| {
-                self.prefixes[i].check_prefix(word, caps, dict)
+                self.prefixes[i].check_prefix(word, caps, compound, dict)
             })
         } else {
             self.rev_prefix.lookup(word, |i| {
-                self.prefixes[i].check_prefix(word, caps, dict)
+                self.prefixes[i].check_prefix(word, caps, compound, dict)
             })
         }
     }
@@ -204,6 +211,7 @@ impl AffixData {
         &self,
         word: &str,
         caps: CapStyle,
+        compound: Compound,
         dict: &SpellerHunspellDict,
         from_prefix: Option<&AffixEntry>,
     ) -> bool {
@@ -212,6 +220,7 @@ impl AffixData {
                 self.suffixes[i].check_suffix(
                     word,
                     caps,
+                    compound,
                     dict,
                     from_prefix,
                     false,
@@ -222,6 +231,7 @@ impl AffixData {
                 self.suffixes[i].check_suffix(
                     word,
                     caps,
+                    compound,
                     dict,
                     from_prefix,
                     false,
@@ -360,17 +370,23 @@ impl AffixEntry {
         &self,
         word: &str,
         caps: CapStyle,
+        compound: Compound,
         dict: &SpellerHunspellDict,
     ) -> bool {
+        if !compound.prefix_ok(self.contflags.word_flags) {
+            return false;
+        }
         if let Some(pword) = self.deprefixed_word(word, caps, dict) {
             if !self.contflags.needs_affix() {
                 if let Some(homonyms) = dict.words.get(&pword) {
                     for winfo in homonyms.iter() {
                         if winfo.has_affix_flag(self.flag)
-                            && !winfo.word_flags.intersects(
-                                WordFlags::Forbidden
-                                    | WordFlags::OnlyInCompound,
+                            && compound.word_ok(
+                                winfo.word_flags | self.contflags.word_flags,
                             )
+                            && !winfo
+                                .word_flags
+                                .intersects(WordFlags::Forbidden)
                         {
                             return true;
                         }
@@ -378,7 +394,13 @@ impl AffixEntry {
                 }
             }
             if self.allow_cross
-                && dict.affix_data.check_suffix(&pword, caps, dict, Some(self))
+                && dict.affix_data.check_suffix(
+                    &pword,
+                    caps,
+                    compound,
+                    dict,
+                    Some(self),
+                )
             {
                 return true;
             }
@@ -390,10 +412,14 @@ impl AffixEntry {
         &self,
         word: &str,
         caps: CapStyle,
+        compound: Compound,
         dict: &SpellerHunspellDict,
         from_prefix: Option<&AffixEntry>,
         from_suffix: bool,
     ) -> bool {
+        if !compound.suffix_ok(self.contflags.word_flags) {
+            return false;
+        }
         // Does this suffix itself need a further affix?
         // Check if the word has a second suffix, or a prefix that
         // does not itself have the NeedAffix flag.
@@ -409,16 +435,19 @@ impl AffixEntry {
             if !needs_affix {
                 if let Some(homonyms) = dict.words.get(&sword) {
                     for winfo in homonyms.iter() {
+                        let mut flags =
+                            winfo.word_flags | self.contflags.word_flags;
                         if let Some(pfx) = from_prefix {
                             if !winfo.has_affix_flag(pfx.flag) {
                                 continue;
                             }
+                            flags.insert(pfx.contflags.word_flags);
                         }
                         if winfo.has_affix_flag(self.flag)
-                            && !winfo.word_flags.intersects(
-                                WordFlags::Forbidden
-                                    | WordFlags::OnlyInCompound,
-                            )
+                            && compound.word_ok(flags)
+                            && !winfo
+                                .word_flags
+                                .intersects(WordFlags::Forbidden)
                         {
                             return true;
                         }
@@ -435,7 +464,9 @@ impl AffixEntry {
                             .contflags
                             .affix_flags
                             .contains(&self.flag));
-                        if sfx2.check_suffix(&sword, caps, dict, None, true) {
+                        if sfx2.check_suffix(
+                            &sword, caps, compound, dict, None, true,
+                        ) {
                             return true;
                         }
                     }

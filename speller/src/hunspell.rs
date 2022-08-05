@@ -62,7 +62,47 @@ impl WordInfo {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
+/// A word's place in the word compounding sequence.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Compound {
+    None,
+    Begin,
+    Middle,
+    End,
+}
+
+impl Compound {
+    /// This function gets the union of the root word's flags and the
+    /// continuation flags of any prefix or suffix applied.
+    fn word_ok(self, wf: WordFlags) -> bool {
+        match self {
+            Compound::None => !wf.intersects(WordFlags::OnlyInCompound),
+            Compound::Begin => wf.intersects(WordFlags::CompoundBegin),
+            Compound::Middle => wf.intersects(WordFlags::CompoundMiddle),
+            Compound::End => wf.intersects(WordFlags::CompoundEnd),
+        }
+    }
+
+    fn prefix_ok(self, wf: WordFlags) -> bool {
+        match self {
+            Compound::None => !wf.intersects(WordFlags::OnlyInCompound),
+            Compound::Begin => true,
+            Compound::Middle => wf.intersects(WordFlags::CompoundPermit),
+            Compound::End => wf.intersects(WordFlags::CompoundPermit),
+        }
+    }
+
+    fn suffix_ok(self, wf: WordFlags) -> bool {
+        match self {
+            Compound::None => !wf.intersects(WordFlags::OnlyInCompound),
+            Compound::Begin => wf.intersects(WordFlags::CompoundPermit),
+            Compound::Middle => wf.intersects(WordFlags::CompoundPermit),
+            Compound::End => true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CapStyle {
     Lowercase,
     Capitalized,
@@ -281,20 +321,27 @@ impl SpellerHunspellDict {
     }
 
     /// Check a word against the dictionary and try affix combinations
-    fn _spellcheck_affixes(&self, word: &str, caps: CapStyle) -> bool {
+    fn _spellcheck_affixes(
+        &self,
+        word: &str,
+        caps: CapStyle,
+        compound: Compound,
+    ) -> bool {
         if let Some(homonyms) = self.words.get(word) {
             for winfo in homonyms.iter() {
-                if !winfo.word_flags.intersects(
-                    WordFlags::Forbidden
-                        | WordFlags::NeedAffix
-                        | WordFlags::OnlyInCompound,
-                ) {
+                if compound.word_ok(winfo.word_flags)
+                    && !winfo
+                        .word_flags
+                        .intersects(WordFlags::Forbidden | WordFlags::NeedAffix)
+                {
                     return true;
                 }
             }
         }
-        self.affix_data.check_prefix(word, caps, self)
-            || self.affix_data.check_suffix(word, caps, self, None)
+        self.affix_data.check_prefix(word, caps, compound, self)
+            || self
+                .affix_data
+                .check_suffix(word, caps, compound, self, None)
     }
 
     fn _spellcheck_compoundrule<'a>(
@@ -350,7 +397,7 @@ impl SpellerHunspellDict {
 
     /// Check a word against the dictionary and try compound words
     fn _spellcheck_compound(&self, word: &str, caps: CapStyle) -> bool {
-        if self._spellcheck_affixes(word, caps) {
+        if self._spellcheck_affixes(word, caps, Compound::None) {
             return true;
         }
 

@@ -14,7 +14,7 @@ bitflags! {
         /// This word may appear at the end of compound words.
         const CompoundEnd = 0x0008;
         /// This word may have affixes even inside a compound word.
-        const CompoundPermitAffix = 0x0010;
+        const CompoundPermit = 0x0010;
         /// This word can only appear as part of compound words.
         const OnlyInCompound = 0x0020;
         /// This word must not be suggested as a correction.

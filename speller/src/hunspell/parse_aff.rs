@@ -118,7 +118,7 @@ const FLAG_NAMES: [(&str, WordFlags); 11] = [
     ("COMPOUNDBEGIN", WordFlags::CompoundBegin),
     ("COMPOUNDMIDDLE", WordFlags::CompoundMiddle),
     ("COMPOUNDEND", WordFlags::CompoundEnd),
-    ("COMPOUNDPERMITFLAG", WordFlags::CompoundPermitAffix),
+    ("COMPOUNDPERMITFLAG", WordFlags::CompoundPermit),
     ("ONLYINCOMPOUND", WordFlags::OnlyInCompound),
     ("NOSUGGEST", WordFlags::NoSuggest),
     ("CIRCUMFIX", WordFlags::Circumfix),
