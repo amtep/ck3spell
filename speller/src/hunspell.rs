@@ -565,7 +565,17 @@ impl Speller for SpellerHunspellDict {
         }
         let caps = CapStyle::from_str(&word);
         let mut count = 0u16;
-        self._spellcheck(&word, caps, &mut count)
+        if self._spellcheck(&word, caps, &mut count) {
+            return true;
+        }
+
+        // If the word ended with a period, try without.
+        if let Some(word) = word.strip_suffix('.') {
+            if self._spellcheck(&word, caps, &mut count) {
+                return true;
+            }
+        }
+        false
     }
 
     fn suggestions(&self, word: &str, max: usize) -> Vec<String> {
