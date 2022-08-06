@@ -552,38 +552,9 @@ impl SpellerHunspellDict {
             homonyms.push(WordInfo::default());
         }
     }
-}
 
-impl Speller for SpellerHunspellDict {
-    fn spellcheck(&self, word: &str) -> bool {
-        let word = self.affix_data.iconv.conv(word.trim());
-        if word.is_empty() || Self::is_numeric(&word) {
-            return true;
-        }
-        if self.is_forbidden(&word) {
-            return false;
-        }
-        let caps = CapStyle::from_str(&word);
-        let mut count = 0u16;
-        if self._spellcheck(&word, caps, &mut count) {
-            return true;
-        }
-
-        // If the word ended with a period, try without.
-        if let Some(word) = word.strip_suffix('.') {
-            if self._spellcheck(&word, caps, &mut count) {
-                return true;
-            }
-        }
-        false
-    }
-
-    fn suggestions(&self, word: &str, max: usize) -> Vec<String> {
-        let word = self.affix_data.iconv.conv(word.trim());
+    fn _suggestions(&self, word: String, max: usize) -> Vec<String> {
         let mut suggs = Vec::default();
-        if word.is_empty() || max == 0 {
-            return suggs;
-        }
 
         // Try lowercased, capitalized, or all caps
         // TODO: also match mixed case words, such as "ipod" -> "iPod"
@@ -660,6 +631,42 @@ impl Speller for SpellerHunspellDict {
         }
 
         suggs
+    }
+}
+
+impl Speller for SpellerHunspellDict {
+    fn spellcheck(&self, word: &str) -> bool {
+        let word = self.affix_data.iconv.conv(word.trim());
+        if word.is_empty() || Self::is_numeric(&word) {
+            return true;
+        }
+        if self.is_forbidden(&word) {
+            return false;
+        }
+        let caps = CapStyle::from_str(&word);
+        let mut count = 0u16;
+        if self._spellcheck(&word, caps, &mut count) {
+            return true;
+        }
+
+        // If the word ended with a period, try without.
+        if let Some(word) = word.strip_suffix('.') {
+            if self._spellcheck(&word, caps, &mut count) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn suggestions(&self, word: &str, max: usize) -> Vec<String> {
+        let word = self.affix_data.iconv.conv(word.trim());
+        if word.is_empty() || max == 0 {
+            return Vec::new();
+        }
+
+        self._suggestions(word, max).into_iter().map(|sugg| {
+            self.affix_data.oconv.conv(&sugg)
+        }).collect()
     }
 
     fn add_word(&mut self, word: &str) -> bool {

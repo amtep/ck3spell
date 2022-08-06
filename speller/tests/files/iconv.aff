@@ -1,0 +1,7 @@
+SET UTF-8
+
+ICONV 4
+ICONV ş ș
+ICONV ţ ț
+ICONV Ş Ș
+ICONV Ţ Ț

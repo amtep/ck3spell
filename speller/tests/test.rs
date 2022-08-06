@@ -409,3 +409,46 @@ fn test_compounding() {
     assert!(!speller.spellcheck("Abdeck")); // needs affix
     assert!(!speller.spellcheck("-Abdeck")); // only in compound
 }
+
+#[test]
+fn test_iconv() {
+    // From hunspell iconv test
+    let speller = load_speller("iconv");
+
+    // The ICONV of this speller should convert cedilla forms to comma forms
+    assert!(speller.spellcheck("Chișinău")); // ș (S-cedilla)
+    assert!(speller.spellcheck("Chişinău")); // ş (S-comma)
+    assert!(speller.spellcheck("Ţepes")); // Ţ (T-cedilla)
+    assert!(speller.spellcheck("Țepes")); // Ț (T-comma)
+    assert!(speller.spellcheck("Ş")); // S-cedilla
+    assert!(speller.spellcheck("ţ")); // t-cedilla
+}
+
+#[test]
+fn test_iconv_longest() {
+    // From hunspell iconv2 test
+    let speller = load_speller("iconv-longest");
+
+    // Check that ICONV is applied to the longest match in the table
+    assert!(speller.spellcheck("GaNa"));
+    assert!(speller.spellcheck("Gag"));
+    assert!(speller.spellcheck("GaggNa"));
+    assert!(speller.spellcheck("NanDa"));
+}
+
+#[test]
+fn test_oconv() {
+    let speller = load_speller("oconv");
+
+    assert!(speller.spellcheck("bébé"));
+    assert!(speller.spellcheck("dádá"));
+
+    assert!(!speller.spellcheck("béb"));
+    assert!(!speller.spellcheck("dád"));
+    assert!(!speller.spellcheck("aábcde"));
+
+    // Check that OCONV is applied to suggestions.
+    assert_eq!(vec!["BÉBÉ"], speller.suggestions("béb", 9));
+    assert_eq!(vec!["DÁDÁ"], speller.suggestions("dád", 9));
+    assert_eq!(vec!["AÁBCDEÉ"], speller.suggestions("aábcde", 9));
+}
