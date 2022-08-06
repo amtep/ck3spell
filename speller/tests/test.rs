@@ -380,6 +380,21 @@ fn suggest_needaffix() {
 }
 
 #[test]
+fn suggest_split_word() {
+    // Based on hunspell sug2 test
+    let speller = load_speller("suggest-split-word");
+
+    assert!(!speller.spellcheck("alot"));
+    assert!(!speller.spellcheck("inspite"));
+    assert!(!speller.spellcheck("scotfree"));
+
+    assert_eq!(vec!["a lot"], speller.suggestions("alot", 9));
+    assert_eq!(vec!["in spite"], speller.suggestions("inspite", 9));
+    // TODO
+    // assert_eq!(vec!["scot-free"], speller.suggestions("scotfree", 9));
+}
+
+#[test]
 fn test_sharps() {
     // From hunspell checksharpsutf test
     let speller = load_speller("checksharps");

@@ -19,7 +19,7 @@ use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
     add_char_suggestions, delete_char_suggestions, related_char_suggestions,
-    swap_char_suggestions,
+    split_word_suggestions, swap_char_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -249,7 +249,7 @@ impl SpellerHunspellDict {
                     || (i - spos == 3 && c != ':')
                 {
                     last_space = None;
-                } else {
+                } else if i - spos == 3 {
                     return (&s[..spos], Some(s[spos + 1..].trim()));
                 }
             } else if c == ' ' || c == '\t' {
@@ -573,6 +573,22 @@ impl SpellerHunspellDict {
 
     fn _suggestions(&self, word: String, max: usize) -> Vec<String> {
         let mut suggs = Vec::default();
+        // Set `done` if further suggestions would be lower quality
+        let mut done = false;
+
+        // Try splitting the word into two words
+        split_word_suggestions(&word, |sugg| {
+            if self.check_suggestion(&sugg, &word, &suggs) {
+                if self.words.contains_key(&sugg) {
+                    done = true;
+                }
+                suggs.push(sugg);
+            }
+            suggs.len() < max
+        });
+        if suggs.len() == max || done {
+            return suggs;
+        }
 
         // Try lowercased, capitalized, or all caps
         // TODO: also match mixed case words, such as "ipod" -> "iPod"
@@ -669,7 +685,7 @@ impl Speller for SpellerHunspellDict {
 
         // If the word ended with a period, try without.
         if let Some(word) = word.strip_suffix('.') {
-            if self._spellcheck(&word, caps, &mut count) {
+            if self._spellcheck(word, caps, &mut count) {
                 return true;
             }
         }
@@ -757,5 +773,19 @@ mod test {
         assert_eq!(false, SpellerHunspellDict::is_numeric("100,,000"));
         assert_eq!(false, SpellerHunspellDict::is_numeric(".."));
         assert_eq!(false, SpellerHunspellDict::is_numeric(".50"));
+    }
+
+    #[test]
+    fn test_split_morph() {
+        assert_eq!(
+            ("a lot", None),
+            SpellerHunspellDict::split_morphological_fields("a lot")
+        );
+        assert_eq!(
+            ("Alyssa/L'D'Q'", Some("po:prn is:fem is:inv")),
+            SpellerHunspellDict::split_morphological_fields(
+                "Alyssa/L'D'Q' po:prn is:fem is:inv"
+            )
+        );
     }
 }

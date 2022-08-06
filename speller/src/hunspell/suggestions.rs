@@ -123,3 +123,21 @@ pub fn add_char_suggestions(
         }
     }
 }
+
+pub fn split_word_suggestions(
+    word: &str,
+    mut suggest: impl FnMut(String) -> bool,
+) {
+    // Try adding a space between each pair of letters
+    let sugg_len = word.len() + 1;
+    // Try before each letter except the first.
+    for (i, _) in word.char_indices().skip(1) {
+        let mut sugg = String::with_capacity(sugg_len);
+        sugg.push_str(&word[..i]);
+        sugg.push(' ');
+        sugg.push_str(&word[i..]);
+        if !suggest(sugg) {
+            return;
+        }
+    }
+}
