@@ -114,11 +114,17 @@ mod test {
         st.insert("", 0);
 
         let mut v = Vec::new();
-        st.lookup("foo", |i| { v.push(i); false });
+        st.lookup("foo", |i| {
+            v.push(i);
+            false
+        });
         assert_eq!(vec![0, 1], v);
 
         let mut v = Vec::new();
-        st.lookup("foobar", |i| { v.push(i); false });
+        st.lookup("foobar", |i| {
+            v.push(i);
+            false
+        });
         assert_eq!(vec![0, 1, 3], v);
     }
 
@@ -132,15 +138,24 @@ mod test {
         st.insert("", 0);
 
         let mut v = Vec::new();
-        st.lookup("foo", |i| { v.push(i); false });
+        st.lookup("foo", |i| {
+            v.push(i);
+            false
+        });
         assert_eq!(vec![0, 1], v);
 
         let mut v = Vec::new();
-        st.lookup("foobar", |i| { v.push(i); false });
+        st.lookup("foobar", |i| {
+            v.push(i);
+            false
+        });
         assert_eq!(vec![0, 2, 3], v);
 
         let mut v = Vec::new();
-        st.lookup("foobar", |i| { v.push(i); true });
+        st.lookup("foobar", |i| {
+            v.push(i);
+            true
+        });
         assert_eq!(vec![0], v);
     }
 }

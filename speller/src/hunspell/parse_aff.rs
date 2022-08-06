@@ -331,13 +331,10 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
     d.word_breaks.push("-$".to_string());
 
     for l in s.lines() {
-        let (_, afline) = full_line
-            .parse(l)
-            .finish()
-            .unwrap_or_else(|e| {
-                d.errors.push(e.to_string());
-                ("", AffixLine::Empty)
-            });
+        let (_, afline) = full_line.parse(l).finish().unwrap_or_else(|e| {
+            d.errors.push(e.to_string());
+            ("", AffixLine::Empty)
+        });
         match afline {
             AffixLine::Empty => (),
             AffixLine::SetEncoding(enc) => {

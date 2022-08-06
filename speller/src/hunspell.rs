@@ -428,8 +428,20 @@ impl SpellerHunspellDict {
                 continue;
             }
             let piece = &word[wstart.unwrap()..iafter];
-            let compound = if v.is_empty() { Compound::Begin } else if iafter == word.len() { Compound::End } else { Compound::Middle };
-            let piece_caps = if caps == CapStyle::Capitalized && compound != Compound::Begin { CapStyle::Lowercase } else { caps };
+            let compound = if v.is_empty() {
+                Compound::Begin
+            } else if iafter == word.len() {
+                Compound::End
+            } else {
+                Compound::Middle
+            };
+            let piece_caps = if caps == CapStyle::Capitalized
+                && compound != Compound::Begin
+            {
+                CapStyle::Lowercase
+            } else {
+                caps
+            };
             if !self._spellcheck_affixes(piece, piece_caps, compound) {
                 continue;
             }
@@ -465,7 +477,13 @@ impl SpellerHunspellDict {
         }
 
         // Early return for dictionaries that don't support compounding.
-        self.affix_data.special_flags.has_compounds() && self._spellcheck_compounding(word, caps, &mut Vec::new(), word.char_indices())
+        self.affix_data.special_flags.has_compounds()
+            && self._spellcheck_compounding(
+                word,
+                caps,
+                &mut Vec::new(),
+                word.char_indices(),
+            )
     }
 
     // Check a word against the dictionary and try word breaks and affixes
@@ -664,9 +682,10 @@ impl Speller for SpellerHunspellDict {
             return Vec::new();
         }
 
-        self._suggestions(word, max).into_iter().map(|sugg| {
-            self.affix_data.oconv.conv(&sugg)
-        }).collect()
+        self._suggestions(word, max)
+            .into_iter()
+            .map(|sugg| self.affix_data.oconv.conv(&sugg))
+            .collect()
     }
 
     fn add_word(&mut self, word: &str) -> bool {
