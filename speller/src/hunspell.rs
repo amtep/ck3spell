@@ -84,9 +84,14 @@ impl Compound {
     fn word_ok(self, wf: WordFlags) -> bool {
         match self {
             Compound::None => !wf.intersects(WordFlags::OnlyInCompound),
-            Compound::Begin => wf.intersects(WordFlags::CompoundBegin),
-            Compound::Middle => wf.intersects(WordFlags::CompoundMiddle),
-            Compound::End => wf.intersects(WordFlags::CompoundEnd),
+            Compound::Begin => wf
+                .intersects(WordFlags::CompoundBegin | WordFlags::CompoundFlag),
+            Compound::Middle => wf.intersects(
+                WordFlags::CompoundMiddle | WordFlags::CompoundFlag,
+            ),
+            Compound::End => {
+                wf.intersects(WordFlags::CompoundEnd | WordFlags::CompoundFlag)
+            }
         }
     }
 

@@ -113,7 +113,7 @@ fn value_string(s: &str) -> IResult<&str, &str> {
     take_till1(|c: char| c.is_whitespace())(s)
 }
 
-const FLAG_NAMES: [(&str, WordFlags); 11] = [
+const FLAG_NAMES: [(&str, WordFlags); 12] = [
     ("FORBIDDENWORD", WordFlags::Forbidden),
     ("COMPOUNDBEGIN", WordFlags::CompoundBegin),
     ("COMPOUNDMIDDLE", WordFlags::CompoundMiddle),
@@ -125,6 +125,7 @@ const FLAG_NAMES: [(&str, WordFlags); 11] = [
     ("NEEDAFFIX", WordFlags::NeedAffix),
     ("PSEUDOROOT", WordFlags::NeedAffix), // backwards compat for NEEDAFFIX
     ("KEEPCASE", WordFlags::KeepCase),
+    ("COMPOUNDFLAG", WordFlags::CompoundFlag),
 ];
 
 fn assign_flag(s: &str) -> IResult<&str, AffixLine> {

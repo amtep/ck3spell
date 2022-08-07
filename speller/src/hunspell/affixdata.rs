@@ -49,7 +49,8 @@ impl SpecialFlags {
     }
 
     pub fn has_compounds(&self) -> bool {
-        self.all.intersects(WordFlags::CompoundBegin)
+        self.all
+            .intersects(WordFlags::CompoundBegin | WordFlags::CompoundFlag)
     }
 }
 

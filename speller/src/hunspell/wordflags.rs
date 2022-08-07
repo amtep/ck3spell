@@ -25,5 +25,8 @@ bitflags! {
         const NeedAffix = 0x0100;
         /// This word should not have its case changed.
         const KeepCase = 0x0200;
+        /// This word may appear in compounds.
+        /// (predates the CompoundBegin, Middle, End flags)
+        const CompoundFlag = 0x0400;
     }
 }
