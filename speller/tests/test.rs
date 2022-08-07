@@ -468,3 +468,14 @@ fn test_oconv() {
     assert_eq!(vec!["DÁDÁ"], speller.suggestions("dád", 9));
     assert_eq!(vec!["AÁBCDEÉ"], speller.suggestions("aábcde", 9));
 }
+
+#[test]
+fn test_wordpair() {
+    let speller = load_speller("wordpair");
+
+    assert!(speller.spellcheck("foo"));
+    assert!(speller.spellcheck("bar"));
+    assert!(speller.spellcheck("barfoo"));
+
+    assert!(!speller.spellcheck("foobar"));
+}

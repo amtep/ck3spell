@@ -317,6 +317,24 @@ impl SpellerHunspellDict {
         nosug
     }
 
+    fn has_word_pair_fold(
+        &self,
+        word1: &str,
+        word2: &str,
+        caps: CapStyle,
+    ) -> bool {
+        let mut word = String::with_capacity(word1.len() + 1 + word2.len());
+        word.push_str(word1);
+        word.push(' ');
+        word.push_str(word2);
+        for winfo in self.word_iter_fold(&word, caps) {
+            if !winfo.word_flags.contains(WordFlags::Forbidden) {
+                return true;
+            }
+        }
+        false
+    }
+
     fn word_iter(&self, word: &str) -> std::slice::Iter<'_, WordInfo> {
         if let Some(homonyms) = self.words.get(word) {
             homonyms.iter()
@@ -489,7 +507,10 @@ impl SpellerHunspellDict {
             v.pop();
         }
         // Success if we exactly consumed `word`.
+        // Also check a special case: if a word pair is in the dictionary
+        // separated by a space, then don't accept it as a compound.
         wlen == 0
+            && !(v.len() == 2 && self.has_word_pair_fold(v[0], v[1], caps))
     }
 
     /// Check a word against the dictionary and try compound words
