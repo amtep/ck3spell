@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use caseless::default_case_fold_str;
 use fnv::FnvHashMap;
 use smallvec::SmallVec;
 use std::fs::{read_to_string, File, OpenOptions};
@@ -36,8 +37,13 @@ const MAX_SWAP_CHAR_SUGGESTIONS: u32 = 1000;
 #[derive(Clone, Debug)]
 pub struct SpellerHunspellDict {
     affix_data: AffixData,
-    words: FnvHashMap<String, SmallVec<[WordInfo; 1]>>,
     user_dict: Option<PathBuf>,
+    words: FnvHashMap<String, SmallVec<[WordInfo; 1]>>,
+    // An index of case-folded words, to help with spell checking of
+    // all-caps words and phrases. It combines all the WordInfo of the
+    // original words, so that for example both "ROSE'S" (name) and
+    // "ROSES" (flower) are valid in all caps.
+    folded_words: FnvHashMap<String, SmallVec<[WordInfo; 1]>>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -110,6 +116,9 @@ pub enum CapStyle {
     AllCaps,
     Mixed,
     Neutral,
+    // Folded is a special category for words that have been run
+    // through caseless::default_case_fold_str.
+    Folded,
 }
 
 impl CapStyle {
@@ -171,8 +180,9 @@ impl SpellerHunspellDict {
         let affix_data = parse_affix_data(&affixes_text)?;
         let mut dict = SpellerHunspellDict {
             affix_data,
-            words: FnvHashMap::default(),
             user_dict: None,
+            words: FnvHashMap::default(),
+            folded_words: FnvHashMap::default(),
         };
 
         let dict_text = read_to_string(dictionary)
@@ -198,36 +208,20 @@ impl SpellerHunspellDict {
                 let word_flags =
                     dict.affix_data.special_flags.word_flags(&affix_flags);
                 let winfo = WordInfo::new(word_flags, affix_flags);
-                dict.words.entry(word.to_string()).or_default().push(winfo);
-            }
-        }
-        // Ensure capitalized and all-caps versions of all words are in the
-        // dictionary.
-        // Any word might be capitalized at the beginning of a sentence,
-        // and any phrase might be written in all caps for emphasis,
-        // so those should all be detected as correctly spelled.
-        let mut addvec = Vec::new();
-        for (word, homonyms) in dict.words.iter() {
-            for winfo in homonyms.iter() {
-                // "forbidden" entries are case sensitive, so don't upcase them
+                dict.words
+                    .entry(word.to_string())
+                    .or_default()
+                    .push(winfo.clone());
+
+                // Forbidden words are case sensitive, so don't add them
+                // to the case-folded dictionary.
                 if !winfo.word_flags.contains(WordFlags::Forbidden) {
-                    // Only add the upcased words if they are not themselves forbidden
-                    let allcaps = word.to_uppercase();
-                    if !dict.is_forbidden(&allcaps) {
-                        addvec.push((allcaps, winfo.clone()));
-                    }
-                    let capitalized = word.to_titlecase();
-                    if !dict.is_forbidden(&capitalized) {
-                        addvec.push((capitalized, winfo.clone()));
-                    }
+                    let folded = default_case_fold_str(word);
+                    dict.folded_words.entry(folded).or_default().push(winfo);
                 }
             }
         }
-        // Ensure a stable result regardless of hash order above
-        addvec.sort_by(|(a, _), (b, _)| b.cmp(a));
-        for (word, winfo) in addvec.drain(..) {
-            dict.words.entry(word).or_default().push(winfo);
-        }
+
         Ok(dict)
     }
 
@@ -292,38 +286,65 @@ impl SpellerHunspellDict {
     }
 
     fn is_forbidden(&self, word: &str) -> bool {
-        if let Some(homonyms) = self.words.get(word) {
-            for winfo in homonyms.iter() {
-                if !winfo.word_flags.contains(WordFlags::Forbidden) {
-                    return false;
-                }
+        let mut forbidden = false;
+        for winfo in self.word_iter(word) {
+            if winfo.word_flags.contains(WordFlags::Forbidden) {
+                forbidden = true;
+            } else {
+                return false;
             }
-            return true;
         }
-        false
+        forbidden
     }
 
-    fn is_forbidden_or_nosuggest(&self, word: &str) -> bool {
-        if let Some(homonyms) = self.words.get(word) {
-            for winfo in homonyms.iter() {
-                if !winfo
-                    .word_flags
-                    .intersects(WordFlags::Forbidden | WordFlags::NoSuggest)
-                {
-                    return false;
-                }
+    fn is_forbidden_suggestion(&self, word: &str) -> bool {
+        let mut nosug = false;
+        for winfo in self.word_iter(word) {
+            if winfo
+                .word_flags
+                .intersects(WordFlags::Forbidden | WordFlags::NoSuggest)
+            {
+                nosug = true;
+            } else {
+                return false;
             }
-            return true;
         }
-        false
+        nosug
     }
 
-    fn has_affix_flag(&self, word: &str, flag: AffixFlag) -> bool {
+    fn word_iter(&self, word: &str) -> std::slice::Iter<'_, WordInfo> {
         if let Some(homonyms) = self.words.get(word) {
-            for winfo in homonyms.iter() {
-                if winfo.has_affix_flag(flag) {
-                    return true;
-                }
+            homonyms.iter()
+        } else {
+            [].iter()
+        }
+    }
+
+    fn word_iter_fold(
+        &self,
+        word: &str,
+        caps: CapStyle,
+    ) -> std::slice::Iter<'_, WordInfo> {
+        if caps == CapStyle::Folded {
+            if let Some(homonyms) = self.folded_words.get(word) {
+                homonyms.iter()
+            } else {
+                [].iter()
+            }
+        } else {
+            self.word_iter(word)
+        }
+    }
+
+    fn has_affix_flag_fold(
+        &self,
+        word: &str,
+        caps: CapStyle,
+        flag: AffixFlag,
+    ) -> bool {
+        for winfo in self.word_iter_fold(word, caps) {
+            if winfo.has_affix_flag(flag) {
+                return true;
             }
         }
         false
@@ -336,17 +357,16 @@ impl SpellerHunspellDict {
         caps: CapStyle,
         compound: Compound,
     ) -> bool {
-        if let Some(homonyms) = self.words.get(word) {
-            for winfo in homonyms.iter() {
-                if compound.word_ok(winfo.word_flags)
-                    && !winfo
-                        .word_flags
-                        .intersects(WordFlags::Forbidden | WordFlags::NeedAffix)
-                {
-                    return true;
-                }
+        for winfo in self.word_iter_fold(word, caps) {
+            if compound.word_ok(winfo.word_flags)
+                && !winfo
+                    .word_flags
+                    .intersects(WordFlags::Forbidden | WordFlags::NeedAffix)
+            {
+                return true;
             }
         }
+
         self.affix_data.check_prefix(word, caps, compound, self)
             || self
                 .affix_data
@@ -356,6 +376,7 @@ impl SpellerHunspellDict {
     fn _spellcheck_compoundrule<'a>(
         &self,
         word: &'a str,
+        caps: CapStyle,
         v: &mut Vec<&'a str>,
         mut iter: CharIndices,
     ) -> bool {
@@ -381,9 +402,14 @@ impl SpellerHunspellDict {
             // work anyway.
             for rule in self.affix_data.compound_rules.iter() {
                 if rule.partial_match(v, |word, flag| {
-                    self.has_affix_flag(word, flag)
+                    self.has_affix_flag_fold(word, caps, flag)
                 }) {
-                    if self._spellcheck_compoundrule(word, v, iter.clone()) {
+                    if self._spellcheck_compoundrule(
+                        word,
+                        caps,
+                        v,
+                        iter.clone(),
+                    ) {
                         return true;
                     }
                     break;
@@ -397,7 +423,9 @@ impl SpellerHunspellDict {
             return false;
         }
         for rule in self.affix_data.compound_rules.iter() {
-            if rule.matches(v, |word, flag| self.has_affix_flag(word, flag)) {
+            if rule.matches(v, |word, flag| {
+                self.has_affix_flag_fold(word, caps, flag)
+            }) {
                 return true;
             }
         }
@@ -470,6 +498,7 @@ impl SpellerHunspellDict {
         if !self.affix_data.compound_rules.is_empty()
             && self._spellcheck_compoundrule(
                 word,
+                caps,
                 &mut Vec::new(),
                 word.char_indices(),
             )
@@ -494,7 +523,7 @@ impl SpellerHunspellDict {
         }
         *count += 1;
 
-        if self._spellcheck_compound(word, caps) {
+        if self._spellcheck_caps(word, caps) {
             return true;
         }
 
@@ -532,6 +561,35 @@ impl SpellerHunspellDict {
         false
     }
 
+    // Check a word against the dictionary and try different capitalization
+    fn _spellcheck_caps(&self, word: &str, caps: CapStyle) -> bool {
+        if self._spellcheck_compound(word, caps) {
+            return true;
+        }
+
+        // Any word might be capitalized at the beginning of a sentence,
+        // and any phrase might be written in all caps for emphasis,
+        // so those should all be detected as correctly spelled.
+
+        if caps == CapStyle::AllCaps
+            && self._spellcheck_compound(
+                &default_case_fold_str(word),
+                CapStyle::Folded,
+            )
+        {
+            return true;
+        }
+
+        if caps == CapStyle::Capitalized
+            && self
+                ._spellcheck_compound(&word.to_lowercase(), CapStyle::Lowercase)
+        {
+            return true;
+        }
+
+        false
+    }
+
     fn check_suggestion(
         &self,
         word: &str,
@@ -542,7 +600,7 @@ impl SpellerHunspellDict {
             return false;
         }
 
-        if self.is_forbidden_or_nosuggest(word) {
+        if self.is_forbidden_suggestion(word) {
             return false;
         }
 
@@ -558,17 +616,6 @@ impl SpellerHunspellDict {
                 && self.check_suggestion(wordb, origword, suggs)
         } else {
             false
-        }
-    }
-
-    fn _add_word(&mut self, word: String, force: bool) {
-        let homonyms = self.words.entry(word).or_default();
-        if let Some(winfo) = homonyms.iter_mut().next() {
-            if force {
-                winfo.word_flags.remove(WordFlags::Forbidden);
-            }
-        } else {
-            homonyms.push(WordInfo::default());
         }
     }
 
@@ -726,20 +773,14 @@ impl Speller for SpellerHunspellDict {
         if word.is_empty() {
             return false;
         }
-
-        match CapStyle::from_str(&word) {
-            CapStyle::Lowercase => {
-                self._add_word(word.to_uppercase(), false);
-                self._add_word(word.to_titlecase(), false);
-            }
-            CapStyle::Capitalized | CapStyle::Mixed => {
-                self._add_word(word.to_uppercase(), false);
-            }
-            _ => (),
-        }
-
-        self._add_word(word, true);
-
+        self.folded_words
+            .entry(default_case_fold_str(&word))
+            .or_default()
+            .push(WordInfo::default());
+        self.words
+            .entry(word)
+            .or_default()
+            .push(WordInfo::default());
         true
     }
 

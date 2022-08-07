@@ -389,18 +389,14 @@ impl AffixEntry {
         }
         if let Some(pword) = self.deprefixed_word(word, caps, dict) {
             if !self.contflags.needs_affix() {
-                if let Some(homonyms) = dict.words.get(&pword) {
-                    for winfo in homonyms.iter() {
-                        if winfo.has_affix_flag(self.flag)
-                            && compound.word_ok(
-                                winfo.word_flags | self.contflags.word_flags,
-                            )
-                            && !winfo
-                                .word_flags
-                                .intersects(WordFlags::Forbidden)
-                        {
-                            return true;
-                        }
+                for winfo in dict.word_iter_fold(&pword, caps) {
+                    if winfo.has_affix_flag(self.flag)
+                        && compound.word_ok(
+                            winfo.word_flags | self.contflags.word_flags,
+                        )
+                        && !winfo.word_flags.intersects(WordFlags::Forbidden)
+                    {
+                        return true;
                     }
                 }
             }
@@ -441,27 +437,22 @@ impl AffixEntry {
             }
             needs_affix = needs_affix && pfx.contflags.needs_affix();
         }
-
         if let Some(sword) = self.desuffixed_word(word, caps, dict) {
             if !needs_affix {
-                if let Some(homonyms) = dict.words.get(&sword) {
-                    for winfo in homonyms.iter() {
-                        let mut flags =
-                            winfo.word_flags | self.contflags.word_flags;
-                        if let Some(pfx) = from_prefix {
-                            if !winfo.has_affix_flag(pfx.flag) {
-                                continue;
-                            }
-                            flags.insert(pfx.contflags.word_flags);
+                for winfo in dict.word_iter_fold(&sword, caps) {
+                    let mut flags =
+                        winfo.word_flags | self.contflags.word_flags;
+                    if let Some(pfx) = from_prefix {
+                        if !winfo.has_affix_flag(pfx.flag) {
+                            continue;
                         }
-                        if winfo.has_affix_flag(self.flag)
-                            && compound.word_ok(flags)
-                            && !winfo
-                                .word_flags
-                                .intersects(WordFlags::Forbidden)
-                        {
-                            return true;
-                        }
+                        flags.insert(pfx.contflags.word_flags);
+                    }
+                    if winfo.has_affix_flag(self.flag)
+                        && compound.word_ok(flags)
+                        && !winfo.word_flags.intersects(WordFlags::Forbidden)
+                    {
+                        return true;
                     }
                 }
             }
@@ -488,9 +479,8 @@ impl AffixEntry {
     }
 
     fn _prefix_condition(&self, word: &str) -> bool {
-        let count = word.chars().count();
         let witer = word.chars();
-        count >= self.cond_chars && _test_condition(&self.condition, witer)
+        _test_condition(&self.condition, witer)
     }
 
     fn _suffix_condition(&self, word: &str) -> bool {
