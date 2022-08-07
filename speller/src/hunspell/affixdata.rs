@@ -94,6 +94,9 @@ pub struct AffixData {
     /// Any errors reported by the .aff file parser
     pub errors: Vec<String>,
 
+    /// Is this guessed to be a language where words are combined with dashes?
+    pub dash_word_heuristic: bool,
+
     /// Cache. Maps affix flags to the suffix entries that have that flag
     /// as a continuation flag.
     rev_cont: HashMap<AffixFlag, Vec<usize>>,
@@ -176,6 +179,12 @@ impl AffixData {
     }
 
     pub fn finalize(&mut self) {
+        self.dash_word_heuristic = if let Some(try_string) = &self.try_string {
+            try_string.contains('_')
+                || try_string.contains(|c: char| c.is_ascii_alphabetic())
+        } else {
+            false
+        };
         for pfx in self.prefixes.iter_mut() {
             pfx.finalize(&self.special_flags);
         }

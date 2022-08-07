@@ -390,8 +390,7 @@ fn suggest_split_word() {
 
     assert_eq!(vec!["a lot"], speller.suggestions("alot", 9));
     assert_eq!(vec!["in spite"], speller.suggestions("inspite", 9));
-    // TODO
-    // assert_eq!(vec!["scot-free"], speller.suggestions("scotfree", 9));
+    assert_eq!(vec!["scot-free"], speller.suggestions("scotfree", 9));
 }
 
 #[test]

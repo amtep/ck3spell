@@ -19,7 +19,8 @@ use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
     add_char_suggestions, delete_char_suggestions, related_char_suggestions,
-    split_word_suggestions, swap_char_suggestions,
+    split_word_suggestions, split_word_with_dash_suggestions,
+    swap_char_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -579,7 +580,8 @@ impl SpellerHunspellDict {
         // Try splitting the word into two words
         split_word_suggestions(&word, |sugg| {
             if self.check_suggestion(&sugg, &word, &suggs) {
-                if self.words.contains_key(&sugg) {
+                if !done && self.words.contains_key(&sugg) {
+                    suggs.clear();
                     done = true;
                 }
                 suggs.push(sugg);
@@ -588,6 +590,21 @@ impl SpellerHunspellDict {
         });
         if suggs.len() == max || done {
             return suggs;
+        }
+        if self.affix_data.dash_word_heuristic {
+            split_word_with_dash_suggestions(&word, |sugg| {
+                if self.check_suggestion(&sugg, &word, &suggs) {
+                    if !done && self.words.contains_key(&sugg) {
+                        suggs.clear();
+                        done = true;
+                    }
+                    suggs.push(sugg);
+                }
+                suggs.len() < max
+            });
+            if suggs.len() == max || done {
+                return suggs;
+            }
         }
 
         // Try lowercased, capitalized, or all caps
