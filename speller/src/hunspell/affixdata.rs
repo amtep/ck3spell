@@ -479,15 +479,16 @@ impl AffixEntry {
     }
 
     fn _prefix_condition(&self, word: &str) -> bool {
-        let witer = word.chars();
-        _test_condition(&self.condition, witer)
+        self.cond_chars == 0 || _test_condition(&self.condition, word.chars())
     }
 
     fn _suffix_condition(&self, word: &str) -> bool {
-        let count = word.chars().count();
-        if count >= self.cond_chars {
-            let witer = word.chars().skip(count - self.cond_chars);
-            return _test_condition(&self.condition, witer);
+        if self.cond_chars == 0 {
+            return true;
+        }
+        if let Some((i, _)) = word.char_indices().nth_back(self.cond_chars - 1)
+        {
+            return _test_condition(&self.condition, word[i..].chars());
         }
         false
     }
