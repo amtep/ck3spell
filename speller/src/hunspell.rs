@@ -512,6 +512,8 @@ impl SpellerHunspellDict {
                 && compound != Compound::Begin
             {
                 CapStyle::Lowercase
+            } else if caps == CapStyle::Mixed {
+                CapStyle::from_str(piece)
             } else {
                 caps
             };
@@ -564,7 +566,8 @@ impl SpellerHunspellDict {
     }
 
     // Check a word against the dictionary and try word breaks and affixes
-    fn _spellcheck(&self, word: &str, caps: CapStyle, count: &mut u16) -> bool {
+    fn _spellcheck(&self, word: &str, count: &mut u16) -> bool {
+        let caps = CapStyle::from_str(word);
         if *count > MAX_WORD_BREAK_ATTEMPTS {
             return false;
         }
@@ -579,13 +582,13 @@ impl SpellerHunspellDict {
         for brk in self.affix_data.word_breaks.iter() {
             if let Some(brk) = brk.strip_prefix('^') {
                 if let Some(bword) = word.strip_prefix(brk) {
-                    if self._spellcheck(bword, caps, count) {
+                    if self._spellcheck(bword, count) {
                         return true;
                     }
                 }
             } else if let Some(brk) = brk.strip_suffix('$') {
                 if let Some(bword) = word.strip_suffix(brk) {
-                    if self._spellcheck(bword, caps, count) {
+                    if self._spellcheck(bword, count) {
                         return true;
                     }
                 }
@@ -594,7 +597,7 @@ impl SpellerHunspellDict {
 
         // If the word ends on a '.', try removing it.
         if let Some(bword) = word.strip_suffix('.') {
-            if self._spellcheck(bword, caps, count) {
+            if self._spellcheck(bword, count) {
                 return true;
             }
         }
@@ -605,8 +608,8 @@ impl SpellerHunspellDict {
                 continue;
             }
             if let Some((worda, wordb)) = word.split_once(brk) {
-                if self._spellcheck(worda, caps, count)
-                    && self._spellcheck(wordb, caps, count)
+                if self._spellcheck(worda, count)
+                    && self._spellcheck(wordb, count)
                 {
                     return true;
                 }
@@ -660,9 +663,8 @@ impl SpellerHunspellDict {
             return false;
         }
 
-        let caps = CapStyle::from_str(word);
         let mut count = 0u16;
-        if self._spellcheck(word, caps, &mut count) {
+        if self._spellcheck(word, &mut count) {
             return true;
         }
 
@@ -816,9 +818,8 @@ impl Speller for SpellerHunspellDict {
         if self.is_forbidden(&word) {
             return false;
         }
-        let caps = CapStyle::from_str(&word);
         let mut count = 0u16;
-        self._spellcheck(&word, caps, &mut count)
+        self._spellcheck(&word, &mut count)
     }
 
     fn suggestions(&self, word: &str, max: usize) -> Vec<String> {

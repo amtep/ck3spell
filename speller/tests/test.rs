@@ -279,6 +279,15 @@ fn forbidden_break() {
 }
 
 #[test]
+fn titlecase_break() {
+    let speller = load_speller("en_US");
+
+    assert!(speller.spellcheck("Blood"));
+    assert!(speller.spellcheck("Brothers"));
+    assert!(speller.spellcheck("Blood-Brothers"));
+}
+
+#[test]
 fn needaffix_continuation() {
     // test "needaffix5" from hunspell
     let speller = load_speller("needaffix-continuation");
