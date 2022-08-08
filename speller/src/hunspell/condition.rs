@@ -86,6 +86,32 @@ impl AffixCondition {
         AffixCondition { cond: v }
     }
 
+    pub fn prune_prefix(&mut self, prefix: &str) {
+        for c in prefix.chars() {
+            if self.cond.is_empty() {
+                return;
+            }
+            if !self.cond[0].matches(c) {
+                self.cond = vec![AffixCondChar::Group(String::new())];
+                return;
+            }
+            self.cond.remove(0);
+        }
+    }
+
+    pub fn prune_suffix(&mut self, suffix: &str) {
+        for c in suffix.chars().rev() {
+            if self.cond.is_empty() {
+                return;
+            }
+            if !self.cond[self.cond.len() - 1].matches(c) {
+                self.cond = vec![AffixCondChar::Group(String::new())];
+                return;
+            }
+            self.cond.pop();
+        }
+    }
+
     pub fn prefix_match(&self, word: &str) -> bool {
         if self.cond.is_empty() {
             return true;

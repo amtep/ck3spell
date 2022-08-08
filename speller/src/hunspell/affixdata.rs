@@ -260,6 +260,7 @@ pub struct AffixEntry {
     flag: AffixFlag,
     strip: String,
     affix: String,
+    // condition is "pruned", see discussion in AffixEntry::new
     condition: AffixCondition,
     contflags: WordInfo,
 
@@ -270,6 +271,7 @@ pub struct AffixEntry {
 
 impl AffixEntry {
     pub fn new(
+        is_pfx: bool,
         cross: bool,
         flag: AffixFlag,
         strip: &str,
@@ -277,13 +279,23 @@ impl AffixEntry {
         cond: &str,
         cflags: Vec<AffixFlag>,
     ) -> Self {
+        let mut condition = AffixCondition::new(cond);
+        // Since we apply the affix backward (removing `affix` and adding
+        // `strip`), there's no need to keep checking the affix's condition
+        // against its own strip characters. So prune those from the condition,
+        // so that we can check directly against the root of the word for speed.
+        if is_pfx {
+            condition.prune_prefix(strip);
+        } else {
+            condition.prune_suffix(strip);
+        }
         // Not all special flags may be known yet, so leave WordFlags empty.
         AffixEntry {
             allow_cross: cross,
             flag,
             strip: strip.to_string(),
             affix: affix.to_string(),
-            condition: AffixCondition::new(cond),
+            condition,
             contflags: WordInfo::new(WordFlags::empty(), cflags),
 
             capsed_affix: affix.to_uppercase(),
@@ -302,14 +314,14 @@ impl AffixEntry {
         dict: &SpellerHunspellDict,
     ) -> Option<String> {
         if let Some(root) = word.strip_prefix(prefix) {
-            if !root.is_empty() || dict.affix_data.fullstrip {
+            if (!root.is_empty() || dict.affix_data.fullstrip)
+                && self.condition.prefix_match(root)
+            {
                 let mut pword =
                     String::with_capacity(self.strip.len() + root.len());
                 pword.push_str(&self.strip);
                 pword.push_str(root);
-                if self.condition.prefix_match(&pword) {
-                    return Some(pword);
-                }
+                return Some(pword);
             }
         }
         None
@@ -346,14 +358,14 @@ impl AffixEntry {
         dict: &SpellerHunspellDict,
     ) -> Option<String> {
         if let Some(root) = word.strip_suffix(suffix) {
-            if !root.is_empty() || dict.affix_data.fullstrip {
+            if (!root.is_empty() || dict.affix_data.fullstrip)
+                && self.condition.suffix_match(root)
+            {
                 let mut sword =
                     String::with_capacity(root.len() + self.strip.len());
                 sword.push_str(root);
                 sword.push_str(&self.strip);
-                if self.condition.suffix_match(&sword) {
-                    return Some(sword);
-                }
+                return Some(sword);
             }
         }
         None

@@ -403,8 +403,15 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                 if v3 == "." {
                     v3 = "";
                 }
-                let entry =
-                    AffixEntry::new(allow_cross, fflag[0], v1, v2, v3, cflags);
+                let entry = AffixEntry::new(
+                    is_pfx,
+                    allow_cross,
+                    fflag[0],
+                    v1,
+                    v2,
+                    v3,
+                    cflags,
+                );
                 if is_pfx {
                     d.prefixes.push(entry);
                 } else {
