@@ -6,6 +6,7 @@ use unicode_titlecase::StrTitleCase;
 
 use crate::affix_trie::{PrefixTrie, SuffixTrie};
 use crate::hunspell::compoundrule::CompoundRule;
+use crate::hunspell::condition::AffixCondition;
 use crate::hunspell::replacements::Replacements;
 use crate::hunspell::wordflags::WordFlags;
 use crate::hunspell::{CapStyle, Compound, SpellerHunspellDict, WordInfo};
@@ -259,8 +260,7 @@ pub struct AffixEntry {
     flag: AffixFlag,
     strip: String,
     affix: String,
-    condition: String,
-    cond_chars: usize,
+    condition: AffixCondition,
     contflags: WordInfo,
 
     // All caps and titlecase versions of the affix. Saved here for speed.
@@ -283,8 +283,7 @@ impl AffixEntry {
             flag,
             strip: strip.to_string(),
             affix: affix.to_string(),
-            condition: cond.to_string(),
-            cond_chars: _count_cond_chars(cond),
+            condition: AffixCondition::new(cond),
             contflags: WordInfo::new(WordFlags::empty(), cflags),
 
             capsed_affix: affix.to_uppercase(),
@@ -308,7 +307,7 @@ impl AffixEntry {
                     String::with_capacity(self.strip.len() + root.len());
                 pword.push_str(&self.strip);
                 pword.push_str(root);
-                if self._prefix_condition(&pword) {
+                if self.condition.prefix_match(&pword) {
                     return Some(pword);
                 }
             }
@@ -352,7 +351,7 @@ impl AffixEntry {
                     String::with_capacity(root.len() + self.strip.len());
                 sword.push_str(root);
                 sword.push_str(&self.strip);
-                if self._suffix_condition(&sword) {
+                if self.condition.suffix_match(&sword) {
                     return Some(sword);
                 }
             }
@@ -481,157 +480,5 @@ impl AffixEntry {
             }
         }
         false
-    }
-
-    fn _prefix_condition(&self, word: &str) -> bool {
-        self.cond_chars == 0 || _test_condition(&self.condition, word.chars())
-    }
-
-    fn _suffix_condition(&self, word: &str) -> bool {
-        if self.cond_chars == 0 {
-            return true;
-        }
-        if let Some((i, _)) = word.char_indices().nth_back(self.cond_chars - 1)
-        {
-            return _test_condition(&self.condition, word[i..].chars());
-        }
-        false
-    }
-}
-
-fn _count_cond_chars(cond: &str) -> usize {
-    let mut ingroup = false;
-    let mut count = 0;
-    for c in cond.chars() {
-        if ingroup {
-            if c == ']' {
-                ingroup = false;
-            }
-        } else {
-            count += 1;
-            if c == '[' {
-                ingroup = true;
-            }
-        }
-    }
-    count
-}
-
-enum CondState {
-    Matching,
-    GroupStart,
-    InGroup,
-    InGroupFound,
-    InNegatedGroup,
-}
-
-/// Takes a rudimentary regexp (containing [] groups and [^] negated groups)
-/// and matches it against the given word.
-fn _test_condition(cond: &str, mut witer: impl Iterator<Item = char>) -> bool {
-    let mut state = CondState::Matching;
-    let mut wc = witer.next();
-    for c in cond.chars() {
-        if wc.is_none() {
-            // word is too short to match
-            return false;
-        }
-        match state {
-            CondState::Matching => {
-                if c == '[' {
-                    state = CondState::GroupStart;
-                } else if c != '.' && wc != Some(c) {
-                    return false;
-                } else {
-                    wc = witer.next();
-                }
-            }
-            CondState::GroupStart => {
-                if c == '^' {
-                    state = CondState::InNegatedGroup;
-                } else if wc == Some(c) {
-                    state = CondState::InGroupFound;
-                } else {
-                    state = CondState::InGroup;
-                }
-            }
-            CondState::InGroup => {
-                if c == ']' {
-                    // No group member found
-                    return false;
-                } else if wc == Some(c) {
-                    state = CondState::InGroupFound;
-                }
-            }
-            CondState::InGroupFound => {
-                if c == ']' {
-                    state = CondState::Matching;
-                    wc = witer.next();
-                }
-            }
-            CondState::InNegatedGroup => {
-                if c == ']' {
-                    state = CondState::Matching;
-                    wc = witer.next();
-                } else if wc == Some(c) {
-                    // hit negated char
-                    return false;
-                }
-            }
-        }
-    }
-    true
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    fn help_prefix_condition(cond: &str, word: &str) -> bool {
-        let affix = AffixEntry::new(false, 0, "", "", cond, Vec::new());
-        affix._prefix_condition(word)
-    }
-
-    fn help_suffix_condition(cond: &str, word: &str) -> bool {
-        let affix = AffixEntry::new(false, 0, "", "", cond, Vec::new());
-        affix._suffix_condition(word)
-    }
-
-    #[test]
-    fn test_prefix_condition() {
-        assert!(help_prefix_condition("", "anything"));
-        assert!(help_prefix_condition("[aeoui]", "a vowel"));
-        assert!(help_prefix_condition("[^hx]", "a negation"));
-        assert!(help_prefix_condition("literal", "literal matching"));
-        assert!(help_prefix_condition("l[ix]", "li"));
-        assert!(help_prefix_condition("c[om]pli[^ca]ted", "cmplixted"));
-        // a caret not at the start of a group is a normal member;
-        assert!(help_prefix_condition("[ae^oui]", "^ vowel"));
-        // a dot is a wildcard:
-        assert!(help_prefix_condition("any.letter", "anylletter"));
-        // but not in a group:
-        assert!(!help_prefix_condition("any[.]letter", "anylletter"));
-        assert!(help_prefix_condition("any[.]letter", "any.letter"));
-
-        // test rejections too;
-        assert!(!help_prefix_condition("[^hx]", "h fails"));
-        assert!(!help_prefix_condition("literal", "litteral"));
-        assert!(!help_prefix_condition("c[om]pli[^ca]t", "cmplict"));
-    }
-
-    #[test]
-    fn test_suffix_condition() {
-        assert!(help_suffix_condition("", "anything"));
-        assert!(help_suffix_condition("[aeoui]", "vowel a"));
-        assert!(help_suffix_condition("[^hx]", "negation a"));
-        assert!(help_suffix_condition("literal", "matching literal"));
-        assert!(help_suffix_condition("l[ix]", "li"));
-        assert!(help_suffix_condition("c[om]pli[^ca]ted", "cmplixted"));
-        assert!(help_suffix_condition("c[om]pli[^ca]ted", "very cmplixted"));
-        // a caret not at the start of a group is a normal member;
-        assert!(help_suffix_condition("[ae^oui]", "vowel ^"));
-        // test rejections too;
-        assert!(!help_suffix_condition("[^hx]", "fails h"));
-        assert!(!help_suffix_condition("literal", "litteral"));
-        assert!(!help_suffix_condition("c[om]pli[^ca]t", "very cmplict"));
     }
 }

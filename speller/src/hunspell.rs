@@ -11,6 +11,7 @@ use unicode_titlecase::StrTitleCase;
 
 mod affixdata;
 mod compoundrule;
+mod condition;
 mod parse_aff;
 mod replacements;
 mod suggestions;
