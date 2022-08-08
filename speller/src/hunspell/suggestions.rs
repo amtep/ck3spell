@@ -53,6 +53,40 @@ pub fn delete_char_suggestions(
     }
 }
 
+/// bananana -> banana
+pub fn delete_doubled_pair_suggestions(
+    word: &str,
+    mut suggest: impl FnMut(String) -> bool,
+) {
+    let mut prev1 = None;
+    let mut prev2 = None;
+    let mut prev3 = None;
+    for (i, c) in word.char_indices() {
+        if prev1.is_none() {
+            prev1 = Some((i, c));
+            continue;
+        } else if prev2.is_none() {
+            prev2 = Some((i, c));
+            continue;
+        } else if prev3.is_none() {
+            prev3 = Some((i, c));
+            continue;
+        }
+        if prev1.unwrap().1 == prev3.unwrap().1 && prev2.unwrap().1 == c {
+            let mut sugg = String::with_capacity(word.len());
+            // delete prev1 and prev2
+            sugg.push_str(&word[..prev1.unwrap().0]);
+            sugg.push_str(&word[prev3.unwrap().0..]);
+            if !suggest(sugg) {
+                return;
+            }
+        }
+        prev1 = prev2;
+        prev2 = prev3;
+        prev3 = Some((i, c));
+    }
+}
+
 pub fn swap_char_suggestions(
     word: &str,
     mut suggest: impl FnMut(String) -> bool,

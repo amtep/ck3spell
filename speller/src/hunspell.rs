@@ -20,7 +20,8 @@ mod wordflags;
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
-    add_char_suggestions, delete_char_suggestions, move_char_suggestions,
+    add_char_suggestions, delete_char_suggestions,
+    delete_doubled_pair_suggestions, move_char_suggestions,
     related_char_suggestions, split_word_suggestions,
     split_word_with_dash_suggestions, swap_char_suggestions,
 };
@@ -746,6 +747,18 @@ impl SpellerHunspellDict {
         }
 
         delete_char_suggestions(&word, |sugg| {
+            if self.check_suggestion(&sugg, &word, &suggs) {
+                suggs.push(sugg);
+            }
+            suggs.len() < max
+        });
+        if suggs.len() == max {
+            return suggs;
+        }
+
+        // TODO: maybe a straight up "delete any two chars" suggestion would
+        // be better?
+        delete_doubled_pair_suggestions(&word, |sugg| {
             if self.check_suggestion(&sugg, &word, &suggs) {
                 suggs.push(sugg);
             }
