@@ -70,15 +70,17 @@ impl Replacements {
         output
     }
 
-    pub fn suggest(&self, word: &str, mut suggest: impl FnMut(String) -> bool) {
+    pub fn suggest(&self, word: &str, mut suggest: impl FnMut(&str) -> bool) {
+        let mut sugg = String::with_capacity(word.len() * 2);
         for (i, _) in word.char_indices() {
             // TODO: optimize by putting start-anchored reps in a separate list
             for rep in self.reps.iter() {
                 if rep.matches(&word[i..], i == 0) {
-                    let mut sugg = word[..i].to_string();
-                    sugg += &rep.to;
-                    sugg += &word[i + rep.from.len()..];
-                    if !suggest(sugg) {
+                    sugg.clear();
+                    sugg.push_str(&word[..i]);
+                    sugg.push_str(&rep.to);
+                    sugg.push_str(&word[i + rep.from.len()..]);
+                    if !suggest(&sugg) {
                         break;
                     }
                 }

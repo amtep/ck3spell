@@ -684,12 +684,12 @@ impl SpellerHunspellDict {
 
         // Try splitting the word into two words
         split_word_suggestions(&word, |sugg| {
-            if self.check_suggestion(&sugg, &word, &suggs) {
-                if !done && self.words.contains_key(&sugg) {
+            if self.check_suggestion(sugg, &word, &suggs) {
+                if !done && self.words.contains_key(sugg) {
                     suggs.clear();
                     done = true;
                 }
-                suggs.push(sugg);
+                suggs.push(sugg.to_string());
             }
             suggs.len() < max
         });
@@ -698,12 +698,12 @@ impl SpellerHunspellDict {
         }
         if self.affix_data.dash_word_heuristic {
             split_word_with_dash_suggestions(&word, |sugg| {
-                if self.check_suggestion(&sugg, &word, &suggs) {
-                    if !done && self.words.contains_key(&sugg) {
+                if self.check_suggestion(sugg, &word, &suggs) {
+                    if !done && self.words.contains_key(sugg) {
                         suggs.clear();
                         done = true;
                     }
-                    suggs.push(sugg);
+                    suggs.push(sugg.to_string());
                 }
                 suggs.len() < max
             });
@@ -730,8 +730,8 @@ impl SpellerHunspellDict {
         }
 
         self.affix_data.replacements.suggest(&word, |sugg| {
-            if self.check_suggestion(&sugg, &word, &suggs) {
-                suggs.push(sugg);
+            if self.check_suggestion(sugg, &word, &suggs) {
+                suggs.push(sugg.to_string());
             }
             suggs.len() < max
         });
@@ -756,8 +756,8 @@ impl SpellerHunspellDict {
         }
 
         delete_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(&sugg, &word, &suggs) {
-                suggs.push(sugg);
+            if self.check_suggestion(sugg, &word, &suggs) {
+                suggs.push(sugg.to_string());
             }
             suggs.len() < max
         });
@@ -768,8 +768,8 @@ impl SpellerHunspellDict {
         // TODO: maybe a straight up "delete any two chars" suggestion would
         // be better?
         delete_doubled_pair_suggestions(&word, |sugg| {
-            if self.check_suggestion(&sugg, &word, &suggs) {
-                suggs.push(sugg);
+            if self.check_suggestion(sugg, &word, &suggs) {
+                suggs.push(sugg.to_string());
             }
             suggs.len() < max
         });
@@ -791,8 +791,8 @@ impl SpellerHunspellDict {
 
         if let Some(try_chars) = &self.affix_data.try_string {
             add_char_suggestions(&word, try_chars, |sugg| {
-                if self.check_suggestion(&sugg, &word, &suggs) {
-                    suggs.push(sugg);
+                if self.check_suggestion(sugg, &word, &suggs) {
+                    suggs.push(sugg.to_string());
                 }
                 suggs.len() < max
             });

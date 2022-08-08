@@ -41,13 +41,14 @@ pub fn related_char_suggestions(
 
 pub fn delete_char_suggestions(
     word: &str,
-    mut suggest: impl FnMut(String) -> bool,
+    mut suggest: impl FnMut(&str) -> bool,
 ) {
+    let mut sugg = String::with_capacity(word.len());
     for (i, c) in word.char_indices() {
-        let mut sugg = String::with_capacity(word.len());
+        sugg.clear();
         sugg.push_str(&word[..i]);
         sugg.push_str(&word[i + c.len_utf8()..]);
-        if !suggest(sugg) {
+        if !suggest(&sugg) {
             return;
         }
     }
@@ -56,8 +57,9 @@ pub fn delete_char_suggestions(
 /// bananana -> banana
 pub fn delete_doubled_pair_suggestions(
     word: &str,
-    mut suggest: impl FnMut(String) -> bool,
+    mut suggest: impl FnMut(&str) -> bool,
 ) {
+    let mut sugg = String::with_capacity(word.len());
     let mut prev1 = None;
     let mut prev2 = None;
     let mut prev3 = None;
@@ -73,11 +75,11 @@ pub fn delete_doubled_pair_suggestions(
             continue;
         }
         if prev1.unwrap().1 == prev3.unwrap().1 && prev2.unwrap().1 == c {
-            let mut sugg = String::with_capacity(word.len());
+            sugg.clear();
             // delete prev1 and prev2
             sugg.push_str(&word[..prev1.unwrap().0]);
             sugg.push_str(&word[prev3.unwrap().0..]);
-            if !suggest(sugg) {
+            if !suggest(&sugg) {
                 return;
             }
         }
@@ -162,6 +164,7 @@ pub fn move_char_suggestions(
     word: &str,
     mut suggest: impl FnMut(&str) -> bool,
 ) {
+    let mut sugg = String::with_capacity(word.len());
     // Try moving a char to another place in the word.
     // The new location has to be at least 2 chars away, otherwise
     // it's just a swap which we already try in swap_char_suggestions.
@@ -173,7 +176,7 @@ pub fn move_char_suggestions(
             }
             let real_i2 = after_i1 + i2;
             let after_i2 = real_i2 + c2.len_utf8();
-            let mut sugg = String::with_capacity(word.len());
+            sugg.clear();
             sugg.push_str(&word[..i1]);
             sugg.push_str(&word[after_i1..after_i2]);
             sugg.push(c1);
@@ -195,7 +198,7 @@ pub fn move_char_suggestions(
 pub fn add_char_suggestions(
     word: &str,
     try_chars: &str,
-    mut suggest: impl FnMut(String) -> bool,
+    mut suggest: impl FnMut(&str) -> bool,
 ) {
     // Try them in order; the affix file put them in order of likelihood
     for tc in try_chars.chars() {
@@ -205,20 +208,21 @@ pub fn add_char_suggestions(
         }
         // Try the char in front of each char
         let sugg_len = word.len() + tc.len_utf8();
+        let mut sugg = String::with_capacity(sugg_len);
         for (i, _) in word.char_indices() {
-            let mut sugg = String::with_capacity(sugg_len);
+            sugg.clear();
             sugg.push_str(&word[..i]);
             sugg.push(tc);
             sugg.push_str(&word[i..]);
-            if !suggest(sugg) {
+            if !suggest(&sugg) {
                 return;
             }
         }
         // Also try it at the end
-        let mut sugg = String::with_capacity(word.len() + tc.len_utf8());
+        sugg.clear();
         sugg.push_str(word);
         sugg.push(tc);
-        if !suggest(sugg) {
+        if !suggest(&sugg) {
             return;
         }
     }
@@ -226,10 +230,10 @@ pub fn add_char_suggestions(
 
 pub fn split_word_suggestions(
     word: &str,
-    mut suggest: impl FnMut(String) -> bool,
+    mut suggest: impl FnMut(&str) -> bool,
 ) {
+    let mut sugg = String::with_capacity(word.len() + 1);
     // Try adding a space between each pair of letters
-    let sugg_len = word.len() + 1;
     // Try before each letter except the first.
     let mut prev = None;
     for (i, c) in word.char_indices() {
@@ -237,11 +241,11 @@ pub fn split_word_suggestions(
             if prev_c == '-' || c == '-' {
                 continue;
             }
-            let mut sugg = String::with_capacity(sugg_len);
+            sugg.clear();
             sugg.push_str(&word[..i]);
             sugg.push(' ');
             sugg.push_str(&word[i..]);
-            if !suggest(sugg) {
+            if !suggest(&sugg) {
                 return;
             }
         }
@@ -251,10 +255,10 @@ pub fn split_word_suggestions(
 
 pub fn split_word_with_dash_suggestions(
     word: &str,
-    mut suggest: impl FnMut(String) -> bool,
+    mut suggest: impl FnMut(&str) -> bool,
 ) {
+    let mut sugg = String::with_capacity(word.len() + 1);
     // Try adding a dash between each pair of letters
-    let sugg_len = word.len() + 1;
     // Try before each letter except the first.
     let mut prev = None;
     for (i, c) in word.char_indices() {
@@ -262,11 +266,11 @@ pub fn split_word_with_dash_suggestions(
             if prev_c == '.' || prev_c == '-' || c == '-' {
                 continue;
             }
-            let mut sugg = String::with_capacity(sugg_len);
+            sugg.clear();
             sugg.push_str(&word[..i]);
             sugg.push('-');
             sugg.push_str(&word[i..]);
-            if !suggest(sugg) {
+            if !suggest(&sugg) {
                 return;
             }
         }
