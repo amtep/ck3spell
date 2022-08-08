@@ -124,6 +124,9 @@ pub enum CapStyle {
     // Folded is a special category for words that have been run
     // through caseless::default_case_fold_str.
     Folded,
+    // Decapitalized is a special category for Capitalized words that
+    // have been lowercased.
+    Decapitalized,
 }
 
 impl CapStyle {
@@ -170,6 +173,16 @@ impl CapStyle {
             CapStyle::Capitalized
         } else {
             CapStyle::from_str(&word[c1.len_utf8()..])
+        }
+    }
+
+    // Return the keepcase flag if KeepCase entries should be excluded
+    // for this word.
+    fn keepcase(&self) -> WordFlags {
+        if *self == CapStyle::Decapitalized {
+            WordFlags::KeepCase
+        } else {
+            WordFlags::empty()
         }
     }
 }
@@ -220,7 +233,10 @@ impl SpellerHunspellDict {
 
                 // Forbidden words are case sensitive, so don't add them
                 // to the case-folded dictionary.
-                if !winfo.word_flags.contains(WordFlags::Forbidden) {
+                if !winfo
+                    .word_flags
+                    .intersects(WordFlags::Forbidden | WordFlags::KeepCase)
+                {
                     let folded = default_case_fold_str(word);
                     dict.folded_words.entry(folded).or_default().push(winfo);
                 }
@@ -382,9 +398,11 @@ impl SpellerHunspellDict {
     ) -> bool {
         for winfo in self.word_iter_fold(word, caps) {
             if compound.word_ok(winfo.word_flags)
-                && !winfo
-                    .word_flags
-                    .intersects(WordFlags::Forbidden | WordFlags::NeedAffix)
+                && !winfo.word_flags.intersects(
+                    WordFlags::Forbidden
+                        | WordFlags::NeedAffix
+                        | caps.keepcase(),
+                )
             {
                 return true;
             }
@@ -487,7 +505,8 @@ impl SpellerHunspellDict {
             } else {
                 Compound::Middle
             };
-            let piece_caps = if caps == CapStyle::Capitalized
+            let piece_caps = if (caps == CapStyle::Capitalized
+                || caps == CapStyle::Decapitalized)
                 && compound != Compound::Begin
             {
                 CapStyle::Lowercase
@@ -607,8 +626,10 @@ impl SpellerHunspellDict {
         }
 
         if caps == CapStyle::Capitalized
-            && self
-                ._spellcheck_compound(&word.to_lowercase(), CapStyle::Lowercase)
+            && self._spellcheck_compound(
+                &word.to_lowercase(),
+                CapStyle::Decapitalized,
+            )
         {
             return true;
         }

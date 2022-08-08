@@ -395,7 +395,9 @@ impl AffixEntry {
                         && compound.word_ok(
                             winfo.word_flags | self.contflags.word_flags,
                         )
-                        && !winfo.word_flags.intersects(WordFlags::Forbidden)
+                        && !winfo
+                            .word_flags
+                            .intersects(WordFlags::Forbidden | caps.keepcase())
                     {
                         return true;
                     }
@@ -451,7 +453,9 @@ impl AffixEntry {
                     }
                     if winfo.has_affix_flag(self.flag)
                         && compound.word_ok(flags)
-                        && !winfo.word_flags.intersects(WordFlags::Forbidden)
+                        && !winfo
+                            .word_flags
+                            .intersects(WordFlags::Forbidden | caps.keepcase())
                     {
                         return true;
                     }

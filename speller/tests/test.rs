@@ -479,3 +479,21 @@ fn test_wordpair() {
 
     assert!(!speller.spellcheck("foobar"));
 }
+
+#[test]
+fn test_keepcase() {
+    // Based on hunspell "opentaal_keepcase" test
+    let speller = load_speller("keepcase");
+
+    assert!(speller.spellcheck("tv-word"));
+    assert!(speller.spellcheck("word-tv"));
+    assert!(speller.spellcheck("NATO-word"));
+    assert!(speller.spellcheck("word-NATO"));
+
+    assert!(!speller.spellcheck("TV-word"));
+    assert!(!speller.spellcheck("Tv-word"));
+    assert!(!speller.spellcheck("word-TV"));
+    assert!(!speller.spellcheck("word-Tv"));
+    assert!(!speller.spellcheck("Nato-word"));
+    assert!(!speller.spellcheck("word-nato"));
+}
