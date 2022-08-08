@@ -20,9 +20,9 @@ mod wordflags;
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
-    add_char_suggestions, delete_char_suggestions, related_char_suggestions,
-    split_word_suggestions, split_word_with_dash_suggestions,
-    swap_char_suggestions,
+    add_char_suggestions, delete_char_suggestions, move_char_suggestions,
+    related_char_suggestions, split_word_suggestions,
+    split_word_with_dash_suggestions, swap_char_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -775,6 +775,13 @@ impl SpellerHunspellDict {
                 suggs.len() < max
             });
         }
+
+        move_char_suggestions(&word, |sugg| {
+            if self.check_suggestion(sugg, &word, &suggs) {
+                suggs.push(sugg.to_string());
+            }
+            suggs.len() < max
+        });
 
         suggs
     }

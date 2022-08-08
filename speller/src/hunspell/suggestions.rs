@@ -96,6 +96,40 @@ pub fn swap_char_suggestions(
     }
 }
 
+pub fn move_char_suggestions(
+    word: &str,
+    mut suggest: impl FnMut(&str) -> bool,
+) {
+    // Try moving a char to another place in the word.
+    // The new location has to be at least 2 chars away, otherwise
+    // it's just a swap which we already try in swap_char_suggestions.
+    for (i1, c1) in word.char_indices() {
+        let after_i1 = i1 + c1.len_utf8();
+        for (i2, c2) in word[after_i1..].char_indices() {
+            if i2 == 0 {
+                continue;
+            }
+            let real_i2 = after_i1 + i2;
+            let after_i2 = real_i2 + c2.len_utf8();
+            let mut sugg = String::with_capacity(word.len());
+            sugg.push_str(&word[..i1]);
+            sugg.push_str(&word[after_i1..after_i2]);
+            sugg.push(c1);
+            sugg.push_str(&word[after_i2..]);
+            if !suggest(&sugg) {
+                return;
+            }
+            sugg.truncate(i1);
+            sugg.push(c2);
+            sugg.push_str(&word[i1..real_i2]);
+            sugg.push_str(&word[after_i2..]);
+            if !suggest(&sugg) {
+                return;
+            }
+        }
+    }
+}
+
 pub fn add_char_suggestions(
     word: &str,
     try_chars: &str,
