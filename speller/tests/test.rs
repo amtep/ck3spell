@@ -334,6 +334,21 @@ fn suggest_capsed() {
 }
 
 #[test]
+fn suggest_upcased() {
+    let speller = load_speller("suggest");
+
+    assert!(sugg(&speller, "nasa", "NASA", 3));
+}
+
+#[test]
+fn suggest_long_move() {
+    let speller = load_speller("suggest");
+
+    assert!(sugg(&speller, "Ghandi", "Gandhi", 3));
+    assert!(sugg(&speller, "greatful", "grateful", 3));
+}
+
+#[test]
 fn suggest_delete_char() {
     let speller = load_speller("en_US");
 
@@ -341,6 +356,14 @@ fn suggest_delete_char() {
     assert!(sugg(&speller, "apppear", "appear", 3));
     assert!(sugg(&speller, "aappear", "appear", 3));
     assert!(sugg(&speller, "disapppear", "disappear", 3));
+}
+
+#[test]
+fn suggest_delete_double_pair() {
+    let speller = load_speller("suggest");
+
+    assert!(sugg(&speller, "bananana", "banana", 3));
+    assert!(sugg(&speller, "vacacation", "vacation", 3));
 }
 
 #[test]
@@ -365,6 +388,10 @@ fn suggest_swap_char() {
     // Swaps at greater distance
     assert!(sugg(&speller, "apreap", "appear", 3));
     assert!(sugg(&speller, "eppaar", "appear", 3));
+
+    // Multiple swaps in a word
+    assert!(sugg(&speller, "ehav", "have", 3));
+    assert!(sugg(&speller, "hwihc", "which", 3));
 }
 
 #[test]
@@ -391,6 +418,11 @@ fn suggest_split_word() {
     assert_eq!(vec!["a lot"], speller.suggestions("alot", 9));
     assert_eq!(vec!["in spite"], speller.suggestions("inspite", 9));
     assert_eq!(vec!["scot-free"], speller.suggestions("scotfree", 9));
+
+    assert_eq!(
+        vec!["alto. Inspire"],
+        speller.suggestions("alto.Inspire", 9)
+    );
 }
 
 #[test]

@@ -777,8 +777,8 @@ impl SpellerHunspellDict {
 
         let mut count = 0u32;
         swap_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(&sugg, &word, &suggs) {
-                suggs.push(sugg);
+            if self.check_suggestion(sugg, &word, &suggs) {
+                suggs.push(sugg.to_string());
             }
             count += 1;
             suggs.len() < max && count < MAX_SWAP_CHAR_SUGGESTIONS

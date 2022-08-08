@@ -89,18 +89,19 @@ pub fn delete_doubled_pair_suggestions(
 
 pub fn swap_char_suggestions(
     word: &str,
-    mut suggest: impl FnMut(String) -> bool,
+    mut suggest: impl FnMut(&str) -> bool,
 ) {
+    let mut sugg = String::with_capacity(word.len());
     // First try swapping adjacent chars (most likely case)
     let mut prev = None;
     for (i, c) in word.char_indices() {
         if let Some((prev_i, prev_c)) = prev {
-            let mut sugg = String::with_capacity(word.len());
+            sugg.clear();
             sugg.push_str(&word[..prev_i]);
             sugg.push(c);
             sugg.push(prev_c);
             sugg.push_str(&word[i + c.len_utf8()..]);
-            if !suggest(sugg) {
+            if !suggest(&sugg) {
                 return;
             }
         }
@@ -117,16 +118,43 @@ pub fn swap_char_suggestions(
             }
             let real_i2 = after_i1 + i2;
             let after_i2 = real_i2 + c2.len_utf8();
-            let mut sugg = String::with_capacity(word.len());
+            sugg.clear();
             sugg.push_str(&word[..i1]);
             sugg.push(c2);
             sugg.push_str(&word[after_i1..real_i2]);
             sugg.push(c1);
             sugg.push_str(&word[after_i2..]);
-            if !suggest(sugg) {
+            if !suggest(&sugg) {
                 return;
             }
         }
+    }
+
+    // Then try multiple swaps of adjacent chars
+    let mut prev = None;
+    for (i, c) in word.char_indices() {
+        if let Some((prev_i, prev_c)) = prev {
+            sugg.clear();
+            sugg.push_str(&word[..prev_i]);
+            sugg.push(c);
+            sugg.push(prev_c);
+            let len = sugg.len();
+            let mut prev2 = None;
+            for (i2, c2) in word[len..].char_indices() {
+                if let Some((prev_i2, prev_c2)) = prev2 {
+                    sugg.truncate(len);
+                    sugg.push_str(&word[len..len + prev_i2]);
+                    sugg.push(c2);
+                    sugg.push(prev_c2);
+                    sugg.push_str(&word[len + i2 + c2.len_utf8()..]);
+                    if !suggest(&sugg) {
+                        return;
+                    }
+                }
+                prev2 = Some((i2, c2));
+            }
+        }
+        prev = Some((i, c));
     }
 }
 
