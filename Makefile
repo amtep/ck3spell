@@ -1,6 +1,14 @@
-flamegraph: flamegraph.svg
+flamegraph: flamegraph-suggest flamegraph-load
 
-flamegraph.svg: always
-	cargo flamegraph -v --bench suggestions --skip-after suggestions::main -- --bench --profile-time 1
+flamegraph-suggest: flamegraph-suggest.svg
+flamegraph-load: flamegraph-load.svg
+
+flamegraph-suggest.svg: always
+	cargo flamegraph -v --bench criterion --skip-after criterion::main -- --bench --profile-time 1 suggest
+	mv flamegraph.svg flamegraph-suggest.svg
+
+flamegraph-load.svg: always
+	cargo flamegraph -v --bench criterion --skip-after criterion::main -- --bench --profile-time 1 load
+	mv flamegraph.svg flamegraph-load.svg
 
 .PHONY: always
