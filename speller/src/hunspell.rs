@@ -592,6 +592,13 @@ impl SpellerHunspellDict {
             }
         }
 
+        // If the word ends on a '.', try removing it.
+        if let Some(bword) = word.strip_suffix('.') {
+            if self._spellcheck(bword, caps, count) {
+                return true;
+            }
+        }
+
         // Try breaking words into pieces.
         for brk in self.affix_data.word_breaks.iter() {
             if brk.starts_with('^') || brk.ends_with('$') {
@@ -811,17 +818,7 @@ impl Speller for SpellerHunspellDict {
         }
         let caps = CapStyle::from_str(&word);
         let mut count = 0u16;
-        if self._spellcheck(&word, caps, &mut count) {
-            return true;
-        }
-
-        // If the word ended with a period, try without.
-        if let Some(word) = word.strip_suffix('.') {
-            if self._spellcheck(word, caps, &mut count) {
-                return true;
-            }
-        }
-        false
+        self._spellcheck(&word, caps, &mut count)
     }
 
     fn suggestions(&self, word: &str, max: usize) -> Vec<String> {
