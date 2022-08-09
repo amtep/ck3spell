@@ -21,7 +21,7 @@ use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
     add_char_suggestions, delete_char_suggestions,
-    delete_doubled_pair_suggestions, move_char_suggestions,
+    delete_doubled_pair_suggestions, move_char_suggestions, ngram_suggestions,
     related_char_suggestions, split_word_suggestions,
     split_word_with_dash_suggestions, swap_char_suggestions,
 };
@@ -797,6 +797,9 @@ impl SpellerHunspellDict {
                 suggs.len() < max
             });
         }
+        if suggs.len() == max {
+            return suggs;
+        }
 
         move_char_suggestions(&word, |sugg| {
             if self.check_suggestion(sugg, &word, &suggs) {
@@ -804,6 +807,21 @@ impl SpellerHunspellDict {
             }
             suggs.len() < max
         });
+        if suggs.len() == max {
+            return suggs;
+        }
+
+        let mut ngram_suggs = 0;
+        if self.affix_data.max_ngram_suggestions > 0 {
+            ngram_suggestions(&word, self, |sugg| {
+                if self.check_suggestion(sugg, &word, &suggs) {
+                    suggs.push(sugg.to_string());
+                    ngram_suggs += 1
+                }
+                suggs.len() < max
+                    && ngram_suggs < self.affix_data.max_ngram_suggestions
+            });
+        }
 
         suggs
     }

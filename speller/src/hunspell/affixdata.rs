@@ -121,6 +121,7 @@ impl AffixData {
         AffixData {
             flag_mode: FlagMode::Char,
             compound_min: 3,
+            max_ngram_suggestions: 4,
             ..Default::default()
         }
     }
@@ -252,6 +253,46 @@ impl AffixData {
             })
         }
     }
+
+    pub fn generate_words_from_root(
+        &self,
+        root: &str,
+        dict: &SpellerHunspellDict,
+        mut suggest: impl FnMut(&str),
+    ) {
+        let caps = CapStyle::from_str(root);
+        for winfo in dict.word_iter(root) {
+            // First try the root itself.
+            if !winfo.word_flags.intersects(
+                WordFlags::Forbidden
+                    | WordFlags::NoSuggest
+                    | WordFlags::OnlyInCompound
+                    | WordFlags::NeedAffix,
+            ) {
+                suggest(root);
+                break;
+            }
+
+            for pfx in self.prefixes.iter() {
+                if winfo.has_affix_flag(pfx.flag) {
+                    pfx.try_prefix(root, winfo, caps, dict, &mut suggest);
+                }
+            }
+
+            for sfx in self.suffixes.iter() {
+                if winfo.has_affix_flag(sfx.flag) {
+                    sfx.try_suffix(
+                        root,
+                        winfo,
+                        caps,
+                        dict,
+                        &mut suggest,
+                        false,
+                    );
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -260,13 +301,15 @@ pub struct AffixEntry {
     flag: AffixFlag,
     strip: String,
     affix: String,
-    // condition is "pruned", see discussion in AffixEntry::new
     condition: AffixCondition,
     contflags: WordInfo,
 
     // All caps and titlecase versions of the affix. Saved here for speed.
     capsed_affix: String,
     titled_affix: String,
+
+    // see discussion in AffixEntry::new
+    pruned_condition: AffixCondition,
 }
 
 impl AffixEntry {
@@ -279,15 +322,16 @@ impl AffixEntry {
         cond: &str,
         cflags: Vec<AffixFlag>,
     ) -> Self {
-        let mut condition = AffixCondition::new(cond);
+        let condition = AffixCondition::new(cond);
         // Since we apply the affix backward (removing `affix` and adding
         // `strip`), there's no need to keep checking the affix's condition
         // against its own strip characters. So prune those from the condition,
         // so that we can check directly against the root of the word for speed.
+        let mut pruned = condition.clone();
         if is_pfx {
-            condition.prune_prefix(strip);
+            pruned.prune_prefix(strip);
         } else {
-            condition.prune_suffix(strip);
+            pruned.prune_suffix(strip);
         }
         // Not all special flags may be known yet, so leave WordFlags empty.
         AffixEntry {
@@ -300,6 +344,8 @@ impl AffixEntry {
 
             capsed_affix: affix.to_uppercase(),
             titled_affix: affix.to_titlecase(),
+
+            pruned_condition: pruned,
         }
     }
 
@@ -315,7 +361,7 @@ impl AffixEntry {
     ) -> Option<String> {
         if let Some(root) = word.strip_prefix(prefix) {
             if (!root.is_empty() || dict.affix_data.fullstrip)
-                && self.condition.prefix_match(root)
+                && self.pruned_condition.prefix_match(root)
             {
                 let mut pword =
                     String::with_capacity(self.strip.len() + root.len());
@@ -359,7 +405,7 @@ impl AffixEntry {
     ) -> Option<String> {
         if let Some(root) = word.strip_suffix(suffix) {
             if (!root.is_empty() || dict.affix_data.fullstrip)
-                && self.condition.suffix_match(root)
+                && self.pruned_condition.suffix_match(root)
             {
                 let mut sword =
                     String::with_capacity(root.len() + self.strip.len());
@@ -492,5 +538,66 @@ impl AffixEntry {
             }
         }
         false
+    }
+
+    fn try_prefix(
+        &self,
+        root: &str,
+        winfo: &WordInfo,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+        suggest: &mut impl FnMut(&str),
+    ) {
+        if !self.condition.prefix_match(root) {
+            return;
+        }
+        if let Some(stripped) = root.strip_prefix(&self.strip) {
+            let mut word =
+                String::with_capacity(self.affix.len() + stripped.len());
+            word.push_str(&self.affix);
+            word.push_str(stripped);
+            suggest(&word);
+
+            if self.allow_cross {
+                for sfx in dict.affix_data.suffixes.iter() {
+                    if winfo.has_affix_flag(sfx.flag) {
+                        sfx.try_suffix(
+                            &word, winfo, caps, dict, suggest, false,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn try_suffix(
+        &self,
+        root: &str,
+        winfo: &WordInfo,
+        caps: CapStyle,
+        dict: &SpellerHunspellDict,
+        suggest: &mut impl FnMut(&str),
+        from_suffix: bool,
+    ) {
+        if !self.condition.suffix_match(root) {
+            return;
+        }
+        if let Some(stripped) = root.strip_suffix(&self.strip) {
+            let mut word =
+                String::with_capacity(self.affix.len() + stripped.len());
+            word.push_str(stripped);
+            word.push_str(&self.affix);
+            suggest(&word);
+
+            if !from_suffix && !self.contflags.affix_flags.is_empty() {
+                for sfx2 in dict.affix_data.suffixes.iter() {
+                    if self.contflags.affix_flags.contains(&sfx2.flag) {
+                        sfx2.try_suffix(
+                            &word, winfo, caps, dict, suggest, false,
+                        );
+                    }
+                }
+            }
+        }
     }
 }

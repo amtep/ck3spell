@@ -1,4 +1,13 @@
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashSet};
 use std::mem::swap;
+
+use crate::hunspell::wordflags::WordFlags;
+use crate::ngram::ngram;
+use crate::SpellerHunspellDict;
+
+const MAX_NGRAM_ROOTS: usize = 100;
+const MAX_NGRAM_SUGG: usize = 20;
 
 pub fn related_char_suggestions(
     related: &[String],
@@ -275,5 +284,96 @@ pub fn split_word_with_dash_suggestions(
             }
         }
         prev = Some(c);
+    }
+}
+
+pub fn ngram_suggestions(
+    word: &str,
+    dict: &SpellerHunspellDict,
+    mut suggest: impl FnMut(&str) -> bool,
+) {
+    #[derive(Eq, PartialEq)]
+    struct HeapItem<T> {
+        word: T,
+        score: usize,
+    }
+
+    impl<T: Eq> PartialOrd for HeapItem<T> {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            // Put other first, to make the heap a min-heap.
+            Some(other.score.cmp(&self.score))
+        }
+    }
+
+    impl<T: Eq> Ord for HeapItem<T> {
+        fn cmp(&self, other: &Self) -> Ordering {
+            // Put other first, to make the heap a min-heap.
+            other.score.cmp(&self.score)
+        }
+    }
+
+    let mut rootheap: BinaryHeap<HeapItem<&str>> =
+        BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
+    let wlen = word.chars().count();
+
+    'outer: for (root, homonyms) in dict.words.iter() {
+        for winfo in homonyms.iter() {
+            if winfo.word_flags.intersects(
+                WordFlags::Forbidden
+                    | WordFlags::NoSuggest
+                    | WordFlags::OnlyInCompound,
+            ) {
+                continue 'outer;
+            }
+        }
+
+        let rlen = root.chars().count();
+        if rlen > wlen + 2 {
+            continue;
+        }
+        let score = ngram(3, word, wlen, root, rlen);
+        if rootheap.len() == MAX_NGRAM_ROOTS
+            && score > rootheap.peek().unwrap().score
+        {
+            rootheap.pop();
+        }
+        if rootheap.len() < MAX_NGRAM_ROOTS {
+            rootheap.push(HeapItem { word: root, score });
+        }
+    }
+
+    let mut suggheap: BinaryHeap<HeapItem<String>> =
+        BinaryHeap::with_capacity(MAX_NGRAM_SUGG);
+    let mut uniq: HashSet<String> = HashSet::new();
+    for HeapItem { word: root, .. } in rootheap.into_vec() {
+        dict.affix_data
+            .generate_words_from_root(root, dict, |sugg| {
+                if uniq.contains(sugg) {
+                    return;
+                }
+                uniq.insert(sugg.to_string());
+                let slen = root.chars().count();
+                let score = ngram(3, word, wlen, sugg, slen);
+                if score < wlen {
+                    // Heuristic to discard bad suggestions
+                    return;
+                }
+                if suggheap.len() == MAX_NGRAM_SUGG
+                    && score > suggheap.peek().unwrap().score
+                {
+                    suggheap.pop();
+                }
+                if suggheap.len() < MAX_NGRAM_SUGG {
+                    suggheap.push(HeapItem {
+                        word: sugg.to_string(),
+                        score,
+                    });
+                }
+            })
+    }
+    for HeapItem { word: sugg, .. } in suggheap.into_sorted_vec() {
+        if !suggest(&sugg) {
+            return;
+        }
     }
 }

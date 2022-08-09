@@ -5,6 +5,7 @@ use std::path::Path;
 
 mod affix_trie;
 mod hunspell;
+mod ngram;
 
 pub use crate::hunspell::SpellerHunspellDict;
 
