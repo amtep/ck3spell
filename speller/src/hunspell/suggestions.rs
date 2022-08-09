@@ -336,6 +336,29 @@ pub fn split_word_with_dash_suggestions(
     }
 }
 
+/// Did the user forget to hit shift on one letter?
+pub fn capitalize_char_suggestions(
+    word: &str,
+    mut suggest: impl FnMut(&str) -> bool,
+) {
+    let mut sugg = String::with_capacity(word.len());
+    for (i, c) in word.char_indices() {
+        if c.is_uppercase() {
+            continue;
+        }
+        sugg.clear();
+        sugg.push_str(&word[..i]);
+        // Uppercasing a char may produce multiple chars, so loop.
+        for c_up in c.to_uppercase() {
+            sugg.push(c_up);
+        }
+        sugg.push_str(&word[i + c.len_utf8()..]);
+        if !suggest(&sugg) {
+            return;
+        }
+    }
+}
+
 pub fn ngram_suggestions(
     word: &str,
     dict: &SpellerHunspellDict,

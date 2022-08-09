@@ -20,7 +20,7 @@ mod wordflags;
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggestions::{
-    add_char_suggestions, delete_char_suggestions,
+    add_char_suggestions, capitalize_char_suggestions, delete_char_suggestions,
     delete_doubled_pair_suggestions, move_char_suggestions, ngram_suggestions,
     related_char_suggestions, split_word_suggestions,
     split_word_with_dash_suggestions, swap_char_suggestions,
@@ -721,6 +721,8 @@ impl SpellerHunspellDict {
         let mut done = false;
         let caps = CapStyle::from_str(&word);
 
+        // TODO: do something about all these similar closures.
+
         // Try splitting the word into two words
         split_word_suggestions(&word, |sugg| {
             if self.check_suggestion(sugg, &word, caps, &suggs) {
@@ -866,6 +868,16 @@ impl SpellerHunspellDict {
             if suggs.len() == max {
                 return suggs;
             }
+        }
+
+        capitalize_char_suggestions(&word, |sugg| {
+            if self.check_suggestion(sugg, &word, caps, &suggs) {
+                suggs.push(sugg.to_string());
+            }
+            suggs.len() < max
+        });
+        if suggs.len() == max {
+            return suggs;
         }
 
         let mut ngram_suggs = 0;
