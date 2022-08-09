@@ -24,19 +24,7 @@ pub fn ngram(
         return score;
     }
 
-    let mut nscore = 0;
-    for i1 in 0..len1 - 1 {
-        for i2 in 0..len2 - 1 {
-            nscore +=
-                (vec1[i1] == vec2[i2] && vec1[i1 + 1] == vec2[i2 + 1]) as usize;
-        }
-    }
-    score += nscore * 2;
-    if nmax == 2 || nscore <= 1 || len1 <= 2 || len2 <= 2 {
-        return score;
-    }
-
-    for n in 3..=nmax {
+    for n in 2..=nmax {
         let mut nscore = 0;
         if n > len1 || n > len2 {
             break;
