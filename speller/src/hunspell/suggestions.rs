@@ -342,6 +342,8 @@ pub fn ngram_suggestions(
         }
     }
 
+    // Heuristic minimum score, to discard bad suggestions
+    let heuristic = ngram(1, &wvec, &wvec);
     let mut suggheap: BinaryHeap<HeapItem<String>> =
         BinaryHeap::with_capacity(MAX_NGRAM_SUGG);
     let mut uniq: HashSet<String> = HashSet::new();
@@ -354,8 +356,7 @@ pub fn ngram_suggestions(
                 uniq.insert(sugg.to_string());
                 let svec = sugg.chars().collect::<Vec<char>>();
                 let score = ngram(3, &wvec, &svec);
-                if score < wvec.len() {
-                    // Heuristic to discard bad suggestions
+                if score <= heuristic {
                     return;
                 }
                 if suggheap.len() == MAX_NGRAM_SUGG
