@@ -288,6 +288,15 @@ fn titlecase_break() {
 }
 
 #[test]
+fn numeric_break() {
+    let speller = load_speller("en_US");
+
+    assert!(speller.spellcheck("15"));
+    assert!(speller.spellcheck("foot"));
+    assert!(speller.spellcheck("15-foot"));
+}
+
+#[test]
 fn needaffix_continuation() {
     // test "needaffix5" from hunspell
     let speller = load_speller("needaffix-continuation");

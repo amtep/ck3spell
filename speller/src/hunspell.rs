@@ -567,6 +567,10 @@ impl SpellerHunspellDict {
 
     // Check a word against the dictionary and try word breaks and affixes
     fn _spellcheck(&self, word: &str, count: &mut u16) -> bool {
+        if Self::is_numeric(word) {
+            return true;
+        }
+
         let caps = CapStyle::from_str(word);
         if *count > MAX_WORD_BREAK_ATTEMPTS {
             return false;
@@ -830,7 +834,7 @@ impl SpellerHunspellDict {
 impl Speller for SpellerHunspellDict {
     fn spellcheck(&self, word: &str) -> bool {
         let word = self.affix_data.iconv.conv(word.trim());
-        if word.is_empty() || Self::is_numeric(&word) {
+        if word.is_empty() {
             return true;
         }
         if self.is_forbidden(&word) {
