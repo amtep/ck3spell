@@ -1,7 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use std::path::{Path, PathBuf};
+use std::fs::read_to_string;
+use std::path::PathBuf;
 
+use speller::ngram::ngram as ngram_fn;
 use speller::{Speller, SpellerHunspellDict};
 
 fn find_dict(name: &str) -> (PathBuf, PathBuf) {
@@ -55,10 +57,6 @@ fn load_de(c: &mut Criterion) {
 fn load_speller(name: &str) -> impl Speller {
     // Relative path of the files depends on whether we are called by
     // cargo bench or cargo flamegraph
-    println!(
-        "Current directory: {}",
-        Path::new(".").canonicalize().unwrap().display()
-    );
     for dir in ["benches/files", "speller/benches/files"].iter() {
         let dictpath = PathBuf::from(&format!("{}/{}.dic", dir, name));
         let affpath = PathBuf::from(&format!("{}/{}.aff", dir, name));
@@ -111,6 +109,50 @@ fn suggest_de(c: &mut Criterion) {
     });
 }
 
+fn load_words(name: &str) -> String {
+    for dir in ["benches/files", "speller/benches/files"].iter() {
+        let dictpath = PathBuf::from(&format!("{}/{}.dic", dir, name));
+        if !dictpath.exists() {
+            continue;
+        }
+        match read_to_string(dictpath) {
+            Ok(words) => {
+                return words;
+            }
+            Err(e) => eprintln!("{:#}", e.to_string()),
+        }
+    }
+    panic!("Could not find word list for {}", name);
+}
+
+fn ngram_loop(c: &mut Criterion) {
+    let dict = load_words("de_DE");
+
+    let mut words = Vec::new();
+    let mut count = 0;
+    for line in dict.lines() {
+        count += 1;
+        if count != 100 {
+            continue;
+        }
+        let word = line.split_once('/').map(|(w, _)| w).unwrap_or(line);
+        words.push((word, word.chars().count()));
+        count = 0;
+    }
+    dbg!(words.len());
+
+    c.bench_function("ngram_loop", |b| {
+        b.iter(|| {
+            for (w1, l1) in &words {
+                for (w2, l2) in &words {
+                    ngram_fn(3, w1, *l1, w2, *l2);
+                }
+            }
+        });
+    });
+}
+
+criterion_group!(ngram, ngram_loop);
 criterion_group!(load, load_fr, load_en, load_de);
 criterion_group!(suggest, suggest_fr, suggest_en, suggest_de);
-criterion_main!(suggest, load);
+criterion_main!(suggest, load, ngram);
