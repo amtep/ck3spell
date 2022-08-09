@@ -17,23 +17,41 @@ pub fn ngram(
             score += (c1 == c2) as usize
         }
     }
-    if nmax == 1 || score <= 1 {
+    if nmax == 1 || score <= 1 || len1 <= 1 || len2 <= 1 {
         return score;
     }
 
-    for n in 2..=nmax {
+    let mut nscore = 0;
+    let mut iter1 = str1.chars().peekable();
+    while let Some(c1) = iter1.next() {
+        let mut iter2 = str2.chars().peekable();
+        while let Some(c2) = iter2.next() {
+            let p1 = iter1.peek();
+            let p2 = iter2.peek();
+            nscore += (c1 == c2 && p1.is_some() && p1 == p2) as usize
+        }
+    }
+
+    score += nscore * 2;
+    if nmax == 2 || score <= 1 || len1 <= 2 || len2 <= 2 {
+        return score;
+    }
+
+    for n in 3..=nmax {
         let mut nscore = 0;
         if n > len1 || n > len2 {
             break;
         }
         for (i1, _) in str1.char_indices().take(len1 + 1 - n) {
             for (i2, _) in str2.char_indices().take(len2 + 1 - n) {
-                let eq = str1[i1..]
-                    .chars()
-                    .take(n)
-                    .zip(str2[i2..].chars().take(n))
-                    .filter(|(c1, c2)| c1 == c2)
-                    .count();
+                let mut eq = 0;
+                for (c1, c2) in
+                    str1[i1..].chars().take(n).zip(str2[i2..].chars().take(n))
+                {
+                    if c1 == c2 {
+                        eq += 1;
+                    }
+                }
                 if eq == n {
                     nscore += 1;
                 }
