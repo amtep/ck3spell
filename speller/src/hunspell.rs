@@ -24,6 +24,7 @@ use crate::hunspell::suggestions::{
     delete_doubled_pair_suggestions, move_char_suggestions, ngram_suggestions,
     related_char_suggestions, split_word_suggestions,
     split_word_with_dash_suggestions, swap_char_suggestions,
+    wrong_key_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -187,6 +188,26 @@ impl CapStyle {
             WordFlags::empty()
         }
     }
+
+    // Return whether suggestions should be checked with strict capitalization
+    // or whether decapitalized and casefolded forms are ok.
+    // If the original word was already capitalized, then permissive checking
+    // is ok. Otherwise, capitalized suggestions should only be made if they
+    // are in the dictionary that way.
+    fn strict(self) -> StrictMode {
+        match self {
+            CapStyle::Lowercase | CapStyle::Neutral => StrictMode::Strict,
+            CapStyle::Capitalized => StrictMode::AllowDecap,
+            _ => StrictMode::AllowAll,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum StrictMode {
+    Strict,
+    AllowDecap,
+    AllowAll,
 }
 
 impl SpellerHunspellDict {
@@ -566,7 +587,12 @@ impl SpellerHunspellDict {
     }
 
     // Check a word against the dictionary and try word breaks and affixes
-    fn _spellcheck(&self, word: &str, count: &mut u16) -> bool {
+    fn _spellcheck(
+        &self,
+        word: &str,
+        strict: StrictMode,
+        count: &mut u16,
+    ) -> bool {
         if Self::is_numeric(word) {
             return true;
         }
@@ -577,7 +603,7 @@ impl SpellerHunspellDict {
         }
         *count += 1;
 
-        if self._spellcheck_caps(word, caps) {
+        if self._spellcheck_caps(word, caps, strict) {
             return true;
         }
 
@@ -586,13 +612,13 @@ impl SpellerHunspellDict {
         for brk in self.affix_data.word_breaks.iter() {
             if let Some(brk) = brk.strip_prefix('^') {
                 if let Some(bword) = word.strip_prefix(brk) {
-                    if self._spellcheck(bword, count) {
+                    if self._spellcheck(bword, strict, count) {
                         return true;
                     }
                 }
             } else if let Some(brk) = brk.strip_suffix('$') {
                 if let Some(bword) = word.strip_suffix(brk) {
-                    if self._spellcheck(bword, count) {
+                    if self._spellcheck(bword, strict, count) {
                         return true;
                     }
                 }
@@ -601,7 +627,7 @@ impl SpellerHunspellDict {
 
         // If the word ends on a '.', try removing it.
         if let Some(bword) = word.strip_suffix('.') {
-            if self._spellcheck(bword, count) {
+            if self._spellcheck(bword, strict, count) {
                 return true;
             }
         }
@@ -612,8 +638,8 @@ impl SpellerHunspellDict {
                 continue;
             }
             if let Some((worda, wordb)) = word.split_once(brk) {
-                if self._spellcheck(worda, count)
-                    && self._spellcheck(wordb, count)
+                if self._spellcheck(worda, strict, count)
+                    && self._spellcheck(wordb, strict, count)
                 {
                     return true;
                 }
@@ -623,7 +649,12 @@ impl SpellerHunspellDict {
     }
 
     // Check a word against the dictionary and try different capitalization
-    fn _spellcheck_caps(&self, word: &str, caps: CapStyle) -> bool {
+    fn _spellcheck_caps(
+        &self,
+        word: &str,
+        caps: CapStyle,
+        strict: StrictMode,
+    ) -> bool {
         if self._spellcheck_compound(word, caps) {
             return true;
         }
@@ -632,7 +663,8 @@ impl SpellerHunspellDict {
         // and any phrase might be written in all caps for emphasis,
         // so those should all be detected as correctly spelled.
 
-        if caps == CapStyle::AllCaps
+        if matches!(strict, StrictMode::AllowAll)
+            && caps == CapStyle::AllCaps
             && self._spellcheck_compound(
                 &default_case_fold_str(word),
                 CapStyle::Folded,
@@ -641,7 +673,8 @@ impl SpellerHunspellDict {
             return true;
         }
 
-        if caps == CapStyle::Capitalized
+        if matches!(strict, StrictMode::AllowDecap | StrictMode::AllowAll)
+            && caps == CapStyle::Capitalized
             && self._spellcheck_compound(
                 &word.to_lowercase(),
                 CapStyle::Decapitalized,
@@ -657,6 +690,7 @@ impl SpellerHunspellDict {
         &self,
         word: &str,
         origword: &str,
+        origcaps: CapStyle,
         suggs: &Vec<String>,
     ) -> bool {
         if word == origword || suggs.iter().any(|w| w == word) {
@@ -668,14 +702,14 @@ impl SpellerHunspellDict {
         }
 
         let mut count = 0u16;
-        if self._spellcheck(word, &mut count) {
+        if self._spellcheck(word, origcaps.strict(), &mut count) {
             return true;
         }
 
         // If the suggestion is two words, check both
         if let Some((worda, wordb)) = word.split_once(' ') {
-            self.check_suggestion(worda, origword, suggs)
-                && self.check_suggestion(wordb, origword, suggs)
+            self.check_suggestion(worda, origword, origcaps, suggs)
+                && self.check_suggestion(wordb, origword, origcaps, suggs)
         } else {
             false
         }
@@ -685,10 +719,11 @@ impl SpellerHunspellDict {
         let mut suggs = Vec::default();
         // Set `done` if further suggestions would be lower quality
         let mut done = false;
+        let caps = CapStyle::from_str(&word);
 
         // Try splitting the word into two words
         split_word_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, &suggs) {
+            if self.check_suggestion(sugg, &word, caps, &suggs) {
                 if !done && self.words.contains_key(sugg) {
                     suggs.clear();
                     done = true;
@@ -702,7 +737,7 @@ impl SpellerHunspellDict {
         }
         if self.affix_data.dash_word_heuristic {
             split_word_with_dash_suggestions(&word, |sugg| {
-                if self.check_suggestion(sugg, &word, &suggs) {
+                if self.check_suggestion(sugg, &word, caps, &suggs) {
                     if !done && self.words.contains_key(sugg) {
                         suggs.clear();
                         done = true;
@@ -718,15 +753,21 @@ impl SpellerHunspellDict {
 
         // Try lowercased, capitalized, or all caps
         // TODO: also match mixed case words, such as "ipod" -> "iPod"
-        if self.check_suggestion(&word.to_lowercase(), &word, &suggs) {
+        if self.check_suggestion(&word.to_lowercase(), &word, caps, &suggs) {
             suggs.push(word.to_lowercase());
         } else if self.check_suggestion(
             &word.to_titlecase_lower_rest(),
             &word,
+            caps,
             &suggs,
         ) {
             suggs.push(word.to_titlecase_lower_rest());
-        } else if self.check_suggestion(&word.to_uppercase(), &word, &suggs) {
+        } else if self.check_suggestion(
+            &word.to_uppercase(),
+            &word,
+            caps,
+            &suggs,
+        ) {
             suggs.push(word.to_uppercase());
         }
         if suggs.len() == max {
@@ -734,7 +775,7 @@ impl SpellerHunspellDict {
         }
 
         self.affix_data.replacements.suggest(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, &suggs) {
+            if self.check_suggestion(sugg, &word, caps, &suggs) {
                 suggs.push(sugg.to_string());
             }
             suggs.len() < max
@@ -748,7 +789,7 @@ impl SpellerHunspellDict {
             &self.affix_data.related_chars,
             &word,
             |sugg| {
-                if self.check_suggestion(&sugg, &word, &suggs) {
+                if self.check_suggestion(&sugg, &word, caps, &suggs) {
                     suggs.push(sugg);
                 }
                 count += 1;
@@ -760,7 +801,7 @@ impl SpellerHunspellDict {
         }
 
         delete_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, &suggs) {
+            if self.check_suggestion(sugg, &word, caps, &suggs) {
                 suggs.push(sugg.to_string());
             }
             suggs.len() < max
@@ -772,7 +813,7 @@ impl SpellerHunspellDict {
         // TODO: maybe a straight up "delete any two chars" suggestion would
         // be better?
         delete_doubled_pair_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, &suggs) {
+            if self.check_suggestion(sugg, &word, caps, &suggs) {
                 suggs.push(sugg.to_string());
             }
             suggs.len() < max
@@ -783,7 +824,7 @@ impl SpellerHunspellDict {
 
         let mut count = 0u32;
         swap_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, &suggs) {
+            if self.check_suggestion(sugg, &word, caps, &suggs) {
                 suggs.push(sugg.to_string());
             }
             count += 1;
@@ -795,7 +836,7 @@ impl SpellerHunspellDict {
 
         if let Some(try_chars) = &self.affix_data.try_string {
             add_char_suggestions(&word, try_chars, |sugg| {
-                if self.check_suggestion(sugg, &word, &suggs) {
+                if self.check_suggestion(sugg, &word, caps, &suggs) {
                     suggs.push(sugg.to_string());
                 }
                 suggs.len() < max
@@ -806,7 +847,7 @@ impl SpellerHunspellDict {
         }
 
         move_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, &suggs) {
+            if self.check_suggestion(sugg, &word, caps, &suggs) {
                 suggs.push(sugg.to_string());
             }
             suggs.len() < max
@@ -815,10 +856,22 @@ impl SpellerHunspellDict {
             return suggs;
         }
 
+        if let Some(keys) = &self.affix_data.keyboard_string {
+            wrong_key_suggestions(&word, keys, |sugg| {
+                if self.check_suggestion(sugg, &word, caps, &suggs) {
+                    suggs.push(sugg.to_string());
+                }
+                suggs.len() < max
+            });
+            if suggs.len() == max {
+                return suggs;
+            }
+        }
+
         let mut ngram_suggs = 0;
         if self.affix_data.max_ngram_suggestions > 0 {
             ngram_suggestions(&word, self, |sugg| {
-                if self.check_suggestion(sugg, &word, &suggs) {
+                if self.check_suggestion(sugg, &word, caps, &suggs) {
                     suggs.push(sugg.to_string());
                     ngram_suggs += 1
                 }
@@ -841,7 +894,7 @@ impl Speller for SpellerHunspellDict {
             return false;
         }
         let mut count = 0u16;
-        self._spellcheck(&word, &mut count)
+        self._spellcheck(&word, StrictMode::AllowAll, &mut count)
     }
 
     fn suggestions(&self, word: &str, max: usize) -> Vec<String> {

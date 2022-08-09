@@ -237,6 +237,55 @@ pub fn add_char_suggestions(
     }
 }
 
+/// `keyboard` contains a |-separated list of horizontally adjacent keys.
+/// This information will be used to generate suggestions, on the basis
+/// that the user may have hit an adjacent key instead of the right one.
+///
+/// A character may occur more than once in the keyboard string, thus having
+/// more than two neighbors. This can be used to indicate vertical adjacency
+/// as well.
+pub fn wrong_key_suggestions(
+    word: &str,
+    keyboard: &str,
+    mut suggest: impl FnMut(&str) -> bool,
+) {
+    let mut sugg = String::with_capacity(word.len());
+
+    for (i, c) in word.char_indices() {
+        let mut prev = None;
+        let mut kiter = keyboard.chars().peekable();
+        while let Some(kc) = kiter.next() {
+            if kc == c {
+                // check neighbor to the left
+                if let Some(prevc) = prev {
+                    if prevc != '|' {
+                        sugg.clear();
+                        sugg.push_str(&word[..i]);
+                        sugg.push(prevc);
+                        sugg.push_str(&word[i + c.len_utf8()..]);
+                        if !suggest(&sugg) {
+                            return;
+                        }
+                    }
+                }
+                // check neighbor to the right
+                if let Some(&nextc) = kiter.peek() {
+                    if nextc != '|' {
+                        sugg.clear();
+                        sugg.push_str(&word[..i]);
+                        sugg.push(nextc);
+                        sugg.push_str(&word[i + c.len_utf8()..]);
+                        if !suggest(&sugg) {
+                            return;
+                        }
+                    }
+                }
+            }
+            prev = Some(kc);
+        }
+    }
+}
+
 pub fn split_word_suggestions(
     word: &str,
     mut suggest: impl FnMut(&str) -> bool,
