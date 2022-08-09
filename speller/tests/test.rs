@@ -263,6 +263,14 @@ fn mixed_case_all_caps2() {
     assert!(speller.spellcheck("IPOD"));
     assert!(speller.spellcheck("ipodos"));
     assert!(speller.spellcheck("IPODOS"));
+
+    assert!(!speller.spellcheck("ipod"));
+    assert!(!speller.spellcheck("iPodos"));
+
+    assert!(sugg(&speller, "ipod", "iPod", 3));
+    assert!(sugg(&speller, "iPodos", "ipodos", 3));
+    assert!(!sugg(&speller, "ipod", "iPodos", 3));
+    assert!(!sugg(&speller, "iPodos", "iPodos", 3));
 }
 
 #[test]
