@@ -352,7 +352,7 @@ pub fn ngram_suggestions(
                     return;
                 }
                 uniq.insert(sugg.to_string());
-                let slen = root.chars().count();
+                let slen = sugg.chars().count();
                 let score = ngram(3, word, wlen, sugg, slen);
                 if score < wlen {
                     // Heuristic to discard bad suggestions
