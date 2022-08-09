@@ -454,7 +454,12 @@ impl SpellerHunspellDict {
             if wlen < self.affix_data.compound_min {
                 continue;
             }
-            let piece = &word[wstart.unwrap()..i + c.len_utf8()];
+            let iafter = i + c.len_utf8();
+            if wstart.unwrap() == 0 && iafter == word.len() {
+                // If the "piece" is the whole word, then it's not compound.
+                continue;
+            }
+            let piece = &word[wstart.unwrap()..iafter];
             if !self.words.contains_key(piece) {
                 continue;
             }
