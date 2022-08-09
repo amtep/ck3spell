@@ -314,7 +314,7 @@ pub fn ngram_suggestions(
 
     let mut rootheap: BinaryHeap<HeapItem<&str>> =
         BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
-    let wlen = word.chars().count();
+    let wvec = word.chars().collect::<Vec<char>>();
 
     'outer: for (root, homonyms) in dict.words.iter() {
         for winfo in homonyms.iter() {
@@ -327,11 +327,11 @@ pub fn ngram_suggestions(
             }
         }
 
-        let rlen = root.chars().count();
-        if rlen > wlen + 2 {
+        let rvec = root.chars().collect::<Vec<char>>();
+        if rvec.len() > wvec.len() + 2 {
             continue;
         }
-        let score = ngram(3, word, wlen, root, rlen);
+        let score = ngram(3, &wvec, &rvec);
         if rootheap.len() == MAX_NGRAM_ROOTS
             && score > rootheap.peek().unwrap().score
         {
@@ -352,9 +352,9 @@ pub fn ngram_suggestions(
                     return;
                 }
                 uniq.insert(sugg.to_string());
-                let slen = sugg.chars().count();
-                let score = ngram(3, word, wlen, sugg, slen);
-                if score < wlen {
+                let svec = sugg.chars().collect::<Vec<char>>();
+                let score = ngram(3, &wvec, &svec);
+                if score < wvec.len() {
                     // Heuristic to discard bad suggestions
                     return;
                 }

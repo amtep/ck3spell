@@ -136,16 +136,16 @@ fn ngram_loop(c: &mut Criterion) {
             continue;
         }
         let word = line.split_once('/').map(|(w, _)| w).unwrap_or(line);
-        words.push((word, word.chars().count()));
+        words.push(word.chars().collect::<Vec<char>>());
         count = 0;
     }
     dbg!(words.len());
 
     c.bench_function("ngram_loop", |b| {
         b.iter(|| {
-            for (w1, l1) in &words {
-                for (w2, l2) in &words {
-                    ngram_fn(3, w1, *l1, w2, *l2);
+            for w1 in &words {
+                for w2 in &words {
+                    ngram_fn(3, w1, w2);
                 }
             }
         });
