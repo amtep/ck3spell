@@ -25,18 +25,14 @@ pub fn ngram(
     }
 
     let mut nscore = 0;
-    let mut iter1 = vec1.iter().peekable();
-    while let Some(c1) = iter1.next() {
-        let mut iter2 = vec2.iter().peekable();
-        while let Some(c2) = iter2.next() {
-            let p1 = iter1.peek();
-            let p2 = iter2.peek();
-            nscore += (c1 == c2 && p1.is_some() && p1 == p2) as usize
+    for i1 in 0..len1 - 1 {
+        for i2 in 0..len2 - 1 {
+            nscore +=
+                (vec1[i1] == vec2[i2] && vec1[i1 + 1] == vec2[i2 + 1]) as usize;
         }
     }
-
     score += nscore * 2;
-    if nmax == 2 || score <= 1 || len1 <= 2 || len2 <= 2 {
+    if nmax == 2 || nscore <= 1 || len1 <= 2 || len2 <= 2 {
         return score;
     }
 
@@ -45,8 +41,8 @@ pub fn ngram(
         if n > len1 || n > len2 {
             break;
         }
-        for i1 in 0..len1 - n {
-            'next: for i2 in 0..len2 - n {
+        for i1 in 0..len1 + 1 - n {
+            'next: for i2 in 0..len2 + 1 - n {
                 for j in 0..n {
                     if vec1[i1 + j] != vec2[i2 + j] {
                         continue 'next;
