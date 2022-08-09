@@ -9,11 +9,14 @@ pub fn ngram(
     str2: &str,
     len2: usize,
 ) -> usize {
+    let vec1: Vec<char> = str1.chars().collect();
+    let vec2: Vec<char> = str2.chars().collect();
+
     let mut score = 0;
 
     // handle n = 1 as a special case because it is so much simpler
-    for c1 in str1.chars() {
-        for c2 in str2.chars() {
+    for c1 in vec1.iter() {
+        for c2 in vec2.iter() {
             score += (c1 == c2) as usize
         }
     }
@@ -22,9 +25,9 @@ pub fn ngram(
     }
 
     let mut nscore = 0;
-    let mut iter1 = str1.chars().peekable();
+    let mut iter1 = vec1.iter().peekable();
     while let Some(c1) = iter1.next() {
-        let mut iter2 = str2.chars().peekable();
+        let mut iter2 = vec2.iter().peekable();
         while let Some(c2) = iter2.next() {
             let p1 = iter1.peek();
             let p2 = iter2.peek();
@@ -42,19 +45,14 @@ pub fn ngram(
         if n > len1 || n > len2 {
             break;
         }
-        for (i1, _) in str1.char_indices().take(len1 + 1 - n) {
-            for (i2, _) in str2.char_indices().take(len2 + 1 - n) {
-                let mut eq = 0;
-                for (c1, c2) in
-                    str1[i1..].chars().take(n).zip(str2[i2..].chars().take(n))
-                {
-                    if c1 == c2 {
-                        eq += 1;
+        for i1 in 0..len1 - n {
+            'next: for i2 in 0..len2 - n {
+                for j in 0..n {
+                    if vec1[i1 + j] != vec2[i2 + j] {
+                        continue 'next;
                     }
                 }
-                if eq == n {
-                    nscore += 1;
-                }
+                nscore += 1;
             }
         }
         score += nscore * n;
