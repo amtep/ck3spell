@@ -133,7 +133,7 @@ fn ngram_loop(c: &mut Criterion) {
     let mut count = 0;
     for line in dict.lines() {
         count += 1;
-        if count != 100 {
+        if count != 1000 {
             continue;
         }
         let word = line.split_once('/').map(|(w, _)| w).unwrap_or(line);
