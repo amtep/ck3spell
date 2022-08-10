@@ -185,6 +185,32 @@ fn language_french() {
 
     // But mixing suffix and prefix from different homonyms shouldn't work.
     assert!(!speller.spellcheck("L'Néréides")); // L'
+
+    // empereur has a suffix S. that activates a prefix L'. Make sure
+    // that all works.
+    assert!(speller.spellcheck("empereur")); // S. /L'D'Q'
+    assert!(speller.spellcheck("l'empereur")); // S. L'
+    assert!(speller.spellcheck("l'Empereur")); // S. L'
+    assert!(speller.spellcheck("L'Empereur")); // S. L'
+    assert!(speller.spellcheck("d'empereur")); // S. D'
+    assert!(speller.spellcheck("d'Empereur")); // S. D'
+    assert!(speller.spellcheck("D'Empereur")); // S. D'
+    assert!(speller.spellcheck("qu'empereur")); // S. Q'
+    assert!(speller.spellcheck("qu'Empereur")); // S. Q'
+    assert!(speller.spellcheck("Qu'Empereur")); // S. Q'
+
+    assert!(speller.spellcheck("empereurs")); // S. /D'Q'
+    assert!(speller.spellcheck("d'empereurs")); // S. D'
+    assert!(speller.spellcheck("d'Empereurs")); // S. D'
+    assert!(speller.spellcheck("D'Empereurs")); // S. D'
+    assert!(speller.spellcheck("qu'empereurs")); // S. Q'
+    assert!(speller.spellcheck("qu'Empereurs")); // S. Q'
+    assert!(speller.spellcheck("Qu'Empereurs")); // S. Q'
+
+    // But not the second form of S. with L.
+    assert!(!speller.spellcheck("l'empereurs")); // S. L'
+    assert!(!speller.spellcheck("l'Empereurs")); // S. L'
+    assert!(!speller.spellcheck("L'Empereurs")); // S. L'
 }
 
 #[test]

@@ -503,7 +503,9 @@ impl AffixEntry {
                     let mut flags =
                         winfo.word_flags | self.contflags.word_flags;
                     if let Some(pfx) = from_prefix {
-                        if !winfo.has_affix_flag(pfx.flag) {
+                        if !(winfo.has_affix_flag(pfx.flag)
+                            || self.contflags.has_affix_flag(pfx.flag))
+                        {
                             continue;
                         }
                         flags.insert(pfx.contflags.word_flags);
