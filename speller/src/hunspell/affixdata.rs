@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
+use fnv::FnvHashMap;
 use itertools::Itertools;
-use std::collections::HashMap;
 use std::num::ParseIntError;
 use unicode_titlecase::StrTitleCase;
 
@@ -27,7 +27,7 @@ pub enum FlagMode {
 
 #[derive(Clone, Debug, Default)]
 pub struct SpecialFlags {
-    inner: HashMap<WordFlags, AffixFlag>,
+    inner: FnvHashMap<WordFlags, AffixFlag>,
     all: WordFlags,
 }
 
@@ -101,7 +101,7 @@ pub struct AffixData {
 
     /// Cache. Maps affix flags to the suffix entries that have that flag
     /// as a continuation flag.
-    rev_cont: HashMap<AffixFlag, Vec<usize>>,
+    rev_cont: FnvHashMap<AffixFlag, Vec<usize>>,
 
     /// Cache. Maps suffixes to the suffix entries that add that suffix.
     rev_suffix: SuffixTrie<usize>,

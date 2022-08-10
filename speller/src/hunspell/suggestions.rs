@@ -1,5 +1,6 @@
+use fnv::FnvHashSet;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashSet};
+use std::collections::BinaryHeap;
 use std::mem::swap;
 
 use crate::hunspell::wordflags::WordFlags;
@@ -418,7 +419,7 @@ pub fn ngram_suggestions(
     let heuristic = ngram(1, &wvec, &wvec);
     let mut suggheap: BinaryHeap<HeapItem<String>> =
         BinaryHeap::with_capacity(MAX_NGRAM_SUGG);
-    let mut uniq: HashSet<String> = HashSet::new();
+    let mut uniq: FnvHashSet<String> = FnvHashSet::default();
     for HeapItem { word: root, .. } in rootheap.into_vec() {
         dict.affix_data
             .generate_words_from_root(root, dict, |sugg| {
