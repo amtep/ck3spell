@@ -121,7 +121,7 @@ impl AffixData {
         AffixData {
             flag_mode: FlagMode::Char,
             compound_min: 3,
-            max_ngram_suggestions: 4,
+            max_ngram_suggestions: 2,
             ..Default::default()
         }
     }

@@ -4,6 +4,7 @@ use anyhow::Result;
 use std::path::Path;
 
 mod affix_trie;
+mod delins;
 mod hunspell;
 pub mod ngram;
 

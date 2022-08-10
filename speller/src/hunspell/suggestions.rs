@@ -3,12 +3,20 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::mem::swap;
 
+use crate::delins::delins;
 use crate::hunspell::wordflags::WordFlags;
 use crate::ngram::ngram;
 use crate::SpellerHunspellDict;
 
 const MAX_NGRAM_ROOTS: usize = 100;
 const MAX_NGRAM_SUGG: usize = 20;
+const MAX_DELINS_ROOTS: usize = 100;
+const MAX_DELINS_SUGG: usize = 20;
+/// This is a heuristic. Suggestions scoring worse than this are not offered.
+const MAX_DELINS_SCORE: usize = 5;
+/// Don't accept too short delins suggestions; they rarely have anything
+/// to do with the original word.
+const MAX_DELINS_SHORTER: usize = 3;
 
 pub fn related_char_suggestions(
     related: &[String],
@@ -438,6 +446,100 @@ pub fn ngram_suggestions(
                     suggheap.pop();
                 }
                 if suggheap.len() < MAX_NGRAM_SUGG {
+                    suggheap.push(HeapItem {
+                        word: sugg.to_string(),
+                        score,
+                    });
+                }
+            })
+    }
+    for HeapItem { word: sugg, .. } in suggheap.into_sorted_vec() {
+        if !suggest(&sugg) {
+            return;
+        }
+    }
+}
+
+/// Same method as ngram suggestions, but using the delins scoring algorithm.
+pub fn delins_suggestions(
+    word: &str,
+    dict: &SpellerHunspellDict,
+    mut suggest: impl FnMut(&str) -> bool,
+) {
+    // The logic is reversed compared to ngram because delins scores are
+    // lower = better.
+    #[derive(Eq, PartialEq)]
+    struct HeapItem<T> {
+        word: T,
+        score: usize,
+    }
+
+    impl<T: Eq> PartialOrd for HeapItem<T> {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            Some(self.score.cmp(&other.score))
+        }
+    }
+
+    impl<T: Eq> Ord for HeapItem<T> {
+        fn cmp(&self, other: &Self) -> Ordering {
+            self.score.cmp(&other.score)
+        }
+    }
+
+    let mut rootheap: BinaryHeap<HeapItem<&str>> =
+        BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
+    let wvec = word.chars().collect::<Vec<char>>();
+
+    'outer: for (root, homonyms) in dict.words.iter() {
+        for winfo in homonyms.iter() {
+            if winfo.word_flags.intersects(
+                WordFlags::Forbidden
+                    | WordFlags::NoSuggest
+                    | WordFlags::OnlyInCompound,
+            ) {
+                continue 'outer;
+            }
+        }
+
+        let rvec = root.chars().collect::<Vec<char>>();
+        if rvec.len() > wvec.len() + 2 {
+            continue;
+        }
+        let score = delins(&wvec, &rvec, wvec.len());
+        if rootheap.len() == MAX_DELINS_ROOTS
+            && score < rootheap.peek().unwrap().score
+        {
+            rootheap.pop();
+        }
+        if rootheap.len() < MAX_DELINS_ROOTS {
+            rootheap.push(HeapItem { word: root, score });
+        }
+    }
+
+    let mut suggheap: BinaryHeap<HeapItem<String>> =
+        BinaryHeap::with_capacity(MAX_DELINS_SUGG);
+    let mut uniq: FnvHashSet<String> = FnvHashSet::default();
+    for HeapItem { word: root, .. } in rootheap.into_vec() {
+        dict.affix_data
+            .generate_words_from_root(root, dict, |sugg| {
+                if uniq.contains(sugg) {
+                    return;
+                }
+                uniq.insert(sugg.to_string());
+                let svec = sugg.chars().collect::<Vec<char>>();
+                if svec.len() + MAX_DELINS_SHORTER < wvec.len() {
+                    return;
+                }
+                let score = delins(&wvec, &svec, MAX_DELINS_SCORE);
+                if score > MAX_DELINS_SCORE {
+                    return;
+                }
+                if suggheap.len() == MAX_DELINS_SUGG
+                    && score < suggheap.peek().unwrap().score
+                {
+                    suggheap.pop();
+                }
+                if suggheap.len() < MAX_DELINS_SUGG {
                     suggheap.push(HeapItem {
                         word: sugg.to_string(),
                         score,
