@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
+use caseless::default_case_fold_str;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 
@@ -139,20 +140,64 @@ fn ngram_loop(c: &mut Criterion) {
         words.push(word.chars().collect::<Vec<char>>());
         count = 0;
     }
-    dbg!(words.len());
 
     c.bench_function("ngram_loop", |b| {
         b.iter(|| {
             for w1 in &words {
                 for w2 in &words {
-                    ngram_fn(3, w1, w2);
+                    black_box(ngram_fn(3, w1, w2));
                 }
             }
         });
     });
 }
 
+fn casefold_loop(c: &mut Criterion) {
+    c.bench_function("default_case_fold_str", |b| {
+        b.iter(|| {
+            black_box(default_case_fold_str(black_box("Daniel")));
+            black_box(default_case_fold_str(black_box("LICHTENSTEIN")));
+            black_box(default_case_fold_str(black_box("marmalade")));
+            black_box(default_case_fold_str(black_box("Île-de-France")));
+            black_box(default_case_fold_str(black_box("PTOLÉMÉE")));
+            black_box(default_case_fold_str(black_box("palissandre")));
+            black_box(default_case_fold_str(black_box("Dosen")));
+            black_box(default_case_fold_str(black_box("DAGEGEN")));
+            black_box(default_case_fold_str(black_box("reihung")));
+        });
+    });
+    c.bench_function("default_case_fold_str_short", |b| {
+        b.iter(|| {
+            black_box(default_case_fold_str(black_box("I")));
+            black_box(default_case_fold_str(black_box("Hz")));
+            black_box(default_case_fold_str(black_box("Öl")));
+        });
+    });
+    // Compare with tolower as a reference point
+    c.bench_function("tolower", |b| {
+        b.iter(|| {
+            black_box(black_box("Daniel").to_lowercase());
+            black_box(black_box("LICHTENSTEIN").to_lowercase());
+            black_box(black_box("marmalade").to_lowercase());
+            black_box(black_box("Île-de-France").to_lowercase());
+            black_box(black_box("PTOLÉMÉE").to_lowercase());
+            black_box(black_box("palissandre").to_lowercase());
+            black_box(black_box("Dosen").to_lowercase());
+            black_box(black_box("DAGEGEN").to_lowercase());
+            black_box(black_box("reihung").to_lowercase());
+        });
+    });
+    c.bench_function("tolower_short", |b| {
+        b.iter(|| {
+            black_box(black_box("I").to_lowercase());
+            black_box(black_box("Hz").to_lowercase());
+            black_box(black_box("Öl").to_lowercase());
+        });
+    });
+}
+
+criterion_group!(casefold, casefold_loop);
 criterion_group!(ngram, ngram_loop);
 criterion_group!(load, load_fr, load_en, load_de);
 criterion_group!(suggest, suggest_fr, suggest_en, suggest_de);
-criterion_main!(suggest, load, ngram);
+criterion_main!(suggest, load, ngram, casefold);
