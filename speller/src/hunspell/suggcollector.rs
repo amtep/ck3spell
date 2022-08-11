@@ -1,4 +1,5 @@
 use std::cmp::min;
+use unicode_titlecase::StrTitleCase;
 
 use crate::hunspell::{CapStyle, SpellerHunspellDict};
 
@@ -75,6 +76,23 @@ impl<'a> SuggCollector<'a> {
             return;
         }
         self.counter -= 1;
+
+        // If the original word was capitalized or uppercase, then prefer
+        // capitalized or uppercased suggestions. Do fall back on the
+        // unmodified suggestion in case the capitalized forms are rejected.
+        if matches!(self.caps, CapStyle::Capitalized) {
+            let cap = sugg.to_titlecase();
+            if self.dict.check_suggestion(&cap, self.caps) {
+                self.suggs.push(cap);
+                return;
+            }
+        } else if matches!(self.caps, CapStyle::AllCaps) {
+            let cap = sugg.to_uppercase();
+            if self.dict.check_suggestion(&cap, self.caps) {
+                self.suggs.push(cap);
+                return;
+            }
+        }
 
         if self.dict.check_suggestion(sugg, self.caps) {
             self.suggs.push(sugg.to_string());
