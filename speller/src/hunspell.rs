@@ -14,11 +14,13 @@ mod compoundrule;
 mod condition;
 mod parse_aff;
 mod replacements;
+mod suggcollector;
 mod suggestions;
 mod wordflags;
 
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
 use crate::hunspell::parse_aff::parse_affix_data;
+use crate::hunspell::suggcollector::SuggCollector;
 use crate::hunspell::suggestions::{
     add_char_suggestions, capitalize_char_suggestions, delete_char_suggestions,
     delete_doubled_pair_suggestions, delins_suggestions, move_char_suggestions,
@@ -31,10 +33,6 @@ use crate::Speller;
 
 /// A limit on the recursive attempts to break a word at breakpoints such as -
 const MAX_WORD_BREAK_ATTEMPTS: u16 = 1000;
-/// A limit on the effort put into making related-character suggestions
-const MAX_RELATED_CHAR_SUGGESTIONS: u32 = 1000;
-/// A limit on the effort put into making char-swap suggestions
-const MAX_SWAP_CHAR_SUGGESTIONS: u32 = 1000;
 
 /// A speller that loads Hunspell dictionaries
 #[derive(Clone, Debug)]
@@ -691,17 +689,7 @@ impl SpellerHunspellDict {
         false
     }
 
-    fn check_suggestion(
-        &self,
-        word: &str,
-        origword: &str,
-        origcaps: CapStyle,
-        suggs: &Vec<String>,
-    ) -> bool {
-        if word == origword || suggs.iter().any(|w| w == word) {
-            return false;
-        }
-
+    fn check_suggestion(&self, word: &str, origcaps: CapStyle) -> bool {
         if self.is_forbidden_suggestion(word) {
             return false;
         }
@@ -712,205 +700,80 @@ impl SpellerHunspellDict {
         }
 
         // If the suggestion is two words, check both
-        if let Some((worda, wordb)) = word.split_once(' ') {
-            self.check_suggestion(worda, origword, origcaps, suggs)
-                && self.check_suggestion(wordb, origword, origcaps, suggs)
+        if let Some((sugga, suggb)) = word.split_once(' ') {
+            self.check_suggestion(sugga, origcaps)
+                && self.check_suggestion(suggb, origcaps)
         } else {
             false
         }
     }
 
-    fn _suggestions(&self, word: String, max: usize) -> Vec<String> {
-        let mut suggs = Vec::default();
-        // Set `done` if further suggestions would be lower quality
-        let mut done = false;
-        let caps = CapStyle::from_str(&word);
+    fn check_suggestion_priority(
+        &self,
+        word: &str,
+        origcaps: CapStyle,
+    ) -> bool {
+        if self.is_forbidden_suggestion(word) {
+            return false;
+        }
 
-        // TODO: do something about all these similar closures.
+        let caps = CapStyle::from_str(word);
+        self._spellcheck_caps(word, caps, origcaps.strict())
+    }
+
+    fn _suggestions(&self, word: String, max: usize) -> Vec<String> {
+        let mut collector = SuggCollector::new(self, &word, max);
 
         // Try splitting the word into two words
-        split_word_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, caps, &suggs) {
-                if !done && self.words.contains_key(sugg) {
-                    suggs.clear();
-                    done = true;
-                }
-                suggs.push(sugg.to_string());
-            }
-            suggs.len() < max
-        });
-        if suggs.len() == max || done {
-            return suggs;
-        }
+        split_word_suggestions(&word, &mut collector);
+
         if self.affix_data.dash_word_heuristic {
-            split_word_with_dash_suggestions(&word, |sugg| {
-                if self.check_suggestion(sugg, &word, caps, &suggs) {
-                    if !done && self.words.contains_key(sugg) {
-                        suggs.clear();
-                        done = true;
-                    }
-                    suggs.push(sugg.to_string());
-                }
-                suggs.len() < max
-            });
-            if suggs.len() == max || done {
-                return suggs;
-            }
+            split_word_with_dash_suggestions(&word, &mut collector);
         }
 
         // Try lowercased, capitalized, or all caps
         // TODO: also match mixed case words, such as "ipod" -> "iPod"
-        if self.check_suggestion(&word.to_lowercase(), &word, caps, &suggs) {
-            suggs.push(word.to_lowercase());
-        } else if self.check_suggestion(
-            &word.to_titlecase_lower_rest(),
-            &word,
-            caps,
-            &suggs,
-        ) {
-            suggs.push(word.to_titlecase_lower_rest());
-        } else if self.check_suggestion(
-            &word.to_uppercase(),
-            &word,
-            caps,
-            &suggs,
-        ) {
-            suggs.push(word.to_uppercase());
-        }
-        if suggs.len() == max {
-            return suggs;
-        }
+        collector.new_source("different_case");
+        collector.suggest(&word.to_lowercase());
+        collector.suggest(&word.to_titlecase_lower_rest());
+        collector.suggest(&word.to_uppercase());
 
-        self.affix_data.replacements.suggest(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, caps, &suggs) {
-                suggs.push(sugg.to_string());
-            }
-            suggs.len() < max
-        });
-        if suggs.len() == max {
-            return suggs;
-        }
+        self.affix_data.replacements.suggest(&word, &mut collector);
 
-        let mut count = 0u32;
         related_char_suggestions(
             &self.affix_data.related_chars,
             &word,
-            |sugg| {
-                if self.check_suggestion(&sugg, &word, caps, &suggs) {
-                    suggs.push(sugg);
-                }
-                count += 1;
-                suggs.len() < max && count < MAX_RELATED_CHAR_SUGGESTIONS
-            },
+            &mut collector,
         );
-        if suggs.len() == max {
-            return suggs;
-        }
 
-        delete_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, caps, &suggs) {
-                suggs.push(sugg.to_string());
-            }
-            suggs.len() < max
-        });
-        if suggs.len() == max {
-            return suggs;
-        }
+        delete_char_suggestions(&word, &mut collector);
 
         // TODO: maybe a straight up "delete any two chars" suggestion would
         // be better?
-        delete_doubled_pair_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, caps, &suggs) {
-                suggs.push(sugg.to_string());
-            }
-            suggs.len() < max
-        });
-        if suggs.len() == max {
-            return suggs;
-        }
+        delete_doubled_pair_suggestions(&word, &mut collector);
 
-        let mut count = 0u32;
-        swap_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, caps, &suggs) {
-                suggs.push(sugg.to_string());
-            }
-            count += 1;
-            suggs.len() < max && count < MAX_SWAP_CHAR_SUGGESTIONS
-        });
-        if suggs.len() == max {
-            return suggs;
-        }
+        swap_char_suggestions(&word, &mut collector);
 
         if let Some(try_chars) = &self.affix_data.try_string {
-            add_char_suggestions(&word, try_chars, |sugg| {
-                if self.check_suggestion(sugg, &word, caps, &suggs) {
-                    suggs.push(sugg.to_string());
-                }
-                suggs.len() < max
-            });
-        }
-        if suggs.len() == max {
-            return suggs;
+            add_char_suggestions(&word, try_chars, &mut collector);
         }
 
-        move_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, caps, &suggs) {
-                suggs.push(sugg.to_string());
-            }
-            suggs.len() < max
-        });
-        if suggs.len() == max {
-            return suggs;
-        }
+        move_char_suggestions(&word, &mut collector);
 
         if let Some(keys) = &self.affix_data.keyboard_string {
-            wrong_key_suggestions(&word, keys, |sugg| {
-                if self.check_suggestion(sugg, &word, caps, &suggs) {
-                    suggs.push(sugg.to_string());
-                }
-                suggs.len() < max
-            });
-            if suggs.len() == max {
-                return suggs;
-            }
+            wrong_key_suggestions(&word, keys, &mut collector);
         }
 
-        capitalize_char_suggestions(&word, |sugg| {
-            if self.check_suggestion(sugg, &word, caps, &suggs) {
-                suggs.push(sugg.to_string());
-            }
-            suggs.len() < max
-        });
-        if suggs.len() == max {
-            return suggs;
-        }
+        capitalize_char_suggestions(&word, &mut collector);
 
         // Re-use MAXNGRAMSUGGS to limit delins suggestions too.
-        let mut delins_suggs = 0;
-        if self.affix_data.max_ngram_suggestions > 0 {
-            delins_suggestions(&word, self, |sugg| {
-                if self.check_suggestion(sugg, &word, caps, &suggs) {
-                    suggs.push(sugg.to_string());
-                    delins_suggs += 1
-                }
-                suggs.len() < max
-                    && delins_suggs < self.affix_data.max_ngram_suggestions
-            });
-        }
+        collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
+        delins_suggestions(&word, self, &mut collector);
 
-        let mut ngram_suggs = 0;
-        if self.affix_data.max_ngram_suggestions > 0 {
-            ngram_suggestions(&word, self, |sugg| {
-                if self.check_suggestion(sugg, &word, caps, &suggs) {
-                    suggs.push(sugg.to_string());
-                    ngram_suggs += 1
-                }
-                suggs.len() < max
-                    && ngram_suggs < self.affix_data.max_ngram_suggestions
-            });
-        }
+        collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
+        ngram_suggestions(&word, self, &mut collector);
 
-        suggs
+        collector.into_iter().collect()
     }
 }
 

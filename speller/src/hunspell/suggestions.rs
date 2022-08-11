@@ -4,6 +4,7 @@ use std::collections::BinaryHeap;
 use std::mem::swap;
 
 use crate::delins::delins;
+use crate::hunspell::suggcollector::SuggCollector;
 use crate::hunspell::wordflags::WordFlags;
 use crate::ngram::ngram;
 use crate::SpellerHunspellDict;
@@ -21,8 +22,9 @@ const MAX_DELINS_SHORTER: usize = 3;
 pub fn related_char_suggestions(
     related: &[String],
     word: &str,
-    mut suggest: impl FnMut(String) -> bool,
+    collector: &mut SuggCollector,
 ) {
+    collector.new_source("related_char");
     // Try all possible combinations of replacements of related characters.
     // This can result in a huge number of candidates for long words.
     // Rely on the `suggest` callback to limit the time spent here.
@@ -44,7 +46,8 @@ pub fn related_char_suggestions(
                         let mut newcnd: Vec<char> = cnd.clone();
                         newcnd[i] = newc;
                         let newword = newcnd.iter().collect::<String>();
-                        if !suggest(newword) {
+                        collector.suggest(&newword);
+                        if collector.limit() {
                             return;
                         }
                         new_candidates.push(newcnd);
@@ -57,16 +60,15 @@ pub fn related_char_suggestions(
     }
 }
 
-pub fn delete_char_suggestions(
-    word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
-) {
+pub fn delete_char_suggestions(word: &str, collector: &mut SuggCollector) {
+    collector.new_source("delete_char");
     let mut sugg = String::with_capacity(word.len());
     for (i, c) in word.char_indices() {
         sugg.clear();
         sugg.push_str(&word[..i]);
         sugg.push_str(&word[i + c.len_utf8()..]);
-        if !suggest(&sugg) {
+        collector.suggest(&sugg);
+        if collector.limit() {
             return;
         }
     }
@@ -75,8 +77,9 @@ pub fn delete_char_suggestions(
 /// bananana -> banana
 pub fn delete_doubled_pair_suggestions(
     word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
+    collector: &mut SuggCollector,
 ) {
+    collector.new_source("delete_doubled_pair");
     let mut sugg = String::with_capacity(word.len());
     let mut prev1 = None;
     let mut prev2 = None;
@@ -97,7 +100,8 @@ pub fn delete_doubled_pair_suggestions(
             // delete prev1 and prev2
             sugg.push_str(&word[..prev1.unwrap().0]);
             sugg.push_str(&word[prev3.unwrap().0..]);
-            if !suggest(&sugg) {
+            collector.suggest(&sugg);
+            if collector.limit() {
                 return;
             }
         }
@@ -107,10 +111,8 @@ pub fn delete_doubled_pair_suggestions(
     }
 }
 
-pub fn swap_char_suggestions(
-    word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
-) {
+pub fn swap_char_suggestions(word: &str, collector: &mut SuggCollector) {
+    collector.new_source("swap_char");
     let mut sugg = String::with_capacity(word.len());
     // First try swapping adjacent chars (most likely case)
     let mut prev = None;
@@ -121,7 +123,8 @@ pub fn swap_char_suggestions(
             sugg.push(c);
             sugg.push(prev_c);
             sugg.push_str(&word[i + c.len_utf8()..]);
-            if !suggest(&sugg) {
+            collector.suggest(&sugg);
+            if collector.limit() {
                 return;
             }
         }
@@ -144,7 +147,8 @@ pub fn swap_char_suggestions(
             sugg.push_str(&word[after_i1..real_i2]);
             sugg.push(c1);
             sugg.push_str(&word[after_i2..]);
-            if !suggest(&sugg) {
+            collector.suggest(&sugg);
+            if collector.limit() {
                 return;
             }
         }
@@ -167,7 +171,8 @@ pub fn swap_char_suggestions(
                     sugg.push(c2);
                     sugg.push(prev_c2);
                     sugg.push_str(&word[len + i2 + c2.len_utf8()..]);
-                    if !suggest(&sugg) {
+                    collector.suggest(&sugg);
+                    if collector.limit() {
                         return;
                     }
                 }
@@ -178,10 +183,8 @@ pub fn swap_char_suggestions(
     }
 }
 
-pub fn move_char_suggestions(
-    word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
-) {
+pub fn move_char_suggestions(word: &str, collector: &mut SuggCollector) {
+    collector.new_source("move_char");
     let mut sugg = String::with_capacity(word.len());
     // Try moving a char to another place in the word.
     // The new location has to be at least 2 chars away, otherwise
@@ -199,14 +202,13 @@ pub fn move_char_suggestions(
             sugg.push_str(&word[after_i1..after_i2]);
             sugg.push(c1);
             sugg.push_str(&word[after_i2..]);
-            if !suggest(&sugg) {
-                return;
-            }
+            collector.suggest(&sugg);
             sugg.truncate(i1);
             sugg.push(c2);
             sugg.push_str(&word[i1..real_i2]);
             sugg.push_str(&word[after_i2..]);
-            if !suggest(&sugg) {
+            collector.suggest(&sugg);
+            if collector.limit() {
                 return;
             }
         }
@@ -216,8 +218,9 @@ pub fn move_char_suggestions(
 pub fn add_char_suggestions(
     word: &str,
     try_chars: &str,
-    mut suggest: impl FnMut(&str) -> bool,
+    collector: &mut SuggCollector,
 ) {
+    collector.new_source("add_char");
     // Try them in order; the affix file put them in order of likelihood
     for tc in try_chars.chars() {
         if tc == '-' {
@@ -232,7 +235,8 @@ pub fn add_char_suggestions(
             sugg.push_str(&word[..i]);
             sugg.push(tc);
             sugg.push_str(&word[i..]);
-            if !suggest(&sugg) {
+            collector.suggest(&sugg);
+            if collector.limit() {
                 return;
             }
         }
@@ -240,7 +244,8 @@ pub fn add_char_suggestions(
         sugg.clear();
         sugg.push_str(word);
         sugg.push(tc);
-        if !suggest(&sugg) {
+        collector.suggest(&sugg);
+        if collector.limit() {
             return;
         }
     }
@@ -256,8 +261,9 @@ pub fn add_char_suggestions(
 pub fn wrong_key_suggestions(
     word: &str,
     keyboard: &str,
-    mut suggest: impl FnMut(&str) -> bool,
+    collector: &mut SuggCollector,
 ) {
+    collector.new_source("wrong_key");
     let mut sugg = String::with_capacity(word.len());
 
     for (i, c) in word.char_indices() {
@@ -272,9 +278,7 @@ pub fn wrong_key_suggestions(
                         sugg.push_str(&word[..i]);
                         sugg.push(prevc);
                         sugg.push_str(&word[i + c.len_utf8()..]);
-                        if !suggest(&sugg) {
-                            return;
-                        }
+                        collector.suggest(&sugg);
                     }
                 }
                 // check neighbor to the right
@@ -284,10 +288,11 @@ pub fn wrong_key_suggestions(
                         sugg.push_str(&word[..i]);
                         sugg.push(nextc);
                         sugg.push_str(&word[i + c.len_utf8()..]);
-                        if !suggest(&sugg) {
-                            return;
-                        }
+                        collector.suggest(&sugg);
                     }
+                }
+                if collector.limit() {
+                    return;
                 }
             }
             prev = Some(kc);
@@ -295,11 +300,8 @@ pub fn wrong_key_suggestions(
     }
 }
 
-pub fn split_word_suggestions(
-    word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
-) {
-    let mut sugg = String::with_capacity(word.len() + 1);
+pub fn split_word_suggestions(word: &str, collector: &mut SuggCollector) {
+    collector.new_source("split_word");
     // Try adding a space between each pair of letters
     // Try before each letter except the first.
     let mut prev = None;
@@ -308,11 +310,9 @@ pub fn split_word_suggestions(
             if prev_c == '-' || c == '-' {
                 continue;
             }
-            sugg.clear();
-            sugg.push_str(&word[..i]);
-            sugg.push(' ');
-            sugg.push_str(&word[i..]);
-            if !suggest(&sugg) {
+            let sugg = format!("{} {}", &word[..i], &word[i..]);
+            collector.suggest_priority(&sugg);
+            if collector.limit() {
                 return;
             }
         }
@@ -322,22 +322,25 @@ pub fn split_word_suggestions(
 
 pub fn split_word_with_dash_suggestions(
     word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
+    collector: &mut SuggCollector,
 ) {
+    collector.new_source("split_word_with_dash");
     let mut sugg = String::with_capacity(word.len() + 1);
     // Try adding a dash between each pair of letters
     // Try before each letter except the first.
     let mut prev = None;
     for (i, c) in word.char_indices() {
         if let Some(prev_c) = prev {
-            if prev_c == '.' || prev_c == '-' || c == '-' {
+            if prev_c == '.' || prev_c == '-' || c == '.' || c == '-' {
+                prev = Some(c);
                 continue;
             }
             sugg.clear();
             sugg.push_str(&word[..i]);
             sugg.push('-');
             sugg.push_str(&word[i..]);
-            if !suggest(&sugg) {
+            collector.suggest_priority(&sugg);
+            if collector.limit() {
                 return;
             }
         }
@@ -346,10 +349,8 @@ pub fn split_word_with_dash_suggestions(
 }
 
 /// Did the user forget to hit shift on one letter?
-pub fn capitalize_char_suggestions(
-    word: &str,
-    mut suggest: impl FnMut(&str) -> bool,
-) {
+pub fn capitalize_char_suggestions(word: &str, collector: &mut SuggCollector) {
+    collector.new_source("capitalize_char");
     let mut sugg = String::with_capacity(word.len());
     for (i, c) in word.char_indices() {
         if c.is_uppercase() {
@@ -357,12 +358,13 @@ pub fn capitalize_char_suggestions(
         }
         sugg.clear();
         sugg.push_str(&word[..i]);
-        // Uppercasing a char may produce multiple chars, so loop.
+        // Uppercasing a char may produce multiple chars
         for c_up in c.to_uppercase() {
             sugg.push(c_up);
         }
         sugg.push_str(&word[i + c.len_utf8()..]);
-        if !suggest(&sugg) {
+        collector.suggest(&sugg);
+        if collector.limit() {
             return;
         }
     }
@@ -371,8 +373,13 @@ pub fn capitalize_char_suggestions(
 pub fn ngram_suggestions(
     word: &str,
     dict: &SpellerHunspellDict,
-    mut suggest: impl FnMut(&str) -> bool,
+    collector: &mut SuggCollector,
 ) {
+    collector.new_source("ngram");
+    if collector.limit() {
+        return;
+    }
+
     #[derive(Eq, PartialEq)]
     struct HeapItem<T> {
         word: T,
@@ -454,7 +461,8 @@ pub fn ngram_suggestions(
             })
     }
     for HeapItem { word: sugg, .. } in suggheap.into_sorted_vec() {
-        if !suggest(&sugg) {
+        collector.suggest(&sugg);
+        if collector.limit() {
             return;
         }
     }
@@ -464,8 +472,13 @@ pub fn ngram_suggestions(
 pub fn delins_suggestions(
     word: &str,
     dict: &SpellerHunspellDict,
-    mut suggest: impl FnMut(&str) -> bool,
+    collector: &mut SuggCollector,
 ) {
+    collector.new_source("ngram");
+    if collector.limit() {
+        return;
+    }
+
     // The logic is reversed compared to ngram because delins scores are
     // lower = better.
     #[derive(Eq, PartialEq)]
@@ -548,7 +561,8 @@ pub fn delins_suggestions(
             })
     }
     for HeapItem { word: sugg, .. } in suggheap.into_sorted_vec() {
-        if !suggest(&sugg) {
+        collector.suggest(&sugg);
+        if collector.limit() {
             return;
         }
     }

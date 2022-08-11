@@ -1,3 +1,5 @@
+use crate::hunspell::suggcollector::SuggCollector;
+
 #[derive(Clone, Debug, Default)]
 struct Rep {
     anchor_begin: bool,
@@ -70,7 +72,8 @@ impl Replacements {
         output
     }
 
-    pub fn suggest(&self, word: &str, mut suggest: impl FnMut(&str) -> bool) {
+    pub fn suggest(&self, word: &str, collector: &mut SuggCollector) {
+        collector.new_source("rep");
         let mut sugg = String::with_capacity(word.len() * 2);
         for (i, _) in word.char_indices() {
             // TODO: optimize by putting start-anchored reps in a separate list
@@ -80,8 +83,9 @@ impl Replacements {
                     sugg.push_str(&word[..i]);
                     sugg.push_str(&rep.to);
                     sugg.push_str(&word[i + rep.from.len()..]);
-                    if !suggest(&sugg) {
-                        break;
+                    collector.suggest(&sugg);
+                    if collector.limit() {
+                        return;
                     }
                 }
             }
