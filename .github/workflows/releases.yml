@@ -1,0 +1,153 @@
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v[0-9]+*
+
+name: Release
+
+jobs:
+  getdicts:
+    name: Fetch dictionaries
+    runs-on: ubuntu-22.04
+    steps:
+
+      # Github runners don't have deb-src lines installed.
+      # Add a sources.list with both deb and deb-src (so they are in sync)
+      - name: Update sources list
+        shell: bash
+        run: |
+            echo "deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" > mylist.list
+            echo "deb-src http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" >> mylist.list
+            echo "deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" >> mylist.list
+            echo "deb-src http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" >> mylist.list
+            echo "deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> mylist.list
+            echo "deb-src http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> mylist.list
+            sudo mv mylist.list /etc/apt/sources.list.d/
+            sudo apt-get --quiet update --assume-yes
+
+      - name: Install dictionaries
+        run: |
+          sudo apt-get install hunspell-en-us hunspell-de-de hunspell-fr \
+              hunspell-es hunspell-ru
+
+      - name: Populate output dir
+        run: |
+          mkdir dicts
+          cp /usr/share/hunspell/en_US.* dicts/
+          cp /usr/share/hunspell/de_DE.* dicts/
+          cp /usr/share/hunspell/fr_FR.* dicts/
+          cp /usr/share/hunspell/es_ES.* dicts/
+          cp /usr/share/hunspell/ru_RU.* dicts/
+
+      - name: Get dict sources
+        run: |
+          mkdir -p dicts/source
+          cd dicts/source
+          apt-get source --download-only hunspell-en-us
+          apt-get source --download-only hunspell-de-de
+          apt-get source --download-only hunspell-fr
+          apt-get source --download-only hunspell-es
+          apt-get source --download-only hunspell-ru
+
+      - name: Upload to github
+        uses: actions/upload-artifact@v3
+        with:
+          name: dicts
+          path: dicts/
+          if-no-files-found: error
+
+  build:
+    needs: getdicts
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+            extension:
+          - os: windows-latest
+            name: windows
+            extension: .exe
+    name: ${{ matrix.name }} build
+    runs-on: ${{ matrix.os }}
+    steps:
+
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        if: ${{ (matrix.os == 'ubuntu-latest') }}
+        run: sudo apt-get install libgtk-3-dev
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          cargo install cargo-get
+          cd ck3spell
+          version=$(cargo get version --pretty)
+          archive="ck3spell-${{ matrix.name }}-$version"
+          echo "::set-output name=version::$version"
+          echo "::set-output name=archive::$archive"
+
+      - name: Verify version against tag
+        shell: bash
+        run: |
+          test "${{ github.ref_name }}" = "${{ steps.version.outputs.version }}"
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+
+      - name: Create output dir
+        shell: bash
+        run: |
+          mkdir ${{ steps.version.outputs.archive }}
+          cp README.md LICENSE screenshots/sample.png target/release/ck3spell${{ matrix.extension }} ${{ steps.version.outputs.archive }}
+
+      - name: Fetch dictionary artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: dicts
+          path: ${{ steps.version.outputs.archive }}/dicts/
+
+      - name: Archive
+        uses: vimtor/action-zip@v1
+        with:
+          files: ${{ steps.version.outputs.archive }}/
+          dest: ${{ steps.version.outputs.archive }}.zip
+
+      - name: Upload Archive
+        uses: actions/upload-artifact@v3
+        with:
+          name: archives
+          path: ${{ steps.version.outputs.archive }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Archives
+        uses: actions/download-artifact@v3
+        with:
+          name: archives
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: '*.zip'
