@@ -3,6 +3,7 @@ use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::{AppLauncher, Color, Key, Lens, WindowDesc};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -12,17 +13,17 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 
+use speller::{Speller, SpellerHunspellDict};
+
 mod appcontroller;
 mod commands;
 mod editorcontroller;
-mod hunspell;
 mod linelist;
 mod linescroller;
 mod syntax;
 mod syntaxhighlighter;
 mod ui;
 
-use crate::hunspell::Hunspell;
 use crate::syntax::{parse_line, TokenType};
 use crate::ui::ui_builder;
 
@@ -82,14 +83,13 @@ pub struct LineInfo {
     rendered: RichText,
     bad_words: Rc<Vec<Range<usize>>>,
     highlight_word_nr: usize,
-    /// Handle to the hunspell library object. Should be in Env but can't.
-    hunspell: Rc<Hunspell>,
+    speller: Rc<RefCell<dyn Speller>>, // Should be in Env but can't.
 }
 
 impl LineInfo {
     fn highlight(&mut self, env: &Env) {
         (self.rendered, self.bad_words) =
-            highlight_syntax(&self.line.line, env, &self.hunspell);
+            highlight_syntax(&self.line.line, env, &self.speller);
         if let Some(range) = self.marked_word() {
             self.rendered
                 .add_attribute(range, Attribute::underline(true));
@@ -135,11 +135,15 @@ pub struct FileState {
     /// Name of file to spell check, for display.
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
-    hunspell: Rc<Hunspell>,
+    speller: Rc<RefCell<dyn Speller>>,
 }
 
 impl FileState {
-    fn new(pathname: &Path, contents: &str, hunspell: Rc<Hunspell>) -> Self {
+    fn new(
+        pathname: &Path,
+        contents: &str,
+        speller: Rc<RefCell<dyn Speller>>,
+    ) -> Self {
         let filename = if let Some(name) = pathname.file_name() {
             name.to_string_lossy().to_string()
         } else {
@@ -148,8 +152,8 @@ impl FileState {
         FileState {
             pathname: Rc::new(pathname.to_path_buf()),
             filename: Rc::new(filename),
-            lines: Arc::new(split_lines(contents, &hunspell.clone())),
-            hunspell,
+            lines: Arc::new(split_lines(contents, &speller.clone())),
+            speller,
         }
     }
 
@@ -288,14 +292,15 @@ impl AppState {
         self.suggestions = if let Some(word) = self.cursor_word() {
             Arc::new(
                 self.file
-                    .hunspell
-                    .suggestions(word)
+                    .speller
+                    .borrow()
+                    .suggestions(word, 9)
                     .iter()
                     .take(9)
                     .enumerate()
                     .map(|(i, s)| Suggestion {
                         suggestion_nr: i + 1,
-                        suggestion: s.clone(),
+                        suggestion: Rc::new(s.to_string()),
                     })
                     .collect(),
             )
@@ -363,7 +368,7 @@ fn locale_from_filename(pathname: &Path) -> Result<&str> {
 fn highlight_syntax(
     line: &Rc<String>,
     env: &Env,
-    hunspell: &Rc<Hunspell>,
+    speller: &Rc<RefCell<dyn Speller>>,
 ) -> (RichText, Rc<Vec<Range<usize>>>) {
     let mut text = RichText::new((*line.as_str()).into());
     let mut bad_words = Vec::new();
@@ -383,7 +388,7 @@ fn highlight_syntax(
 
         if let TokenType::Word = token.ttype {
             let word = &line[token.range.clone()];
-            if word.chars().count() > 1 && !hunspell.spellcheck(word) {
+            if word.chars().count() > 1 && !speller.borrow().spellcheck(word) {
                 color = env.get(MISSPELLED_COLOR);
                 bad_words.push(token.range.clone());
             }
@@ -394,7 +399,10 @@ fn highlight_syntax(
     (text, Rc::new(bad_words))
 }
 
-fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<LineInfo> {
+fn split_lines(
+    contents: &str,
+    speller: &Rc<RefCell<dyn Speller>>,
+) -> Vec<LineInfo> {
     let mut lines: Vec<LineInfo> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
     while let Some((nr, line)) = line_iter.next() {
@@ -426,16 +434,41 @@ fn split_lines(contents: &str, hunspell: &Rc<Hunspell>) -> Vec<LineInfo> {
             rendered: RichText::new("".into()),
             bad_words: Rc::new(Vec::new()),
             highlight_word_nr: 0,
-            hunspell: Rc::clone(hunspell),
+            speller: Rc::clone(speller),
         });
     }
     lines
 }
 
+/// Look for Hunspell-format dictionaries for the given `locale` in the
+/// provided directory search path. Return a tuple of paths to the
+/// dictionary file and the affix file.
+pub fn find_dictionary(
+    search_path: Vec<&str>,
+    locale: &str,
+) -> Option<(PathBuf, PathBuf)> {
+    for dir in search_path {
+        eprint!("Looking for dictionary in {}", dir);
+
+        let mut pdic = PathBuf::from(dir);
+        pdic.push(format!("{}.dic", locale));
+
+        let mut paff = PathBuf::from(dir);
+        paff.push(format!("{}.aff", locale));
+
+        if Path::exists(&pdic) && Path::exists(&paff) {
+            eprintln!(" ... found");
+            return Some((pdic, paff));
+        }
+        eprintln!();
+    }
+    None
+}
+
 fn load_file(
     pathname: &Path,
     local_dict: Option<&PathBuf>,
-    hunspell_dicts: &mut HashMap<String, Rc<Hunspell>>,
+    dicts: &mut HashMap<String, Rc<RefCell<dyn Speller>>>,
 ) -> Result<FileState> {
     let mut contents =
         std::fs::read_to_string(pathname).with_context(|| {
@@ -446,34 +479,40 @@ fn load_file(
     }
 
     let locale = locale_from_filename(pathname)?;
-    let hunspell = if hunspell_dicts.contains_key(locale) {
-        hunspell_dicts[locale].clone()
+    let speller = if dicts.contains_key(locale) {
+        dicts[locale].clone()
     } else {
         eprintln!("Using locale {}", locale);
-        let dictpath =
-            Hunspell::find_dictionary(&DICTIONARY_SEARCH_PATH, locale)?;
-        let mut hunspell = Hunspell::new(Path::new(dictpath), locale)?;
+        let mut speller =
+            match find_dictionary(DICTIONARY_SEARCH_PATH.to_vec(), locale) {
+                Some((dictpath, affixpath)) => {
+                    SpellerHunspellDict::new(&dictpath, &affixpath)
+                }
+                None => Err(anyhow!("Dictionary not found")),
+            }?;
+        for e in speller.get_errors() {
+            eprintln!("Dictionary error: {}", e);
+        }
         if let Some(local_dict) = local_dict {
             eprint!("Using local dictionary {} ...", local_dict.display());
-            let added = hunspell.set_user_dict(local_dict)?;
+            let added = speller.set_user_dict(local_dict)?;
             eprintln!("loaded {} words", added);
         }
-        let hunspell = Rc::new(hunspell);
-        hunspell_dicts.insert(locale.to_string(), hunspell.clone());
-        hunspell
+        let speller = Rc::new(RefCell::new(speller));
+        dicts.insert(locale.to_string(), speller.clone());
+        speller
     };
 
-    Ok(FileState::new(pathname, &contents, hunspell))
+    Ok(FileState::new(pathname, &contents, speller))
 }
 
 fn main() -> Result<()> {
     let args = Cli::parse();
-    let mut hunspell_dicts = HashMap::new();
+    let mut dicts = HashMap::new();
     let mut files = Vec::new();
 
     for pathname in args.pathnames.iter() {
-        match load_file(pathname, args.local_dict.as_ref(), &mut hunspell_dicts)
-        {
+        match load_file(pathname, args.local_dict.as_ref(), &mut dicts) {
             Ok(file) => files.push(file),
             Err(err) => eprintln!("{:#}", err),
         }

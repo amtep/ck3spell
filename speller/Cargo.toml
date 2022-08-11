@@ -1,0 +1,22 @@
+[package]
+name = "speller"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+bitflags = "1.3"
+caseless = { version = "0.2", git = "https://github.com/amtep/rust-caseless" }
+fnv = "1.0.7"
+itertools = "0.10"
+nom = "7"
+smallvec = "1.9"
+unicode-casing = "0.1.0"
+unicode_titlecase = "1.1.0"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "criterion"
+harness = false

@@ -98,8 +98,14 @@ fn buttons_builder() -> impl Widget<AppState> {
     let accept = Button::new("Accept word")
         .on_click(|ctx, data: &mut AppState, _| {
             if let Some(cursor_word) = data.cursor_word() {
-                data.file.hunspell.add_word(cursor_word);
-                data.file.hunspell.add_word_user_dict(cursor_word);
+                if let Err(err) = data
+                    .file
+                    .speller
+                    .borrow_mut()
+                    .add_word_to_user_dict(cursor_word)
+                {
+                    eprintln!("{:#}", err);
+                }
                 ctx.submit_command(DICTIONARY_UPDATED);
             }
         })

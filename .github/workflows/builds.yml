@@ -1,0 +1,62 @@
+on: push
+
+name: Build
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux
+            extension:
+          - os: windows-latest
+            name: Windows
+            extension: .exe
+    name: ${{ matrix.name }} build
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        if: ${{ (matrix.os == 'ubuntu-latest') }}
+        run: sudo apt-get install libgtk-3-dev
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Get version
+        id: version
+        shell: bash
+        run: |
+          cargo install cargo-get
+          cd ck3spell
+          version=$(cargo get version --pretty)
+          archive="ck3spell-${{ matrix.name }}-$version"
+          echo "::set-output name=version::$version"
+          echo "::set-output name=archive::$archive"
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
+      - name: Create output dir
+        shell: bash
+        run: |
+          mkdir ${{ steps.version.outputs.archive }}
+          cp README.md LICENSE screenshots/sample.png target/release/ck3spell${{ matrix.extension }} ${{ steps.version.outputs.archive }}
+      - name: Archive
+        uses: vimtor/action-zip@v1
+        with:
+          files: ${{ steps.version.outputs.archive }}
+          dest: ${{ steps.version.outputs.archive }}.zip
+      - name: Upload Archive
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ steps.version.outputs.archive }}.zip
+          path: ${{ github.workspace }}/${{ steps.version.outputs.archive }}.zip
+          recursive: false
