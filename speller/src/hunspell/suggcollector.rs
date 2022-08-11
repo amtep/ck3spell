@@ -48,6 +48,10 @@ impl<'a> SuggCollector<'a> {
         self.counter = MAX_SUGGESTS_PER_SOURCE;
     }
 
+    pub fn has_suggestions(&self) -> bool {
+        !self.suggs.is_empty()
+    }
+
     /// Return true iff no more suggestions should be submitted
     pub fn limit(&self) -> bool {
         self.done || self.suggs.len() >= self.limit || self.counter == 0

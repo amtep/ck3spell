@@ -62,7 +62,7 @@ impl CompoundRule {
         check: &impl Fn(&str, AffixFlag) -> bool,
         partial_ok: bool,
     ) -> bool {
-        if let Some(word) = words.get(0) {
+        if let Some(word) = words.first() {
             match self.v.get(pos) {
                 None => false,
                 Some(Once(f)) => {

@@ -71,7 +71,7 @@ impl WordInfo {
 }
 
 /// A word's place in the word compounding sequence.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Compound {
     None,
     Begin,
@@ -115,7 +115,7 @@ impl Compound {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CapStyle {
     Lowercase,
     Capitalized,
@@ -724,13 +724,6 @@ impl SpellerHunspellDict {
     fn _suggestions(&self, word: String, max: usize) -> Vec<String> {
         let mut collector = SuggCollector::new(self, &word, max);
 
-        // Try splitting the word into two words
-        split_word_suggestions(&word, &mut collector);
-
-        if self.affix_data.dash_word_heuristic {
-            split_word_with_dash_suggestions(&word, &mut collector);
-        }
-
         // Try lowercased, capitalized, or all caps
         // TODO: also match mixed case words, such as "ipod" -> "iPod"
         collector.new_source("different_case");
@@ -766,12 +759,25 @@ impl SpellerHunspellDict {
 
         capitalize_char_suggestions(&word, &mut collector);
 
-        // Re-use MAXNGRAMSUGGS to limit delins suggestions too.
-        collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
-        delins_suggestions(&word, self, &mut collector);
+        // Only try the ngram and delins algorithms if the straightforward
+        // corrections didn't produce any usable suggestions.
+        if !collector.has_suggestions() {
+            // Re-use MAXNGRAMSUGGS to limit delins suggestions too.
+            collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
+            delins_suggestions(&word, self, &mut collector);
 
-        collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
-        ngram_suggestions(&word, self, &mut collector);
+            collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
+            ngram_suggestions(&word, self, &mut collector);
+
+            collector.set_limit(max);
+        }
+
+        // Try splitting the word into two words
+        split_word_suggestions(&word, &mut collector);
+
+        if self.affix_data.dash_word_heuristic {
+            split_word_with_dash_suggestions(&word, &mut collector);
+        }
 
         collector.into_iter().collect()
     }
