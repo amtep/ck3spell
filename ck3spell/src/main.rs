@@ -3,8 +3,10 @@ use clap::Parser;
 use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::{AppLauncher, Color, Key, Lens, WindowDesc};
+use home::home_dir;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::env::current_exe;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Write;
@@ -50,7 +52,8 @@ const MARKUP_COLOR: Key<Color> = Key::new("ck3spell.markup-color");
 const ICON_TAG_COLOR: Key<Color> = Key::new("ck3spell.icon-tag-color");
 const LINE_COLOR: Key<Color> = Key::new("ck3spell-line-color");
 
-const DICTIONARY_SEARCH_PATH: [&str; 2] = [".", "/usr/share/hunspell"];
+const DICTIONARY_SEARCH_PATH: [&str; 5] =
+    ["./dicts", ".", "/usr/share/hunspell", "$EXE/dicts", "$EXE"];
 
 #[derive(Clone, Data, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
@@ -440,6 +443,21 @@ fn split_lines(
     lines
 }
 
+/// Look for paths starting with $HOME or $EXE and fill in the user's
+/// home directory or the ck3spell executable's directory, respectively.
+fn expand_dir(dir: &Path) -> Option<PathBuf> {
+    if let Ok(path) = dir.strip_prefix("$HOME") {
+        Some(home_dir()?.join(path))
+    } else if let Ok(path) = dir.strip_prefix("$EXE") {
+        match current_exe() {
+            Ok(exe) => Some(exe.parent()?.join(path)),
+            Err(_) => None,
+        }
+    } else {
+        Some(dir.to_path_buf())
+    }
+}
+
 /// Look for Hunspell-format dictionaries for the given `locale` in the
 /// provided directory search path. Return a tuple of paths to the
 /// dictionary file and the affix file.
@@ -448,13 +466,18 @@ pub fn find_dictionary(
     locale: &str,
 ) -> Option<(PathBuf, PathBuf)> {
     for dir in search_path {
-        eprint!("Looking for dictionary in {}", dir);
+        let dir = match expand_dir(&PathBuf::from(dir)) {
+            Some(dir) => dir,
+            None => {
+                eprintln!("Could not expand path {}", dir);
+                continue;
+            }
+        };
 
-        let mut pdic = PathBuf::from(dir);
-        pdic.push(format!("{}.dic", locale));
+        eprint!("Looking for dictionary in {}", dir.display());
 
-        let mut paff = PathBuf::from(dir);
-        paff.push(format!("{}.aff", locale));
+        let pdic = dir.join(format!("{}.dic", locale));
+        let paff = dir.join(format!("{}.aff", locale));
 
         if Path::exists(&pdic) && Path::exists(&paff) {
             eprintln!(" ... found");
