@@ -30,6 +30,7 @@ use crate::syntax::{parse_line, TokenType};
 use crate::ui::ui_builder;
 
 #[derive(Parser)]
+#[clap(author, version, about)]
 struct Cli {
     /// Files to spell check.
     #[clap(required(true))]
