@@ -759,9 +759,19 @@ impl SpellerHunspellDict {
 
         capitalize_char_suggestions(&word, &mut collector);
 
+        let has_good = collector.has_suggestions();
+
+        // Try splitting the word into two words.
+        // These should be suggested even if `has_good` is true, but don't
+        // count as good suggestions themselves.
+        split_word_suggestions(&word, &mut collector);
+        if self.affix_data.dash_word_heuristic {
+            split_word_with_dash_suggestions(&word, &mut collector);
+        }
+
         // Only try the ngram and delins algorithms if the straightforward
         // corrections didn't produce any usable suggestions.
-        if !collector.has_suggestions() {
+        if !has_good {
             // Re-use MAXNGRAMSUGGS to limit delins suggestions too.
             collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
             delins_suggestions(&word, self, &mut collector);
@@ -770,13 +780,6 @@ impl SpellerHunspellDict {
             ngram_suggestions(&word, self, &mut collector);
 
             collector.set_limit(max);
-        }
-
-        // Try splitting the word into two words
-        split_word_suggestions(&word, &mut collector);
-
-        if self.affix_data.dash_word_heuristic {
-            split_word_with_dash_suggestions(&word, &mut collector);
         }
 
         collector.into_iter().collect()
