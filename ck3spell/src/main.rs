@@ -4,6 +4,7 @@ use druid::text::{Attribute, RichText};
 use druid::widget::prelude::*;
 use druid::{AppLauncher, Color, Key, Lens, WindowDesc};
 use home::home_dir;
+use nu_glob::glob;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env::current_exe;
@@ -535,10 +536,31 @@ fn main() -> Result<()> {
     let mut dicts = HashMap::new();
     let mut files = Vec::new();
 
+    // Heuristic. Does the shell that invoked us do its own globbing?
+    // Windows Powershell and CMD don't glob, and they also don't set SHELL.
+    let needs_glob = std::env::var_os("SHELL").is_none();
+    let local_dict = args.local_dict.as_ref();
+
     for pathname in args.pathnames.iter() {
-        match load_file(pathname, args.local_dict.as_ref(), &mut dicts) {
-            Ok(file) => files.push(file),
-            Err(err) => eprintln!("{:#}", err),
+        if needs_glob {
+            for entry in glob(&pathname.to_string_lossy())
+                .expect("could not understand filename pattern")
+            {
+                match entry {
+                    Ok(path) => {
+                        match load_file(&path, local_dict, &mut dicts) {
+                            Ok(file) => files.push(file),
+                            Err(err) => eprintln!("{:#}", err),
+                        }
+                    }
+                    Err(err) => eprintln!("{:#}", err),
+                }
+            }
+        } else {
+            match load_file(pathname, local_dict, &mut dicts) {
+                Ok(file) => files.push(file),
+                Err(err) => eprintln!("{:#}", err),
+            }
         }
     }
     if files.is_empty() {

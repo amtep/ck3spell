@@ -14,6 +14,7 @@ speller = { version = "0.1.0", path = "../speller" }
 anyhow = "1.0"
 clap = { version = "3.2.12", features = ["derive"] }
 druid = { git = "https://github.com/linebender/druid.git" }
+nu-glob = "0.66"
 home = "0.5"
 nom = "7"
 nom_locate = "4"

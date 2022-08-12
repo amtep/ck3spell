@@ -179,6 +179,7 @@ dependencies = [
  "home",
  "nom",
  "nom_locate",
+ "nu-glob",
  "speller",
 ]
 
@@ -1038,6 +1039,12 @@ dependencies = [
  "memchr",
  "nom",
 ]
+
+[[package]]
+name = "nu-glob"
+version = "0.66.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebd599a1906735460c6e00af9156efe3d2586a947456544a596a901d8eb40aec"
 
 [[package]]
 name = "num-traits"
