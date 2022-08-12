@@ -27,13 +27,16 @@ On Debian and Ubuntu, you should install one or hunspell dictionary packages dep
 * French: `hunspell-fr`
 * Russian: `hunspell-ru`
 
+`sudo apt install hunspell-en-us hunspell-de-de hunspell-es hunspell-fr hunspell-ru`
+
+### Development Dependencies
 `ck3spell` uses the `GTK-3` library on Linux.
 
 On Debian and Ubuntu, you should install the `libgtk-3-dev` package before compiling `ck3spell`.
 
+`sudo apt install libgtk-3-dev`
+
 ## TODO
-* Improve suggestions for fixing words
-* Improve the compound word detection for German
 * Support Korean and Chinese.
 * Check words that are part text and part code. Such combination words are important for some languages which use bits of code to get the word endings right. (for example 'luchador'/'luchadora' in Spanish).
 * Support installation and dictionary bundling on Windows and Mac.
