@@ -55,7 +55,7 @@ jobs:
         shell: bash
         run: |
           mkdir ${{ steps.version.outputs.archive }}
-          cp README.md LICENSE screenshots/sample.png target/release/ck3spell${{ matrix.extension }} ${{ steps.version.outputs.archive }}
+          cp -p README.md LICENSE screenshots/sample.png target/release/ck3spell${{ matrix.extension }} ${{ steps.version.outputs.archive }}
 
       - name: Upload Archive
         uses: actions/upload-artifact@v3
