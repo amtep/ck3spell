@@ -117,7 +117,7 @@ fn comment(s: Span) -> IResult<Span, Span> {
 }
 
 fn loc_key(s: Span) -> IResult<Span, Span> {
-    recognize(many0_count(alt((recognize(one_of("_.-")), alphanumeric1))))(s)
+    recognize(many0_count(alt((recognize(one_of("_.-'")), alphanumeric1))))(s)
 }
 
 fn loc_key_header(s: Span) -> IResult<Span, Span> {
