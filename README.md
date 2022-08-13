@@ -55,7 +55,7 @@ cd <i>your/mods/directory</i>
 
 Windows, from the command line:  <pre>
 CD /D <i>your\mods\directory</i>
-<i>path\to\\</i>ck3spell localization\english\*.yml
+<i>path\to\\</i>ck3spell localization\english\\*.yml
 </pre>
 
 where the path/to/ is to where you unpacked `ck3spell`, and "english" is whichever language's files you want to spellcheck.
