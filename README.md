@@ -36,8 +36,27 @@ On Debian and Ubuntu, you should install the `libgtk-3-dev` package before compi
 
 `sudo apt install libgtk-3-dev`
 
+## How to use
+From the Releases section, download the latest release for your platform.
+Either the linux `.tar.gz` or the windows `.zip`.
+
+Unpack it, then go to your mod's directory and do something like
+
+`path/to/ck3spell localization/english/*.yml`
+
+where the path/to/ is to where you unpacked `ck3spell`, and "english" is whichever language's files you want to spellcheck.
+
+`ck3spell` will show you the files one by one, and each time you click "Save and close" it will show you the next one. You can also use the "Prev" and "Next" buttons at the top to cycle through the files.
+
+Jump to the misspelled words by clicking the "Previous" and "Next" buttons in the central button row. For each word, you can either "Accept word" to accept it as a correctly spelled word, or pick one of the offered corrections from the window below, or "Edit line" to go in and edit that whole line. `ck3spell` always edits one line at a time, because CK3 localization files are based on one line per localization.
+
+Normally "Accept word" only accepts a word for the current spellchecking session. If you want it to remember words long term, you can use the `--local-dict` option, like this:
+
+`path/to/ck3spell --local-dict ck3spell.list localization/english/*.yml`
+
+The name `ck3spell.list` can be any filename you like.
+
 ## TODO
 * Support Korean and Chinese.
-* Check words that are part text and part code. Such combination words are important for some languages which use bits of code to get the word endings right. (for example 'luchador'/'luchadora' in Spanish).
-* Support installation and dictionary bundling on Windows and Mac.
-* Provide installable executables.
+* Check words that are part text and part code. Such combination words are important for some languages which use bits of code to get the word endings right. (For example 'luchador'/'luchadora' in Spanish.)
+* Support installation and dictionary bundling on Mac.
