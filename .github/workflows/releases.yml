@@ -41,19 +41,28 @@ jobs:
 
       - name: Get dict sources
         run: |
-          mkdir -p dicts/source
-          cd dicts/source
+          mkdir -p dict-sources
+          cd dict-sources
           apt-get source --download-only hunspell-en-us
           apt-get source --download-only hunspell-de-de
           apt-get source --download-only hunspell-fr
           apt-get source --download-only hunspell-es
           apt-get source --download-only hunspell-ru
+          cd ..
+          tar cfvz dict-sources-"${{ github.ref_name }}".tar.gz dict-sources/
 
-      - name: Upload to github
+      - name: Upload dicts to github
         uses: actions/upload-artifact@v3
         with:
           name: dicts
           path: dicts/
+          if-no-files-found: error
+
+      - name: Upload dict sources to github
+        uses: actions/upload-artifact@v3
+        with:
+          name: archives
+          path: dict-sources-${{ github.ref_name }}.tar.gz
           if-no-files-found: error
 
   build:
