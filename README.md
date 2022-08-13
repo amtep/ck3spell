@@ -19,7 +19,10 @@ Because of that need, the localization texts often contain small blocks of code,
 ## Dependencies
 `ck3spell` uses `hunspell` dictionaries but not the `hunspell` library.
 
-On Debian and Ubuntu, you should install one or hunspell dictionary packages depending on which languages you want to check.
+### Linux
+On Debian and Ubuntu, you should install one or more hunspell dictionary packages depending on which languages you want to check.
+
+The dictionaries are also bundled in the `.tar.gz` release archive, so you only need to install them if you prefer the system ones.
 
 * English: `hunspell-en-us`
 * German: `hunspell-de-de`
@@ -28,6 +31,9 @@ On Debian and Ubuntu, you should install one or hunspell dictionary packages dep
 * Russian: `hunspell-ru`
 
 `sudo apt install hunspell-en-us hunspell-de-de hunspell-es hunspell-fr hunspell-ru`
+
+### Windows
+All the necessary dictionaries are bundled in the `.zip` release archive. As long as you keep them together with the `ck3spell.exe` file, `ck3spell` will find them and use them.
 
 ### Development Dependencies
 `ck3spell` uses the `GTK-3` library on Linux.
