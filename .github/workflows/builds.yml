@@ -38,9 +38,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          cargo install cargo-get
-          cd ck3spell
-          version=$(cargo get version --pretty)
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
           archive="ck3spell-${{ matrix.name }}-$version"
           echo "::set-output name=version::$version"
           echo "::set-output name=archive::$archive"
