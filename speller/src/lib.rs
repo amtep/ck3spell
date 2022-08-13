@@ -1,4 +1,5 @@
 #![warn(missing_debug_implementations)]
+#![allow(clippy::similar_names)]
 
 use anyhow::Result;
 use std::path::Path;

@@ -13,7 +13,7 @@ pub enum CompoundElement {
     Optional(AffixFlag),
     Once(AffixFlag),
 }
-use CompoundElement::*;
+use CompoundElement::{Multi, Once, Optional};
 
 impl CompoundRule {
     pub fn from_str(s: &str, ad: &AffixData) -> Result<Self> {
@@ -33,7 +33,7 @@ impl CompoundRule {
                 paren_start = Some(i + 1);
             } else if c == '*' {
                 let node = match rule.v.last() {
-                    None | Some(Multi(_)) | Some(Optional(_)) => {
+                    None | Some(Multi(_) | Optional(_)) => {
                         bail!("COMPOUNDRULE: * must follow flag");
                     }
                     Some(Once(f)) => Multi(*f),
@@ -41,7 +41,7 @@ impl CompoundRule {
                 *rule.v.last_mut().unwrap() = node;
             } else if c == '?' {
                 let node = match rule.v.last() {
-                    None | Some(Multi(_)) | Some(Optional(_)) => {
+                    None | Some(Multi(_) | Optional(_)) => {
                         bail!("COMPOUNDRULE: ? must follow flag");
                     }
                     Some(Once(f)) => Optional(*f),
@@ -97,8 +97,7 @@ impl CompoundRule {
                     Once(_) => {
                         return false;
                     }
-                    Optional(_) => (),
-                    Multi(_) => (),
+                    Optional(_) | Multi(_) => (),
                 }
             }
             true

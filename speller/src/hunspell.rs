@@ -179,8 +179,8 @@ impl CapStyle {
 
     // Return the keepcase flag if KeepCase entries should be excluded
     // for this word.
-    fn keepcase(&self) -> WordFlags {
-        if *self == CapStyle::Decapitalized {
+    fn keepcase(self) -> WordFlags {
+        if matches!(self, CapStyle::Decapitalized) {
             WordFlags::KeepCase
         } else {
             WordFlags::empty()
@@ -267,12 +267,9 @@ impl SpellerHunspellDict {
         Ok(dict)
     }
 
+    #[must_use]
     pub fn get_errors(&self) -> Vec<String> {
-        let mut v = Vec::new();
-        for e in self.affix_data.errors.iter() {
-            v.push(e.clone());
-        }
-        v
+        self.affix_data.errors.clone()
     }
 
     fn split_morphological_fields(s: &str) -> (&str, Option<&str>) {
@@ -467,7 +464,7 @@ impl SpellerHunspellDict {
             // Only try the piece if at least one rule would match these pieces.
             // This avoids a lot of backtracking for words that would never
             // work anyway.
-            for rule in self.affix_data.compound_rules.iter() {
+            for rule in &self.affix_data.compound_rules {
                 if rule.partial_match(v, |word, flag| {
                     self.has_affix_flag_fold(word, caps, flag)
                 }) {
@@ -489,7 +486,7 @@ impl SpellerHunspellDict {
             // too-small leftover piece at the end
             return false;
         }
-        for rule in self.affix_data.compound_rules.iter() {
+        for rule in &self.affix_data.compound_rules {
             if rule.matches(v, |word, flag| {
                 self.has_affix_flag_fold(word, caps, flag)
             }) {
@@ -499,7 +496,7 @@ impl SpellerHunspellDict {
         false
     }
 
-    /// This is similar to _spellcheck_compoundrule, but we don't check for
+    /// This is similar to `_spellcheck_compoundrule`, but we don't check for
     /// specific word flags and we allow affixes.
     fn _spellcheck_compounding<'a>(
         &self,
@@ -612,7 +609,7 @@ impl SpellerHunspellDict {
 
         // break patterns may be anchored with ^ or $
         // Try those first.
-        for brk in self.affix_data.word_breaks.iter() {
+        for brk in &self.affix_data.word_breaks {
             if let Some(brk) = brk.strip_prefix('^') {
                 if let Some(bword) = word.strip_prefix(brk) {
                     if self._spellcheck(bword, strict, count) {
@@ -636,7 +633,7 @@ impl SpellerHunspellDict {
         }
 
         // Try breaking words into pieces.
-        for brk in self.affix_data.word_breaks.iter() {
+        for brk in &self.affix_data.word_breaks {
             if brk.starts_with('^') || brk.ends_with('$') {
                 continue;
             }
@@ -721,8 +718,8 @@ impl SpellerHunspellDict {
         self._spellcheck_caps(word, caps, origcaps.strict())
     }
 
-    fn _suggestions(&self, word: String, max: usize) -> Vec<String> {
-        let mut collector = SuggCollector::new(self, &word, max);
+    fn _suggestions(&self, word: &str, max: usize) -> Vec<String> {
+        let mut collector = SuggCollector::new(self, word, max);
 
         // Try lowercased, capitalized, or all caps
         // TODO: also match mixed case words, such as "ipod" -> "iPod"
@@ -731,42 +728,42 @@ impl SpellerHunspellDict {
         collector.suggest(&word.to_titlecase_lower_rest());
         collector.suggest(&word.to_uppercase());
 
-        self.affix_data.replacements.suggest(&word, &mut collector);
+        self.affix_data.replacements.suggest(word, &mut collector);
 
         related_char_suggestions(
             &self.affix_data.related_chars,
-            &word,
+            word,
             &mut collector,
         );
 
-        delete_char_suggestions(&word, &mut collector);
+        delete_char_suggestions(word, &mut collector);
 
         // TODO: maybe a straight up "delete any two chars" suggestion would
         // be better?
-        delete_doubled_pair_suggestions(&word, &mut collector);
+        delete_doubled_pair_suggestions(word, &mut collector);
 
-        swap_char_suggestions(&word, &mut collector);
+        swap_char_suggestions(word, &mut collector);
 
         if let Some(try_chars) = &self.affix_data.try_string {
-            add_char_suggestions(&word, try_chars, &mut collector);
+            add_char_suggestions(word, try_chars, &mut collector);
         }
 
-        move_char_suggestions(&word, &mut collector);
+        move_char_suggestions(word, &mut collector);
 
         if let Some(keys) = &self.affix_data.keyboard_string {
-            wrong_key_suggestions(&word, keys, &mut collector);
+            wrong_key_suggestions(word, keys, &mut collector);
         }
 
-        capitalize_char_suggestions(&word, &mut collector);
+        capitalize_char_suggestions(word, &mut collector);
 
         let has_good = collector.has_suggestions();
 
         // Try splitting the word into two words.
         // These should be suggested even if `has_good` is true, but don't
         // count as good suggestions themselves.
-        split_word_suggestions(&word, &mut collector);
+        split_word_suggestions(word, &mut collector);
         if self.affix_data.dash_word_heuristic {
-            split_word_with_dash_suggestions(&word, &mut collector);
+            split_word_with_dash_suggestions(word, &mut collector);
         }
 
         // Only try the ngram and delins algorithms if the straightforward
@@ -774,10 +771,10 @@ impl SpellerHunspellDict {
         if !has_good {
             // Re-use MAXNGRAMSUGGS to limit delins suggestions too.
             collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
-            delins_suggestions(&word, self, &mut collector);
+            delins_suggestions(word, self, &mut collector);
 
             collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
-            ngram_suggestions(&word, self, &mut collector);
+            ngram_suggestions(word, self, &mut collector);
 
             collector.set_limit(max);
         }
@@ -805,7 +802,7 @@ impl Speller for SpellerHunspellDict {
             return Vec::new();
         }
 
-        self._suggestions(word, max)
+        self._suggestions(&word, max)
             .into_iter()
             .map(|sugg| self.affix_data.oconv.conv(&sugg))
             .collect()

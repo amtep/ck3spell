@@ -46,7 +46,7 @@ impl Replacements {
     fn longest_match(&self, word: &str, at_start: bool) -> Option<&Rep> {
         let mut longest_len = 0;
         let mut longest_rep: Option<&Rep> = None;
-        for rep in self.reps.iter() {
+        for rep in &self.reps {
             if rep.from.len() > longest_len && rep.matches(word, at_start) {
                 longest_len = rep.from.len();
                 longest_rep = Some(rep);
@@ -77,7 +77,7 @@ impl Replacements {
         let mut sugg = String::with_capacity(word.len() * 2);
         for (i, _) in word.char_indices() {
             // TODO: optimize by putting start-anchored reps in a separate list
-            for rep in self.reps.iter() {
+            for rep in &self.reps {
                 if rep.matches(&word[i..], i == 0) {
                     sugg.clear();
                     sugg.push_str(&word[..i]);

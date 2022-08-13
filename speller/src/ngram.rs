@@ -2,13 +2,14 @@
 /// `len1` must be the length of `str1` in chars.
 /// `len2` must be the length of `str2` in chars.
 /// `nmax` is a bound on how large chunks should be considered for similarity.
+#[must_use]
 pub fn ngram(nmax: usize, vec1: &[char], vec2: &[char]) -> usize {
     let mut score = 0;
 
     // handle n = 1 as a special case because it is so much simpler
     for c1 in vec1.iter() {
         for c2 in vec2.iter() {
-            score += (c1 == c2) as usize
+            score += usize::from(c1 == c2);
         }
     }
     if nmax == 1 || score <= 1 {

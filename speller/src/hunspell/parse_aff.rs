@@ -110,7 +110,7 @@ fn ending(s: &str) -> IResult<&str, ()> {
 }
 
 fn value_string(s: &str) -> IResult<&str, &str> {
-    take_till1(|c: char| c.is_whitespace())(s)
+    take_till1(char::is_whitespace)(s)
 }
 
 const FLAG_NAMES: [(&str, WordFlags); 12] = [
@@ -232,10 +232,7 @@ fn set_checksharps(s: &str) -> IResult<&str, AffixLine> {
 fn morph_id(s: Input) -> IResult<Input, ()> {
     value(
         (),
-        pair(
-            satisfy(|c| c.is_alphabetic()),
-            satisfy(|c| c.is_alphabetic()),
-        ),
+        pair(satisfy(char::is_alphabetic), satisfy(char::is_alphabetic)),
     )(s)
 }
 
@@ -345,11 +342,11 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
             }
             AffixLine::SetFlagMode(fm) => d.flag_mode = fm,
             AffixLine::SetKeyboardString(k) => {
-                d.keyboard_string = Some(k.to_string())
+                d.keyboard_string = Some(k.to_string());
             }
             AffixLine::SetTryString(t) => d.try_string = Some(t.to_string()),
             AffixLine::SetExtraWordString(t) => {
-                d.extra_word_string = Some(t.to_string())
+                d.extra_word_string = Some(t.to_string());
             }
             AffixLine::SetFlag(wflag, key, v) => {
                 let fflag = d.parse_flags(v)?;

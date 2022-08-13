@@ -54,7 +54,7 @@ impl AffixCondition {
                 CondState::GroupStart => {
                     if c == '^' {
                         state = CondState::InNegatedGroup;
-                        group_start = i + 1
+                        group_start = i + 1;
                     } else {
                         state = CondState::InGroup;
                         group_start = i;

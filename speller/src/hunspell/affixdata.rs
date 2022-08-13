@@ -35,7 +35,7 @@ impl SpecialFlags {
     pub fn word_flags(&self, affix_flags: &[AffixFlag]) -> WordFlags {
         let mut word_flags = WordFlags::empty();
         for flag in affix_flags.iter() {
-            for (wf, af) in self.inner.iter() {
+            for (wf, af) in &self.inner {
                 if flag == af {
                     word_flags.insert(*wf);
                 }
@@ -146,7 +146,7 @@ impl AffixData {
                 .collect(),
             FlagMode::Numeric => flags
                 .split(',')
-                .map(|d| d.parse::<u32>())
+                .map(str::parse::<u32>)
                 .collect::<Result<Vec<AffixFlag>, ParseIntError>>()
                 .map_err(anyhow::Error::from),
         }
@@ -155,7 +155,7 @@ impl AffixData {
     fn recalc_rev_cont(&mut self) {
         self.rev_cont.clear();
         for (i, sfx) in self.suffixes.iter().enumerate() {
-            for af in sfx.contflags.affix_flags.iter() {
+            for af in &sfx.contflags.affix_flags {
                 self.rev_cont.entry(*af).or_default().push(i);
             }
         }
@@ -188,10 +188,10 @@ impl AffixData {
         } else {
             false
         };
-        for pfx in self.prefixes.iter_mut() {
+        for pfx in &mut self.prefixes {
             pfx.finalize(&self.special_flags);
         }
-        for sfx in self.suffixes.iter_mut() {
+        for sfx in &mut self.suffixes {
             sfx.finalize(&self.special_flags);
         }
         self.recalc_rev_cont();
@@ -273,13 +273,13 @@ impl AffixData {
                 break;
             }
 
-            for pfx in self.prefixes.iter() {
+            for pfx in &self.prefixes {
                 if winfo.has_affix_flag(pfx.flag) {
                     pfx.try_prefix(root, winfo, caps, dict, &mut suggest);
                 }
             }
 
-            for sfx in self.suffixes.iter() {
+            for sfx in &self.suffixes {
                 if winfo.has_affix_flag(sfx.flag) {
                     sfx.try_suffix(
                         root,
@@ -561,7 +561,7 @@ impl AffixEntry {
             suggest(&word);
 
             if self.allow_cross {
-                for sfx in dict.affix_data.suffixes.iter() {
+                for sfx in &dict.affix_data.suffixes {
                     if winfo.has_affix_flag(sfx.flag) {
                         sfx.try_suffix(
                             &word, winfo, caps, dict, suggest, false,
@@ -592,7 +592,7 @@ impl AffixEntry {
             suggest(&word);
 
             if !from_suffix && !self.contflags.affix_flags.is_empty() {
-                for sfx2 in dict.affix_data.suffixes.iter() {
+                for sfx2 in &dict.affix_data.suffixes {
                     if self.contflags.affix_flags.contains(&sfx2.flag) {
                         sfx2.try_suffix(
                             &word, winfo, caps, dict, suggest, false,

@@ -404,7 +404,7 @@ pub fn ngram_suggestions(
         BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
     let wvec = word.chars().collect::<Vec<char>>();
 
-    'outer: for (root, homonyms) in dict.words.iter() {
+    'outer: for (root, homonyms) in &dict.words {
         for winfo in homonyms.iter() {
             if winfo.word_flags.intersects(
                 WordFlags::Forbidden
@@ -458,7 +458,7 @@ pub fn ngram_suggestions(
                         score,
                     });
                 }
-            })
+            });
     }
     for HeapItem { word: sugg, .. } in suggheap.into_sorted_vec() {
         collector.suggest(&sugg);
@@ -503,7 +503,7 @@ pub fn delins_suggestions(
         BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
     let wvec = word.chars().collect::<Vec<char>>();
 
-    'outer: for (root, homonyms) in dict.words.iter() {
+    'outer: for (root, homonyms) in &dict.words {
         for winfo in homonyms.iter() {
             if winfo.word_flags.intersects(
                 WordFlags::Forbidden
@@ -558,7 +558,7 @@ pub fn delins_suggestions(
                         score,
                     });
                 }
-            })
+            });
     }
     for HeapItem { word: sugg, .. } in suggheap.into_sorted_vec() {
         collector.suggest(&sugg);

@@ -1,4 +1,4 @@
-/// SuffixTrie and PrefixTrie are very similar, but they differ in their
+/// `SuffixTrie` and `PrefixTrie` are very similar, but they differ in their
 /// internal logic and performance is important, so it was easier to make
 /// two separate structs than to make one that can do both.
 
@@ -36,7 +36,7 @@ impl<T: Copy + Default> SuffixTrie<T> {
         let wordb = word.as_bytes();
         let mut pos = wordb.len();
         loop {
-            for t in ptr.end_here.iter() {
+            for t in &ptr.end_here {
                 if found(*t) {
                     return true;
                 }
@@ -85,7 +85,7 @@ impl<T: Copy + Default> PrefixTrie<T> {
         let wordb = word.as_bytes();
         let mut pos = 0;
         loop {
-            for t in ptr.end_here.iter() {
+            for t in &ptr.end_here {
                 if found(*t) {
                     return true;
                 }
