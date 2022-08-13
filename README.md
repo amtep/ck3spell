@@ -42,7 +42,13 @@ Either the linux `.tar.gz` or the windows `.zip`.
 
 Unpack it, then go to your mod's directory and do something like
 
+Linux:  
+`cd your/mods/directory`  
 `path/to/ck3spell localization/english/*.yml`
+
+Windows, from the command line:  
+`CD /D your\mods\directory`  
+`path\to\ck3spell localization\english\*.yml`
 
 where the path/to/ is to where you unpacked `ck3spell`, and "english" is whichever language's files you want to spellcheck.
 
@@ -52,7 +58,11 @@ Jump to the misspelled words by clicking the "Previous" and "Next" buttons in th
 
 Normally "Accept word" only accepts a word for the current spellchecking session. If you want it to remember words long term, you can use the `--local-dict` option, like this:
 
+Linux:  
 `path/to/ck3spell --local-dict ck3spell.list localization/english/*.yml`
+
+Windows:  
+`path\to\ck3spell --local-dict ck3spell.list localization\english\*.yml`
 
 The name `ck3spell.list` can be any filename you like.
 
