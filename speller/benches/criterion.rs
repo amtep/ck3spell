@@ -196,8 +196,61 @@ fn casefold_loop(c: &mut Criterion) {
     });
 }
 
+fn load_sample_words(name: &str) -> String {
+    for dir in ["benches/files", "speller/benches/files"].iter() {
+        let path = PathBuf::from(&format!("{}/{}", dir, name));
+        if !path.exists() {
+            continue;
+        }
+        match read_to_string(path) {
+            Ok(words) => return words,
+            Err(e) => eprintln!("{:#}", e.to_string()),
+        }
+    }
+    panic!("Could not find word list {}", name);
+}
+
+fn spellcheck_en(c: &mut Criterion) {
+    let speller = load_speller("en_US");
+
+    // A small sample of words from https://www.english-corpora.org/now/
+    // with 10% of them deliberately misspelled.
+    let words = load_sample_words("words_en.txt");
+    let words = words.lines().collect::<Vec<&str>>();
+
+    eprintln!("Benchmarking {} words", words.len());
+
+    c.bench_function("spellcheck_en", |b| {
+        b.iter(|| {
+            for word in &words {
+                black_box(speller.spellcheck(word));
+            }
+        })
+    });
+}
+
+fn spellcheck_es(c: &mut Criterion) {
+    let speller = load_speller("es_ES");
+
+    // A small sample of words from https://www.corpusdata.org/spanish.asp
+    // with 10% of them deliberately misspelled.
+    let words = load_sample_words("words_es.txt");
+    let words = words.lines().collect::<Vec<&str>>();
+
+    eprintln!("Benchmarking {} words", words.len());
+
+    c.bench_function("spellcheck_es", |b| {
+        b.iter(|| {
+            for word in &words {
+                black_box(speller.spellcheck(word));
+            }
+        })
+    });
+}
+
+criterion_group!(spellcheck, spellcheck_en, spellcheck_es);
 criterion_group!(casefold, casefold_loop);
 criterion_group!(ngram, ngram_loop);
 criterion_group!(load, load_fr, load_en, load_de);
 criterion_group!(suggest, suggest_fr, suggest_en, suggest_de);
-criterion_main!(suggest, load, ngram, casefold);
+criterion_main!(suggest, load, ngram, casefold, spellcheck);
