@@ -569,7 +569,9 @@ fn main() -> Result<()> {
 
     let data = AppState::new(Rc::new(files));
     let main_window = WindowDesc::new(ui_builder())
-        .title(WINDOW_TITLE.to_owned() + " " + data.file.filename.as_ref())
+        .title(|data: &AppState, _: &Env| {
+            format!("{} {}", WINDOW_TITLE, data.file.filename.as_ref())
+        })
         .window_size((1000.0, 500.0));
     AppLauncher::with_window(main_window)
         .log_to_console()
