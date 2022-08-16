@@ -1,4 +1,5 @@
 use fnv::FnvHashSet;
+use itertools::Itertools;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::mem::swap;
@@ -81,33 +82,19 @@ pub fn delete_doubled_pair_suggestions(
 ) {
     collector.new_source("delete_doubled_pair");
     let mut sugg = String::with_capacity(word.len());
-    let mut prev1 = None;
-    let mut prev2 = None;
-    let mut prev3 = None;
-    for (i, c) in word.char_indices() {
-        if prev1.is_none() {
-            prev1 = Some((i, c));
-            continue;
-        } else if prev2.is_none() {
-            prev2 = Some((i, c));
-            continue;
-        } else if prev3.is_none() {
-            prev3 = Some((i, c));
-            continue;
-        }
-        if prev1.unwrap().1 == prev3.unwrap().1 && prev2.unwrap().1 == c {
+    for ((i1, c1), (_, c2), (i3, c3), (_, c4)) in
+        word.char_indices().tuple_windows()
+    {
+        if c1 == c3 && c2 == c4 {
             sugg.clear();
-            // delete prev1 and prev2
-            sugg.push_str(&word[..prev1.unwrap().0]);
-            sugg.push_str(&word[prev3.unwrap().0..]);
+            // delete c1 and c2
+            sugg.push_str(&word[..i1]);
+            sugg.push_str(&word[i3..]);
             collector.suggest(&sugg);
             if collector.limit() {
                 return;
             }
         }
-        prev1 = prev2;
-        prev2 = prev3;
-        prev3 = Some((i, c));
     }
 }
 
@@ -115,20 +102,16 @@ pub fn swap_char_suggestions(word: &str, collector: &mut SuggCollector) {
     collector.new_source("swap_char");
     let mut sugg = String::with_capacity(word.len());
     // First try swapping adjacent chars (most likely case)
-    let mut prev = None;
-    for (i, c) in word.char_indices() {
-        if let Some((prev_i, prev_c)) = prev {
-            sugg.clear();
-            sugg.push_str(&word[..prev_i]);
-            sugg.push(c);
-            sugg.push(prev_c);
-            sugg.push_str(&word[i + c.len_utf8()..]);
-            collector.suggest(&sugg);
-            if collector.limit() {
-                return;
-            }
+    for ((i1, c1), (i2, c2)) in word.char_indices().tuple_windows() {
+        sugg.clear();
+        sugg.push_str(&word[..i1]);
+        sugg.push(c2);
+        sugg.push(c1);
+        sugg.push_str(&word[i2 + c2.len_utf8()..]);
+        collector.suggest(&sugg);
+        if collector.limit() {
+            return;
         }
-        prev = Some((i, c));
     }
 
     // Then try swapping all chars regardless of distance
@@ -155,31 +138,23 @@ pub fn swap_char_suggestions(word: &str, collector: &mut SuggCollector) {
     }
 
     // Then try multiple swaps of adjacent chars
-    let mut prev = None;
-    for (i, c) in word.char_indices() {
-        if let Some((prev_i, prev_c)) = prev {
-            sugg.clear();
-            sugg.push_str(&word[..prev_i]);
-            sugg.push(c);
-            sugg.push(prev_c);
-            let len = sugg.len();
-            let mut prev2 = None;
-            for (i2, c2) in word[len..].char_indices() {
-                if let Some((prev_i2, prev_c2)) = prev2 {
-                    sugg.truncate(len);
-                    sugg.push_str(&word[len..len + prev_i2]);
-                    sugg.push(c2);
-                    sugg.push(prev_c2);
-                    sugg.push_str(&word[len + i2 + c2.len_utf8()..]);
-                    collector.suggest(&sugg);
-                    if collector.limit() {
-                        return;
-                    }
-                }
-                prev2 = Some((i2, c2));
+    for ((i1, c1), (_, c2)) in word.char_indices().tuple_windows() {
+        sugg.clear();
+        sugg.push_str(&word[..i1]);
+        sugg.push(c2);
+        sugg.push(c1);
+        let len = sugg.len();
+        for ((i3, c3), (i4, c4)) in word[len..].char_indices().tuple_windows() {
+            sugg.truncate(len);
+            sugg.push_str(&word[len..len + i3]);
+            sugg.push(c4);
+            sugg.push(c3);
+            sugg.push_str(&word[len + i4 + c4.len_utf8()..]);
+            collector.suggest(&sugg);
+            if collector.limit() {
+                return;
             }
         }
-        prev = Some((i, c));
     }
 }
 
@@ -267,35 +242,26 @@ pub fn wrong_key_suggestions(
     let mut sugg = String::with_capacity(word.len());
 
     for (i, c) in word.char_indices() {
-        let mut prev = None;
-        let mut kiter = keyboard.chars().peekable();
-        while let Some(kc) = kiter.next() {
-            if kc == c {
-                // check neighbor to the left
-                if let Some(prevc) = prev {
-                    if prevc != '|' {
-                        sugg.clear();
-                        sugg.push_str(&word[..i]);
-                        sugg.push(prevc);
-                        sugg.push_str(&word[i + c.len_utf8()..]);
-                        collector.suggest(&sugg);
-                    }
-                }
-                // check neighbor to the right
-                if let Some(&nextc) = kiter.peek() {
-                    if nextc != '|' {
-                        sugg.clear();
-                        sugg.push_str(&word[..i]);
-                        sugg.push(nextc);
-                        sugg.push_str(&word[i + c.len_utf8()..]);
-                        collector.suggest(&sugg);
-                    }
-                }
-                if collector.limit() {
-                    return;
-                }
+        for (kc1, kc2) in keyboard.chars().tuple_windows() {
+            // check neighbor to the right
+            if kc1 == c && kc2 != '|' {
+                sugg.clear();
+                sugg.push_str(&word[..i]);
+                sugg.push(kc2);
+                sugg.push_str(&word[i + c.len_utf8()..]);
+                collector.suggest(&sugg);
             }
-            prev = Some(kc);
+            // check neighbor to the left
+            if kc2 == c && kc1 != '|' {
+                sugg.clear();
+                sugg.push_str(&word[..i]);
+                sugg.push(kc1);
+                sugg.push_str(&word[i + c.len_utf8()..]);
+                collector.suggest(&sugg);
+            }
+            if collector.limit() {
+                return;
+            }
         }
     }
 }
@@ -304,19 +270,15 @@ pub fn split_word_suggestions(word: &str, collector: &mut SuggCollector) {
     collector.new_source("split_word");
     // Try adding a space between each pair of letters
     // Try before each letter except the first.
-    let mut prev = None;
-    for (i, c) in word.char_indices() {
-        if let Some(prev_c) = prev {
-            if prev_c == '-' || c == '-' {
-                continue;
-            }
-            let sugg = format!("{} {}", &word[..i], &word[i..]);
-            collector.suggest_priority(&sugg);
-            if collector.limit() {
-                return;
-            }
+    for ((_, c1), (i2, c2)) in word.char_indices().tuple_windows() {
+        if c1 == '-' || c2 == '-' {
+            continue;
         }
-        prev = Some(c);
+        let sugg = format!("{} {}", &word[..i2], &word[i2..]);
+        collector.suggest_priority(&sugg);
+        if collector.limit() {
+            return;
+        }
     }
 }
 
@@ -328,23 +290,18 @@ pub fn split_word_with_dash_suggestions(
     let mut sugg = String::with_capacity(word.len() + 1);
     // Try adding a dash between each pair of letters
     // Try before each letter except the first.
-    let mut prev = None;
-    for (i, c) in word.char_indices() {
-        if let Some(prev_c) = prev {
-            if prev_c == '.' || prev_c == '-' || c == '.' || c == '-' {
-                prev = Some(c);
-                continue;
-            }
-            sugg.clear();
-            sugg.push_str(&word[..i]);
-            sugg.push('-');
-            sugg.push_str(&word[i..]);
-            collector.suggest_priority(&sugg);
-            if collector.limit() {
-                return;
-            }
+    for ((_, c1), (i2, c2)) in word.char_indices().tuple_windows() {
+        if c1 == '.' || c1 == '-' || c2 == '.' || c2 == '-' {
+            continue;
         }
-        prev = Some(c);
+        sugg.clear();
+        sugg.push_str(&word[..i2]);
+        sugg.push('-');
+        sugg.push_str(&word[i2..]);
+        collector.suggest_priority(&sugg);
+        if collector.limit() {
+            return;
+        }
     }
 }
 
