@@ -1,5 +1,4 @@
 ## TODO
-- check parsing of `@foo_bar_gnu!`
 - allow selection of american or british english?
 - give user hint that pressing "enter" exits the edit line mode
 - after "accept word", it doesn't underline the new selection?

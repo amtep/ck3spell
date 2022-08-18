@@ -16,7 +16,7 @@ use std::ops::Range;
 
 type Span<'a> = LocatedSpan<&'a str>;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenType {
     Comment,
     LocKey,
@@ -234,5 +234,42 @@ pub fn parse_line(text: &str) -> Vec<Token> {
             eprintln!("Could not parse line: {}\n {:#}", text, err);
             Vec::new()
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_icon_syntax() {
+        let icon = "@warning_icon!";
+        let txt = format!(r#" key: "{} Some warning""#, icon);
+
+        let tokens = parse_line(&txt);
+
+        assert_eq!(4, tokens.len());
+        assert_eq!(TokenType::LocKey, tokens[0].ttype);
+        assert_eq!(1..5, tokens[0].range);
+        assert_eq!(TokenType::IconTag, tokens[1].ttype);
+        assert_eq!(7..7 + icon.len(), tokens[1].range);
+        assert_eq!(TokenType::Word, tokens[2].ttype);
+        assert_eq!(TokenType::Word, tokens[3].ttype);
+    }
+
+    #[test]
+    fn test_icon_syntax_with_code() {
+        let icon = "@[saved_scope.GetFlag]!";
+        let txt = format!(r#" key: "{} Some text""#, icon);
+
+        let tokens = parse_line(&txt);
+
+        assert_eq!(4, tokens.len());
+        assert_eq!(TokenType::LocKey, tokens[0].ttype);
+        assert_eq!(1..5, tokens[0].range);
+        assert_eq!(TokenType::IconTag, tokens[1].ttype);
+        assert_eq!(7..7 + icon.len(), tokens[1].range);
+        assert_eq!(TokenType::Word, tokens[2].ttype);
+        assert_eq!(TokenType::Word, tokens[3].ttype);
     }
 }
