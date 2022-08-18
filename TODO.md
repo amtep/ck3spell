@@ -1,6 +1,5 @@
 ## TODO
 - allow selection of american or british english?
-- give user hint that pressing "enter" exits the edit line mode
 - after "accept word", it doesn't underline the new selection?
 - do something about the en_US dictionary not accepting plural possessives like apes'
 - (check possessives of proper names too)

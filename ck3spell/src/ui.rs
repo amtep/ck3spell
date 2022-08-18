@@ -7,8 +7,8 @@ use druid::{Color, Command, Target, WidgetExt};
 
 use crate::appcontroller::AppController;
 use crate::commands::{
-    ACCEPT_WORD, APPLY_SUGGESTION, CURSOR_NEXT, CURSOR_PREV, EDIT_LINE,
-    FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
+    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_NEXT, CURSOR_PREV,
+    EDIT_LINE, FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
 };
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
@@ -128,9 +128,22 @@ fn lower_box_builder() -> impl Widget<AppState> {
         .lens(AppState::editing_text)
         .controller(EditorController)
         .expand();
+    // '\u{23ce}' is the return sign
+    let done = Button::new("[\u{23ce}] Done").on_click(|ctx, _, _| {
+        ctx.submit_command(APPLY_EDIT);
+    });
+    let done_row = Flex::row()
+        .with_flex_spacer(1.0)
+        .with_child(done)
+        .with_default_spacer();
+    let editor_frame = Flex::column()
+        .with_flex_child(editor, 1.0)
+        .with_child(done_row)
+        .with_default_spacer()
+        .expand();
     Either::new(
         |data: &AppState, _| data.editing_linenr > 0,
-        editor,
+        editor_frame,
         suggestions,
     )
 }
