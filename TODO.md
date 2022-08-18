@@ -9,7 +9,6 @@
 - clicking directly on a red word should immediately select it
 - when opening "edit line", cursor should go to first misspelling on the line
 - hot keys for the buttons
-- put `localization\english\**\*.yml` in the example for Windows
 
 ## NOT SURE
 - "prev" and "next" when at the end should "bounce" once, then do something useful. (Going to next file is problematic...)
