@@ -80,3 +80,4 @@ The name `ck3spell.list` can be any filename you like.
 * Support Korean and Chinese.
 * Check words that are part text and part code. Such combination words are important for some languages which use bits of code to get the word endings right. (For example 'luchador'/'luchadora' in Spanish.)
 * Support installation and dictionary bundling on Mac.
+* Support spellchecking of Imperator:Rome, Hearts of Iron 4, Europa Universalis 4, and Stellaris mods too. Their localization files are very similar.
