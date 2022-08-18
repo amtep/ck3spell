@@ -20,3 +20,10 @@ pub const APPLY_SUGGESTION: Selector<Rc<String>> =
 pub const APPLY_EDIT: Selector = Selector::new("apply_edit");
 
 pub const GOTO_LINE: Selector<usize> = Selector::new("goto_line");
+
+// Hotkeys for buttons
+pub const ACCEPT_WORD: Selector = Selector::new("accept_word");
+pub const CURSOR_NEXT: Selector = Selector::new("cursor_next");
+pub const CURSOR_PREV: Selector = Selector::new("cursor_prev");
+pub const EDIT_LINE: Selector = Selector::new("edit_line");
+pub const SAVE_AND_CLOSE: Selector = Selector::new("save_and_close");

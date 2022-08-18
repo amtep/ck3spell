@@ -8,7 +8,6 @@
 - clicking on a line with a misspelling should select the first one on the line
 - clicking directly on a red word should immediately select it
 - when opening "edit line", cursor should go to first misspelling on the line
-- hot keys for the buttons
 
 ## NOT SURE
 - "prev" and "next" when at the end should "bounce" once, then do something useful. (Going to next file is problematic...)

@@ -1,17 +1,14 @@
-use anyhow::Context;
-use druid::commands::QUIT_APP;
 use druid::widget::prelude::*;
 use druid::widget::{
     Button, CrossAxisAlignment, Either, Flex, Label, LineBreaking, List,
     RawLabel, Scroll, TextBox,
 };
 use druid::{Color, Command, Target, WidgetExt};
-use std::sync::Arc;
 
 use crate::appcontroller::AppController;
 use crate::commands::{
-    APPLY_SUGGESTION, CURSOR_CHANGED, DICTIONARY_UPDATED, FILE_CHANGED,
-    GOTO_LINE,
+    ACCEPT_WORD, APPLY_SUGGESTION, CURSOR_NEXT, CURSOR_PREV, EDIT_LINE,
+    FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
 };
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
@@ -78,63 +75,25 @@ fn make_line_item() -> impl Widget<LineInfo> {
 }
 
 fn buttons_builder() -> impl Widget<AppState> {
-    let prev =
-        Button::new("Previous").on_click(|ctx, data: &mut AppState, _| {
-            data.cursor_prev();
-            ctx.submit_command(Command::new(
-                CURSOR_CHANGED,
-                data.cursor,
-                Target::Auto,
-            ));
-        });
-    let next = Button::new("Next").on_click(|ctx, data: &mut AppState, _| {
-        data.cursor_next();
-        ctx.submit_command(Command::new(
-            CURSOR_CHANGED,
-            data.cursor,
-            Target::Auto,
-        ));
+    // '\u{2191}' is up arrow
+    let prev = Button::new("[\u{2191}] Previous").on_click(|ctx, _, _| {
+        ctx.submit_command(CURSOR_PREV);
     });
-    let accept = Button::new("Accept word")
-        .on_click(|ctx, data: &mut AppState, _| {
-            if let Some(cursor_word) = data.cursor_word() {
-                if let Err(err) = data
-                    .file
-                    .speller
-                    .borrow_mut()
-                    .add_word_to_user_dict(cursor_word)
-                {
-                    eprintln!("{:#}", err);
-                }
-                ctx.submit_command(DICTIONARY_UPDATED);
-            }
+    // '\u{2192}' is down arrow
+    let next = Button::new("[\u{2193}] Next").on_click(|ctx, _, _| {
+        ctx.submit_command(CURSOR_NEXT);
+    });
+    let accept = Button::new("[A]ccept word")
+        .on_click(|ctx, _, _| {
+            ctx.submit_command(ACCEPT_WORD);
         })
         .disabled_if(|data: &AppState, _| data.cursor_word().is_none());
-    let edit =
-        Button::new("Edit line").on_click(|_, data: &mut AppState, _| {
-            data.editing_linenr = data.cursor.linenr;
-            data.editing_text = Arc::new(
-                data.file.lines[data.cursor.linenr - 1]
-                    .line
-                    .line
-                    .to_string(),
-            );
-        });
-    let save = Button::new("Save and Close").on_click(
-        |ctx, data: &mut AppState, _| {
-            if let Err(err) =
-                data.save_file().with_context(|| "Could not save file")
-            {
-                eprintln!("{:#}", err);
-            }
-            if data.files.len() == 1 {
-                ctx.submit_command(QUIT_APP);
-            } else {
-                data.drop_file();
-                ctx.submit_command(FILE_CHANGED);
-            }
-        },
-    );
+    let edit = Button::new("[E]dit line").on_click(|ctx, _, _| {
+        ctx.submit_command(EDIT_LINE);
+    });
+    let save = Button::new("Save and [C]lose").on_click(|ctx, _, _| {
+        ctx.submit_command(SAVE_AND_CLOSE);
+    });
     Flex::row()
         .with_child(prev)
         .with_default_spacer()
