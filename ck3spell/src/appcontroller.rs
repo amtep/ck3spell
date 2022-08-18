@@ -58,8 +58,14 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                     data.update_suggestions();
                 }
             } else if let Some(&linenr) = command.get(GOTO_LINE) {
-                data.cursor.linenr = linenr;
-                data.cursor.wordnr = 0;
+                let mut cursor = data.cursor;
+                cursor.linenr = linenr;
+                if !data.file.lines[cursor.linenr - 1].bad_words.is_empty() {
+                    cursor.wordnr = 1;
+                } else {
+                    cursor.wordnr = 0;
+                }
+                data.update_cursor(cursor);
                 data.update_suggestions();
                 ctx.submit_command(Command::new(CURSOR_CHANGED, data.cursor, Target::Auto));
             } else if command.is(ACCEPT_WORD) {

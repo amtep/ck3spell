@@ -3,7 +3,6 @@
 - after "accept word", it doesn't underline the new selection?
 - do something about the en_US dictionary not accepting plural possessives like apes'
 - (check possessives of proper names too)
-- clicking on a line with a misspelling should select the first one on the line
 - clicking directly on a red word should immediately select it
 - when opening "edit line", cursor should go to first misspelling on the line
 

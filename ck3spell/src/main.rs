@@ -111,7 +111,7 @@ impl LineInfo {
 
 /// Current highlighted bad word, as 1-based line and word number.
 /// If the word number is 0 then no word is highlighted.
-#[derive(Clone, Copy, Data)]
+#[derive(Clone, Copy, Data, Debug)]
 pub struct Cursor {
     linenr: usize,
     wordnr: usize,
