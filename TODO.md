@@ -4,7 +4,6 @@
 - do something about the en_US dictionary not accepting plural possessives like apes'
 - (check possessives of proper names too)
 - clicking directly on a red word should immediately select it
-- when opening "edit line", cursor should go to first misspelling on the line
 
 ## NOT SURE
 - "prev" and "next" when at the end should "bounce" once, then do something useful. (Going to next file is problematic...)

@@ -24,3 +24,5 @@ pub const CURSOR_NEXT: Selector = Selector::new("cursor_next");
 pub const CURSOR_PREV: Selector = Selector::new("cursor_prev");
 pub const EDIT_LINE: Selector = Selector::new("edit_line");
 pub const SAVE_AND_CLOSE: Selector = Selector::new("save_and_close");
+
+pub const EDIT_TEXT_AT: Selector<usize> = Selector::new("edit_text_at");

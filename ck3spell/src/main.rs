@@ -20,6 +20,7 @@ use speller::{Speller, SpellerHunspellDict};
 
 mod appcontroller;
 mod commands;
+mod edit;
 mod editorcontroller;
 mod linelist;
 mod linescroller;

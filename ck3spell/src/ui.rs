@@ -1,6 +1,6 @@
 use druid::widget::prelude::*;
 use druid::widget::{
-    Button, CrossAxisAlignment, Either, Flex, Label, LineBreaking, List, RawLabel, Scroll, TextBox,
+    Button, CrossAxisAlignment, Either, Flex, Label, LineBreaking, List, RawLabel, Scroll,
 };
 use druid::{Color, Command, Target, WidgetExt};
 
@@ -9,6 +9,7 @@ use crate::commands::{
     ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_NEXT, CURSOR_PREV, EDIT_LINE, FILE_CHANGED,
     GOTO_LINE, SAVE_AND_CLOSE,
 };
+use crate::edit::EditLineBox;
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
 use crate::linescroller::LineScroller;
@@ -115,7 +116,7 @@ fn make_suggestion() -> impl Widget<Suggestion> {
 fn lower_box_builder() -> impl Widget<AppState> {
     let suggestions =
         Scroll::new(List::new(make_suggestion).lens(AppState::suggestions)).vertical();
-    let editor = TextBox::multiline()
+    let editor = EditLineBox::multiline()
         .lens(AppState::editing_text)
         .controller(EditorController)
         .expand();
