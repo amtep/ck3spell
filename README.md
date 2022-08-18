@@ -60,7 +60,7 @@ CD /D <i>your\mods\directory</i>
 
 where the path/to/ is to where you unpacked `ck3spell`, and "english" is whichever language's files you want to spellcheck.
 
-(The `\\**\\*.yml` pattern after the language selects all localization files, even deep in subdirectories. Linux users can do that too, after setting `shopt -s globstar` (in bash). You can also be more selective and list individual files to check.)
+(The `\**\*.yml` pattern after the language selects all localization files, even deep in subdirectories. Linux users can do that too, after setting `shopt -s globstar` (in bash). You can also be more selective and list individual files to check.)
 
 `ck3spell` will show you the files one by one, and each time you click "Save and close" it will show you the next one. You can also use the "Prev" and "Next" buttons at the top to cycle through the files.
 
