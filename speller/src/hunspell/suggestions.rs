@@ -20,11 +20,7 @@ const MAX_DELINS_SCORE: usize = 5;
 /// to do with the original word.
 const MAX_DELINS_SHORTER: usize = 3;
 
-pub fn related_char_suggestions(
-    related: &[String],
-    word: &str,
-    collector: &mut SuggCollector,
-) {
+pub fn related_char_suggestions(related: &[String], word: &str, collector: &mut SuggCollector) {
     collector.new_source("related_char");
     // Try all possible combinations of replacements of related characters.
     // This can result in a huge number of candidates for long words.
@@ -76,15 +72,10 @@ pub fn delete_char_suggestions(word: &str, collector: &mut SuggCollector) {
 }
 
 /// bananana -> banana
-pub fn delete_doubled_pair_suggestions(
-    word: &str,
-    collector: &mut SuggCollector,
-) {
+pub fn delete_doubled_pair_suggestions(word: &str, collector: &mut SuggCollector) {
     collector.new_source("delete_doubled_pair");
     let mut sugg = String::with_capacity(word.len());
-    for ((i1, c1), (_, c2), (i3, c3), (_, c4)) in
-        word.char_indices().tuple_windows()
-    {
+    for ((i1, c1), (_, c2), (i3, c3), (_, c4)) in word.char_indices().tuple_windows() {
         if c1 == c3 && c2 == c4 {
             sugg.clear();
             // delete c1 and c2
@@ -190,11 +181,7 @@ pub fn move_char_suggestions(word: &str, collector: &mut SuggCollector) {
     }
 }
 
-pub fn add_char_suggestions(
-    word: &str,
-    try_chars: &str,
-    collector: &mut SuggCollector,
-) {
+pub fn add_char_suggestions(word: &str, try_chars: &str, collector: &mut SuggCollector) {
     collector.new_source("add_char");
     // Try them in order; the affix file put them in order of likelihood
     for tc in try_chars.chars() {
@@ -233,11 +220,7 @@ pub fn add_char_suggestions(
 /// A character may occur more than once in the keyboard string, thus having
 /// more than two neighbors. This can be used to indicate vertical adjacency
 /// as well.
-pub fn wrong_key_suggestions(
-    word: &str,
-    keyboard: &str,
-    collector: &mut SuggCollector,
-) {
+pub fn wrong_key_suggestions(word: &str, keyboard: &str, collector: &mut SuggCollector) {
     collector.new_source("wrong_key");
     let mut sugg = String::with_capacity(word.len());
 
@@ -282,10 +265,7 @@ pub fn split_word_suggestions(word: &str, collector: &mut SuggCollector) {
     }
 }
 
-pub fn split_word_with_dash_suggestions(
-    word: &str,
-    collector: &mut SuggCollector,
-) {
+pub fn split_word_with_dash_suggestions(word: &str, collector: &mut SuggCollector) {
     collector.new_source("split_word_with_dash");
     let mut sugg = String::with_capacity(word.len() + 1);
     // Try adding a dash between each pair of letters
@@ -327,11 +307,7 @@ pub fn capitalize_char_suggestions(word: &str, collector: &mut SuggCollector) {
     }
 }
 
-pub fn ngram_suggestions(
-    word: &str,
-    dict: &SpellerHunspellDict,
-    collector: &mut SuggCollector,
-) {
+pub fn ngram_suggestions(word: &str, dict: &SpellerHunspellDict, collector: &mut SuggCollector) {
     collector.new_source("ngram");
     if collector.limit() {
         return;
@@ -357,17 +333,15 @@ pub fn ngram_suggestions(
         }
     }
 
-    let mut rootheap: BinaryHeap<HeapItem<&str>> =
-        BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
+    let mut rootheap: BinaryHeap<HeapItem<&str>> = BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
     let wvec = word.chars().collect::<Vec<char>>();
 
     'outer: for (root, homonyms) in &dict.words {
         for winfo in homonyms.iter() {
-            if winfo.word_flags.intersects(
-                WordFlags::Forbidden
-                    | WordFlags::NoSuggest
-                    | WordFlags::OnlyInCompound,
-            ) {
+            if winfo
+                .word_flags
+                .intersects(WordFlags::Forbidden | WordFlags::NoSuggest | WordFlags::OnlyInCompound)
+            {
                 continue 'outer;
             }
         }
@@ -377,9 +351,7 @@ pub fn ngram_suggestions(
             continue;
         }
         let score = ngram(3, &wvec, &rvec);
-        if rootheap.len() == MAX_NGRAM_ROOTS
-            && score > rootheap.peek().unwrap().score
-        {
+        if rootheap.len() == MAX_NGRAM_ROOTS && score > rootheap.peek().unwrap().score {
             rootheap.pop();
         }
         if rootheap.len() < MAX_NGRAM_ROOTS {
@@ -389,8 +361,7 @@ pub fn ngram_suggestions(
 
     // Heuristic minimum score, to discard bad suggestions
     let heuristic = ngram(1, &wvec, &wvec);
-    let mut suggheap: BinaryHeap<HeapItem<String>> =
-        BinaryHeap::with_capacity(MAX_NGRAM_SUGG);
+    let mut suggheap: BinaryHeap<HeapItem<String>> = BinaryHeap::with_capacity(MAX_NGRAM_SUGG);
     let mut uniq: FnvHashSet<String> = FnvHashSet::default();
     for HeapItem { word: root, .. } in rootheap.into_vec() {
         dict.affix_data
@@ -404,9 +375,7 @@ pub fn ngram_suggestions(
                 if score <= heuristic {
                     return;
                 }
-                if suggheap.len() == MAX_NGRAM_SUGG
-                    && score > suggheap.peek().unwrap().score
-                {
+                if suggheap.len() == MAX_NGRAM_SUGG && score > suggheap.peek().unwrap().score {
                     suggheap.pop();
                 }
                 if suggheap.len() < MAX_NGRAM_SUGG {
@@ -426,11 +395,7 @@ pub fn ngram_suggestions(
 }
 
 /// Same method as ngram suggestions, but using the delins scoring algorithm.
-pub fn delins_suggestions(
-    word: &str,
-    dict: &SpellerHunspellDict,
-    collector: &mut SuggCollector,
-) {
+pub fn delins_suggestions(word: &str, dict: &SpellerHunspellDict, collector: &mut SuggCollector) {
     collector.new_source("ngram");
     if collector.limit() {
         return;
@@ -456,17 +421,15 @@ pub fn delins_suggestions(
         }
     }
 
-    let mut rootheap: BinaryHeap<HeapItem<&str>> =
-        BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
+    let mut rootheap: BinaryHeap<HeapItem<&str>> = BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
     let wvec = word.chars().collect::<Vec<char>>();
 
     'outer: for (root, homonyms) in &dict.words {
         for winfo in homonyms.iter() {
-            if winfo.word_flags.intersects(
-                WordFlags::Forbidden
-                    | WordFlags::NoSuggest
-                    | WordFlags::OnlyInCompound,
-            ) {
+            if winfo
+                .word_flags
+                .intersects(WordFlags::Forbidden | WordFlags::NoSuggest | WordFlags::OnlyInCompound)
+            {
                 continue 'outer;
             }
         }
@@ -476,9 +439,7 @@ pub fn delins_suggestions(
             continue;
         }
         let score = delins(&wvec, &rvec, wvec.len());
-        if rootheap.len() == MAX_DELINS_ROOTS
-            && score < rootheap.peek().unwrap().score
-        {
+        if rootheap.len() == MAX_DELINS_ROOTS && score < rootheap.peek().unwrap().score {
             rootheap.pop();
         }
         if rootheap.len() < MAX_DELINS_ROOTS {
@@ -486,8 +447,7 @@ pub fn delins_suggestions(
         }
     }
 
-    let mut suggheap: BinaryHeap<HeapItem<String>> =
-        BinaryHeap::with_capacity(MAX_DELINS_SUGG);
+    let mut suggheap: BinaryHeap<HeapItem<String>> = BinaryHeap::with_capacity(MAX_DELINS_SUGG);
     let mut uniq: FnvHashSet<String> = FnvHashSet::default();
     for HeapItem { word: root, .. } in rootheap.into_vec() {
         dict.affix_data
@@ -504,9 +464,7 @@ pub fn delins_suggestions(
                 if score > MAX_DELINS_SCORE {
                     return;
                 }
-                if suggheap.len() == MAX_DELINS_SUGG
-                    && score < suggheap.peek().unwrap().score
-                {
+                if suggheap.len() == MAX_DELINS_SUGG && score < suggheap.peek().unwrap().score {
                     suggheap.pop();
                 }
                 if suggheap.len() < MAX_DELINS_SUGG {

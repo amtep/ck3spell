@@ -3,8 +3,7 @@ use druid::widget::Scroll;
 use druid::{Command, Point, Rect, Target, WidgetPod};
 
 use crate::commands::{
-    CURSOR_CHANGED, DICTIONARY_UPDATED, QUERY_LINE_LAYOUT_REGION,
-    REPLY_LINE_LAYOUT_REGION,
+    CURSOR_CHANGED, DICTIONARY_UPDATED, QUERY_LINE_LAYOUT_REGION, REPLY_LINE_LAYOUT_REGION,
 };
 use crate::{AppState, Cursor};
 
@@ -23,13 +22,7 @@ impl<W: Widget<AppState>> LineScroller<W> {
 }
 
 impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
-    fn event(
-        &mut self,
-        ctx: &mut EventCtx,
-        event: &Event,
-        data: &mut AppState,
-        env: &Env,
-    ) {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut AppState, env: &Env) {
         self.scroll.event(ctx, event, data, env);
         if let Event::Notification(notification) = event {
             if let Some(&region) = notification.get(REPLY_LINE_LAYOUT_REGION) {
@@ -52,11 +45,7 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
             if command.is(DICTIONARY_UPDATED) {
                 if data.cursor_word().is_none() {
                     data.cursor_next();
-                    ctx.submit_command(Command::new(
-                        CURSOR_CHANGED,
-                        data.cursor,
-                        Target::Auto,
-                    ));
+                    ctx.submit_command(Command::new(CURSOR_CHANGED, data.cursor, Target::Auto));
                 } else {
                     data.update_suggestions();
                 }
@@ -64,32 +53,16 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
         }
         if !data.cursor.same(&self.old_cursor) {
             self.old_cursor = data.cursor;
-            let command = Command::new(
-                QUERY_LINE_LAYOUT_REGION,
-                data.cursor.linenr,
-                Target::Auto,
-            );
+            let command = Command::new(QUERY_LINE_LAYOUT_REGION, data.cursor.linenr, Target::Auto);
             ctx.submit_command(command);
         }
     }
 
-    fn lifecycle(
-        &mut self,
-        ctx: &mut LifeCycleCtx,
-        event: &LifeCycle,
-        data: &AppState,
-        env: &Env,
-    ) {
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &AppState, env: &Env) {
         self.scroll.lifecycle(ctx, event, data, env);
     }
 
-    fn update(
-        &mut self,
-        ctx: &mut UpdateCtx,
-        _old_data: &AppState,
-        data: &AppState,
-        env: &Env,
-    ) {
+    fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &AppState, data: &AppState, env: &Env) {
         self.scroll.update(ctx, data, env);
     }
 

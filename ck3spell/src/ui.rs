@@ -1,14 +1,13 @@
 use druid::widget::prelude::*;
 use druid::widget::{
-    Button, CrossAxisAlignment, Either, Flex, Label, LineBreaking, List,
-    RawLabel, Scroll, TextBox,
+    Button, CrossAxisAlignment, Either, Flex, Label, LineBreaking, List, RawLabel, Scroll, TextBox,
 };
 use druid::{Color, Command, Target, WidgetExt};
 
 use crate::appcontroller::AppController;
 use crate::commands::{
-    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_NEXT, CURSOR_PREV,
-    EDIT_LINE, FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
+    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_NEXT, CURSOR_PREV, EDIT_LINE, FILE_CHANGED,
+    GOTO_LINE, SAVE_AND_CLOSE,
 };
 use crate::editorcontroller::EditorController;
 use crate::linelist::LineList;
@@ -28,9 +27,7 @@ fn make_file_header() -> impl Widget<AppState> {
             data.file_next();
             ctx.submit_command(FILE_CHANGED);
         })
-        .disabled_if(|data: &AppState, _| {
-            data.file_idx == data.files.len() - 1
-        });
+        .disabled_if(|data: &AppState, _| data.file_idx == data.files.len() - 1);
     let file_label = Label::dynamic(|data: &AppState, _| {
         format!(
             "{} ({} {})",
@@ -52,20 +49,15 @@ fn make_file_header() -> impl Widget<AppState> {
 }
 
 fn make_line_item() -> impl Widget<LineInfo> {
-    let linenr =
-        Label::dynamic(|line: &LineInfo, _| line.line.line_nr.to_string())
-            .with_text_color(Color::grey8(160))
-            .fix_width(30.0);
+    let linenr = Label::dynamic(|line: &LineInfo, _| line.line.line_nr.to_string())
+        .with_text_color(Color::grey8(160))
+        .fix_width(30.0);
     let line = SyntaxHighlighter::new(
         RawLabel::new()
             .with_line_break_mode(LineBreaking::WordWrap)
             .lens(LineInfo::rendered)
             .on_click(|ctx, data: &mut LineInfo, _| {
-                ctx.submit_command(Command::new(
-                    GOTO_LINE,
-                    data.line.line_nr,
-                    Target::Auto,
-                ));
+                ctx.submit_command(Command::new(GOTO_LINE, data.line.line_nr, Target::Auto));
             }),
     );
     Flex::row()
@@ -122,8 +114,7 @@ fn make_suggestion() -> impl Widget<Suggestion> {
 
 fn lower_box_builder() -> impl Widget<AppState> {
     let suggestions =
-        Scroll::new(List::new(make_suggestion).lens(AppState::suggestions))
-            .vertical();
+        Scroll::new(List::new(make_suggestion).lens(AppState::suggestions)).vertical();
     let editor = TextBox::multiline()
         .lens(AppState::editing_text)
         .controller(EditorController)

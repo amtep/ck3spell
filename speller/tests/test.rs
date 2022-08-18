@@ -5,9 +5,7 @@ use speller::{Speller, SpellerHunspellDict};
 fn load_speller(name: &str) -> impl Speller {
     let dictpath = format!("tests/files/{}.dic", name);
     let affpath = format!("tests/files/{}.aff", name);
-    let speller =
-        SpellerHunspellDict::new(Path::new(&dictpath), Path::new(&affpath))
-            .unwrap();
+    let speller = SpellerHunspellDict::new(Path::new(&dictpath), Path::new(&affpath)).unwrap();
     for e in speller.get_errors() {
         eprintln!("{:#}", e);
     }

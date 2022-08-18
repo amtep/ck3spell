@@ -37,8 +37,7 @@ fn delins_inner(str1: &[char], str2: &[char], maxscore: isize) -> usize {
         // Inserting the needed char to str1 is equivalent to deleting
         // a char from str2, so our choice is which string to 'delete'
         // from by advancing its pointer.
-        let del_score =
-            1 + delins_inner(&str1[i1 + 1..], &str2[i2..], maxscore - 1);
+        let del_score = 1 + delins_inner(&str1[i1 + 1..], &str2[i2..], maxscore - 1);
 
         let mut ins_score = 1;
         i2 += 1;
@@ -51,11 +50,7 @@ fn delins_inner(str1: &[char], str2: &[char], maxscore: isize) -> usize {
         }
         if ins_score < del_score {
             // this check is an optimization
-            ins_score += delins_inner(
-                &str1[i1..],
-                &str2[i2..],
-                maxscore - ins_score as isize,
-            );
+            ins_score += delins_inner(&str1[i1..], &str2[i2..], maxscore - ins_score as isize);
         }
 
         min(del_score, ins_score)

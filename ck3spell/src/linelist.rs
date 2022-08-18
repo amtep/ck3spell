@@ -16,9 +16,7 @@ pub struct LineList {
 }
 
 impl LineList {
-    pub fn new<W: Widget<LineInfo> + 'static>(
-        closure: impl Fn() -> W + 'static,
-    ) -> Self {
+    pub fn new<W: Widget<LineInfo> + 'static>(closure: impl Fn() -> W + 'static) -> Self {
         LineList {
             closure: Box::new(move || Box::new(closure())),
             children: Vec::new(),
@@ -26,11 +24,7 @@ impl LineList {
         }
     }
 
-    fn update_child_count(
-        &mut self,
-        data: &impl ListIter<LineInfo>,
-        _env: &Env,
-    ) -> bool {
+    fn update_child_count(&mut self, data: &impl ListIter<LineInfo>, _env: &Env) -> bool {
         let len = self.children.len();
         match len.cmp(&data.data_len()) {
             Ordering::Greater => self.children.truncate(data.data_len()),
@@ -51,13 +45,7 @@ impl LineList {
 }
 
 impl<T: ListIter<LineInfo>> Widget<T> for LineList {
-    fn event(
-        &mut self,
-        ctx: &mut EventCtx,
-        event: &Event,
-        data: &mut T,
-        env: &Env,
-    ) {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut T, env: &Env) {
         let mut children = self.children.iter_mut();
         data.for_each_mut(|child_data, _| {
             if let Some(child) = children.next() {
@@ -68,24 +56,14 @@ impl<T: ListIter<LineInfo>> Widget<T> for LineList {
         if let Event::Command(command) = event {
             if let Some(&linenr) = command.get(QUERY_LINE_LAYOUT_REGION) {
                 if let Some(region) = self.child_layout_rect(linenr - 1) {
-                    let command = Command::new(
-                        REPLY_LINE_LAYOUT_REGION,
-                        region,
-                        Target::Auto,
-                    );
+                    let command = Command::new(REPLY_LINE_LAYOUT_REGION, region, Target::Auto);
                     ctx.submit_notification(command);
                 }
             }
         }
     }
 
-    fn lifecycle(
-        &mut self,
-        ctx: &mut LifeCycleCtx,
-        event: &LifeCycle,
-        data: &T,
-        env: &Env,
-    ) {
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &T, env: &Env) {
         if let LifeCycle::WidgetAdded = event {
             if self.update_child_count(data, env) {
                 ctx.children_changed();
@@ -100,13 +78,7 @@ impl<T: ListIter<LineInfo>> Widget<T> for LineList {
         });
     }
 
-    fn update(
-        &mut self,
-        ctx: &mut UpdateCtx,
-        _old_data: &T,
-        data: &T,
-        env: &Env,
-    ) {
+    fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &T, data: &T, env: &Env) {
         let mut children = self.children.iter_mut();
         data.for_each(|child_data, _| {
             if let Some(child) = children.next() {
@@ -119,13 +91,7 @@ impl<T: ListIter<LineInfo>> Widget<T> for LineList {
         }
     }
 
-    fn layout(
-        &mut self,
-        ctx: &mut LayoutCtx,
-        bc: &BoxConstraints,
-        data: &T,
-        env: &Env,
-    ) -> Size {
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &T, env: &Env) -> Size {
         bc.debug_check("LineList");
         let mut pos: f64 = 0.0;
         let mut width: f64 = 0.0;

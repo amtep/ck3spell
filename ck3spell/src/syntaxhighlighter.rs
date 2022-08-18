@@ -26,13 +26,7 @@ impl<W: Widget<LineInfo>> SyntaxHighlighter<W> {
 }
 
 impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
-    fn event(
-        &mut self,
-        ctx: &mut EventCtx,
-        event: &Event,
-        data: &mut LineInfo,
-        env: &Env,
-    ) {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut LineInfo, env: &Env) {
         let mut force_update = false;
         #[allow(clippy::collapsible_if)]
         if let Event::Command(command) = event {
@@ -61,23 +55,11 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
         self.child.event(ctx, event, data, env);
     }
 
-    fn lifecycle(
-        &mut self,
-        ctx: &mut LifeCycleCtx,
-        event: &LifeCycle,
-        data: &LineInfo,
-        env: &Env,
-    ) {
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &LineInfo, env: &Env) {
         self.child.lifecycle(ctx, event, data, env);
     }
 
-    fn update(
-        &mut self,
-        ctx: &mut UpdateCtx,
-        _old_data: &LineInfo,
-        data: &LineInfo,
-        env: &Env,
-    ) {
+    fn update(&mut self, ctx: &mut UpdateCtx, _old_data: &LineInfo, data: &LineInfo, env: &Env) {
         self.child.update(ctx, data, env);
     }
 

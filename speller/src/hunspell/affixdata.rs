@@ -128,9 +128,7 @@ impl AffixData {
 
     pub fn parse_flags(&self, flags: &str) -> Result<Vec<AffixFlag>> {
         match self.flag_mode {
-            FlagMode::Char | FlagMode::Utf8 => {
-                Ok(flags.chars().map(|c| c as u32).collect())
-            }
+            FlagMode::Char | FlagMode::Utf8 => Ok(flags.chars().map(|c| c as u32).collect()),
             FlagMode::DoubleChar => flags
                 .chars()
                 .chunks(2)
@@ -183,8 +181,7 @@ impl AffixData {
 
     pub fn finalize(&mut self) {
         self.dash_word_heuristic = if let Some(try_string) = &self.try_string {
-            try_string.contains('_')
-                || try_string.contains(|c: char| c.is_ascii_alphabetic())
+            try_string.contains('_') || try_string.contains(|c: char| c.is_ascii_alphabetic())
         } else {
             false
         };
@@ -231,25 +228,11 @@ impl AffixData {
     ) -> bool {
         if caps == CapStyle::AllCaps {
             self.rev_suffix_capsed.lookup(word, |i| {
-                self.suffixes[i].check_suffix(
-                    word,
-                    caps,
-                    compound,
-                    dict,
-                    from_prefix,
-                    false,
-                )
+                self.suffixes[i].check_suffix(word, caps, compound, dict, from_prefix, false)
             })
         } else {
             self.rev_suffix.lookup(word, |i| {
-                self.suffixes[i].check_suffix(
-                    word,
-                    caps,
-                    compound,
-                    dict,
-                    from_prefix,
-                    false,
-                )
+                self.suffixes[i].check_suffix(word, caps, compound, dict, from_prefix, false)
             })
         }
     }
@@ -281,14 +264,7 @@ impl AffixData {
 
             for sfx in &self.suffixes {
                 if winfo.has_affix_flag(sfx.flag) {
-                    sfx.try_suffix(
-                        root,
-                        winfo,
-                        caps,
-                        dict,
-                        &mut suggest,
-                        false,
-                    );
+                    sfx.try_suffix(root, winfo, caps, dict, &mut suggest, false);
                 }
             }
         }
@@ -363,8 +339,7 @@ impl AffixEntry {
             if (!root.is_empty() || dict.affix_data.fullstrip)
                 && self.pruned_condition.prefix_match(root)
             {
-                let mut pword =
-                    String::with_capacity(self.strip.len() + root.len());
+                let mut pword = String::with_capacity(self.strip.len() + root.len());
                 pword.push_str(&self.strip);
                 pword.push_str(root);
                 return Some(pword);
@@ -382,15 +357,11 @@ impl AffixEntry {
         if let Some(root) = self._deprefixed_word(word, &self.affix, dict) {
             return Some(root);
         } else if caps == CapStyle::AllCaps {
-            if let Some(root) =
-                self._deprefixed_word(word, &self.capsed_affix, dict)
-            {
+            if let Some(root) = self._deprefixed_word(word, &self.capsed_affix, dict) {
                 return Some(root);
             }
         } else if caps == CapStyle::Capitalized {
-            if let Some(root) =
-                self._deprefixed_word(word, &self.titled_affix, dict)
-            {
+            if let Some(root) = self._deprefixed_word(word, &self.titled_affix, dict) {
                 return Some(root);
             }
         }
@@ -407,8 +378,7 @@ impl AffixEntry {
             if (!root.is_empty() || dict.affix_data.fullstrip)
                 && self.pruned_condition.suffix_match(root)
             {
-                let mut sword =
-                    String::with_capacity(root.len() + self.strip.len());
+                let mut sword = String::with_capacity(root.len() + self.strip.len());
                 sword.push_str(root);
                 sword.push_str(&self.strip);
                 return Some(sword);
@@ -426,9 +396,7 @@ impl AffixEntry {
         if let Some(root) = self._desuffixed_word(word, &self.affix, dict) {
             return Some(root);
         } else if caps == CapStyle::AllCaps {
-            if let Some(root) =
-                self._desuffixed_word(word, &self.capsed_affix, dict)
-            {
+            if let Some(root) = self._desuffixed_word(word, &self.capsed_affix, dict) {
                 return Some(root);
             }
         }
@@ -449,9 +417,7 @@ impl AffixEntry {
             if !self.contflags.needs_affix() {
                 for winfo in dict.word_iter_fold(&pword, caps) {
                     if winfo.has_affix_flag(self.flag)
-                        && compound.word_ok(
-                            winfo.word_flags | self.contflags.word_flags,
-                        )
+                        && compound.word_ok(winfo.word_flags | self.contflags.word_flags)
                         && !winfo
                             .word_flags
                             .intersects(WordFlags::Forbidden | caps.keepcase())
@@ -461,13 +427,9 @@ impl AffixEntry {
                 }
             }
             if self.allow_cross
-                && dict.affix_data.check_suffix(
-                    &pword,
-                    caps,
-                    compound,
-                    dict,
-                    Some(self),
-                )
+                && dict
+                    .affix_data
+                    .check_suffix(&pword, caps, compound, dict, Some(self))
             {
                 return true;
             }
@@ -500,8 +462,7 @@ impl AffixEntry {
         if let Some(sword) = self.desuffixed_word(word, caps, dict) {
             if !needs_affix {
                 for winfo in dict.word_iter_fold(&sword, caps) {
-                    let mut flags =
-                        winfo.word_flags | self.contflags.word_flags;
+                    let mut flags = winfo.word_flags | self.contflags.word_flags;
                     if let Some(pfx) = from_prefix {
                         if !(winfo.has_affix_flag(pfx.flag)
                             || self.contflags.has_affix_flag(pfx.flag))
@@ -526,13 +487,8 @@ impl AffixEntry {
                 if let Some(v) = dict.affix_data.rev_cont.get(&self.flag) {
                     for &i in v.iter() {
                         let sfx2 = &dict.affix_data.suffixes[i];
-                        debug_assert!(sfx2
-                            .contflags
-                            .affix_flags
-                            .contains(&self.flag));
-                        if sfx2.check_suffix(
-                            &sword, caps, compound, dict, None, true,
-                        ) {
+                        debug_assert!(sfx2.contflags.affix_flags.contains(&self.flag));
+                        if sfx2.check_suffix(&sword, caps, compound, dict, None, true) {
                             return true;
                         }
                     }
@@ -554,8 +510,7 @@ impl AffixEntry {
             return;
         }
         if let Some(stripped) = root.strip_prefix(&self.strip) {
-            let mut word =
-                String::with_capacity(self.affix.len() + stripped.len());
+            let mut word = String::with_capacity(self.affix.len() + stripped.len());
             word.push_str(&self.affix);
             word.push_str(stripped);
             suggest(&word);
@@ -563,9 +518,7 @@ impl AffixEntry {
             if self.allow_cross {
                 for sfx in &dict.affix_data.suffixes {
                     if winfo.has_affix_flag(sfx.flag) {
-                        sfx.try_suffix(
-                            &word, winfo, caps, dict, suggest, false,
-                        );
+                        sfx.try_suffix(&word, winfo, caps, dict, suggest, false);
                     }
                 }
             }
@@ -585,8 +538,7 @@ impl AffixEntry {
             return;
         }
         if let Some(stripped) = root.strip_suffix(&self.strip) {
-            let mut word =
-                String::with_capacity(self.affix.len() + stripped.len());
+            let mut word = String::with_capacity(self.affix.len() + stripped.len());
             word.push_str(stripped);
             word.push_str(&self.affix);
             suggest(&word);
@@ -594,9 +546,7 @@ impl AffixEntry {
             if !from_suffix && !self.contflags.affix_flags.is_empty() {
                 for sfx2 in &dict.affix_data.suffixes {
                     if self.contflags.affix_flags.contains(&sfx2.flag) {
-                        sfx2.try_suffix(
-                            &word, winfo, caps, dict, suggest, false,
-                        );
+                        sfx2.try_suffix(&word, winfo, caps, dict, suggest, false);
                     }
                 }
             }

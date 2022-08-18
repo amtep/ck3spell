@@ -1,14 +1,11 @@
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, take_until, take_while1};
 use nom::character::complete::{
-    alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
-    space1,
+    alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0, space1,
 };
 use nom::combinator::{eof, map, not, opt, peek, recognize, rest};
 use nom::multi::{fold_many0, many0_count, separated_list1};
-use nom::sequence::{
-    delimited, pair, preceded, separated_pair, terminated, tuple,
-};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
 use std::fmt::Debug;
@@ -68,9 +65,7 @@ where
     }
 }
 
-fn no_token<'a, F: 'a, O>(
-    mut inner: F,
-) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, Vec<Token>>
+fn no_token<'a, F: 'a, O>(mut inner: F) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, Vec<Token>>
 where
     F: FnMut(Span<'a>) -> IResult<Span<'a>, O>,
 {
@@ -81,9 +76,7 @@ where
 }
 
 #[allow(dead_code)]
-fn log<'a, F: 'a, O>(
-    mut inner: F,
-) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, O>
+fn log<'a, F: 'a, O>(mut inner: F) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, O>
 where
     F: FnMut(Span<'a>) -> IResult<Span<'a>, O>,
     O: Debug,

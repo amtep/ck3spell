@@ -7,9 +7,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::commands::{
-    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_CHANGED, CURSOR_NEXT,
-    CURSOR_PREV, DICTIONARY_UPDATED, EDIT_LINE, FILE_CHANGED, GOTO_LINE,
-    SAVE_AND_CLOSE,
+    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_CHANGED, CURSOR_NEXT, CURSOR_PREV,
+    DICTIONARY_UPDATED, EDIT_LINE, FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
 };
 use crate::AppState;
 
@@ -32,8 +31,7 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                 let wordnr = data.cursor.wordnr;
                 if wordnr > 0 {
                     data.change_line(data.cursor.linenr, |lineinfo| {
-                        if let Some(range) = lineinfo.bad_words.get(wordnr - 1)
-                        {
+                        if let Some(range) = lineinfo.bad_words.get(wordnr - 1) {
                             let mut linetext = (*lineinfo.line.line).clone();
                             linetext.replace_range(range.clone(), word);
                             lineinfo.line.line = Rc::new(linetext);
@@ -63,11 +61,7 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                 data.cursor.linenr = linenr;
                 data.cursor.wordnr = 0;
                 data.update_suggestions();
-                ctx.submit_command(Command::new(
-                    CURSOR_CHANGED,
-                    data.cursor,
-                    Target::Auto,
-                ));
+                ctx.submit_command(Command::new(CURSOR_CHANGED, data.cursor, Target::Auto));
             } else if command.is(ACCEPT_WORD) {
                 if let Some(cursor_word) = data.cursor_word() {
                     if let Err(err) = data
@@ -89,9 +83,7 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                         .to_string(),
                 );
             } else if command.is(SAVE_AND_CLOSE) {
-                if let Err(err) =
-                    data.save_file().with_context(|| "Could not save file")
-                {
+                if let Err(err) = data.save_file().with_context(|| "Could not save file") {
                     eprintln!("{:#}", err);
                 }
                 if data.files.len() == 1 {
@@ -102,32 +94,18 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                 }
             } else if command.is(CURSOR_PREV) {
                 data.cursor_prev();
-                ctx.submit_command(Command::new(
-                    CURSOR_CHANGED,
-                    data.cursor,
-                    Target::Auto,
-                ));
+                ctx.submit_command(Command::new(CURSOR_CHANGED, data.cursor, Target::Auto));
             } else if command.is(CURSOR_NEXT) {
                 data.cursor_next();
-                ctx.submit_command(Command::new(
-                    CURSOR_CHANGED,
-                    data.cursor,
-                    Target::Auto,
-                ));
+                ctx.submit_command(Command::new(CURSOR_CHANGED, data.cursor, Target::Auto));
             }
         } else if let Event::KeyDown(key_event) = event {
             match &key_event.key {
                 // Special: accept no hotkeys while editing a line
                 _ if data.editing_linenr > 0 => (),
-                KbKey::Character(a) if a == "a" => {
-                    ctx.submit_command(ACCEPT_WORD)
-                }
-                KbKey::Character(e) if e == "e" => {
-                    ctx.submit_command(EDIT_LINE)
-                }
-                KbKey::Character(c) if c == "c" => {
-                    ctx.submit_command(SAVE_AND_CLOSE)
-                }
+                KbKey::Character(a) if a == "a" => ctx.submit_command(ACCEPT_WORD),
+                KbKey::Character(e) if e == "e" => ctx.submit_command(EDIT_LINE),
+                KbKey::Character(c) if c == "c" => ctx.submit_command(SAVE_AND_CLOSE),
                 KbKey::Character(k) => {
                     // Number keys select suggestions
                     if let Ok(d) = k.parse::<usize>() {

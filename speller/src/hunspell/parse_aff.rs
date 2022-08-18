@@ -2,9 +2,7 @@
 use anyhow::{bail, Result};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
-use nom::character::complete::{
-    char, one_of, satisfy, space0, space1, u32, u8,
-};
+use nom::character::complete::{char, one_of, satisfy, space0, space1, u32, u8};
 use nom::combinator::{all_consuming, cut, map, opt, rest, success, value};
 use nom::error::{Error, ErrorKind, ParseError};
 use nom::multi::many1;
@@ -400,15 +398,7 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
                 if v3 == "." {
                     v3 = "";
                 }
-                let entry = AffixEntry::new(
-                    is_pfx,
-                    allow_cross,
-                    fflag[0],
-                    v1,
-                    v2,
-                    v3,
-                    cflags,
-                );
+                let entry = AffixEntry::new(is_pfx, allow_cross, fflag[0], v1, v2, v3, cflags);
                 if is_pfx {
                     d.prefixes.push(entry);
                 } else {

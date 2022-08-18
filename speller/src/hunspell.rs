@@ -23,10 +23,9 @@ use crate::hunspell::parse_aff::parse_affix_data;
 use crate::hunspell::suggcollector::SuggCollector;
 use crate::hunspell::suggestions::{
     add_char_suggestions, capitalize_char_suggestions, delete_char_suggestions,
-    delete_doubled_pair_suggestions, delins_suggestions, move_char_suggestions,
-    ngram_suggestions, related_char_suggestions, split_word_suggestions,
-    split_word_with_dash_suggestions, swap_char_suggestions,
-    wrong_key_suggestions,
+    delete_doubled_pair_suggestions, delins_suggestions, move_char_suggestions, ngram_suggestions,
+    related_char_suggestions, split_word_suggestions, split_word_with_dash_suggestions,
+    swap_char_suggestions, wrong_key_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -85,14 +84,9 @@ impl Compound {
     fn word_ok(self, wf: WordFlags) -> bool {
         match self {
             Compound::None => !wf.intersects(WordFlags::OnlyInCompound),
-            Compound::Begin => wf
-                .intersects(WordFlags::CompoundBegin | WordFlags::CompoundFlag),
-            Compound::Middle => wf.intersects(
-                WordFlags::CompoundMiddle | WordFlags::CompoundFlag,
-            ),
-            Compound::End => {
-                wf.intersects(WordFlags::CompoundEnd | WordFlags::CompoundFlag)
-            }
+            Compound::Begin => wf.intersects(WordFlags::CompoundBegin | WordFlags::CompoundFlag),
+            Compound::Middle => wf.intersects(WordFlags::CompoundMiddle | WordFlags::CompoundFlag),
+            Compound::End => wf.intersects(WordFlags::CompoundEnd | WordFlags::CompoundFlag),
         }
     }
 
@@ -213,9 +207,7 @@ impl SpellerHunspellDict {
     pub fn new(dictionary: &Path, affixes: &Path) -> Result<Self> {
         let affixes_text = read_to_string(affixes)
             .map_err(anyhow::Error::from)
-            .with_context(|| {
-                format!("Could not read affix data from {}", affixes.display())
-            })?;
+            .with_context(|| format!("Could not read affix data from {}", affixes.display()))?;
         let affix_data = parse_affix_data(&affixes_text)?;
         let mut dict = SpellerHunspellDict {
             affix_data,
@@ -226,9 +218,7 @@ impl SpellerHunspellDict {
 
         let dict_text = read_to_string(dictionary)
             .map_err(anyhow::Error::from)
-            .with_context(|| {
-                format!("Could not read words from {}", dictionary.display())
-            })?;
+            .with_context(|| format!("Could not read words from {}", dictionary.display()))?;
         // Skip the first line because it's just the number of words
         for line in dict_text.lines().skip(1) {
             if line.starts_with('\t') {
@@ -240,12 +230,10 @@ impl SpellerHunspellDict {
             // If parsing the flags fails, just ignore them.
             // Printing errors isn't worth it.
             // TODO: maybe collect errors in the struct.
-            let affix_flags =
-                dict.affix_data.parse_flags(flagstr).unwrap_or_default();
+            let affix_flags = dict.affix_data.parse_flags(flagstr).unwrap_or_default();
             let word = word.trim();
             if !word.is_empty() {
-                let word_flags =
-                    dict.affix_data.special_flags.word_flags(&affix_flags);
+                let word_flags = dict.affix_data.special_flags.word_flags(&affix_flags);
                 let winfo = WordInfo::new(word_flags, affix_flags);
                 dict.words
                     .entry(word.to_string())
@@ -279,9 +267,7 @@ impl SpellerHunspellDict {
         let mut last_space = None;
         for (i, c) in s.char_indices() {
             if let Some(spos) = last_space {
-                if (i - spos <= 2 && !c.is_alphanumeric())
-                    || (i - spos == 3 && c != ':')
-                {
+                if (i - spos <= 2 && !c.is_alphanumeric()) || (i - spos == 3 && c != ':') {
                     last_space = None;
                 } else if i - spos == 3 {
                     return (&s[..spos], Some(s[spos + 1..].trim()));
@@ -351,12 +337,7 @@ impl SpellerHunspellDict {
         nosug
     }
 
-    fn has_word_pair_fold(
-        &self,
-        word1: &str,
-        word2: &str,
-        caps: CapStyle,
-    ) -> bool {
+    fn has_word_pair_fold(&self, word1: &str, word2: &str, caps: CapStyle) -> bool {
         let mut word = String::with_capacity(word1.len() + 1 + word2.len());
         word.push_str(word1);
         word.push(' ');
@@ -377,11 +358,7 @@ impl SpellerHunspellDict {
         }
     }
 
-    fn word_iter_fold(
-        &self,
-        word: &str,
-        caps: CapStyle,
-    ) -> std::slice::Iter<'_, WordInfo> {
+    fn word_iter_fold(&self, word: &str, caps: CapStyle) -> std::slice::Iter<'_, WordInfo> {
         if caps == CapStyle::Folded {
             if let Some(homonyms) = self.folded_words.get(word) {
                 homonyms.iter()
@@ -393,12 +370,7 @@ impl SpellerHunspellDict {
         }
     }
 
-    fn has_affix_flag_fold(
-        &self,
-        word: &str,
-        caps: CapStyle,
-        flag: AffixFlag,
-    ) -> bool {
+    fn has_affix_flag_fold(&self, word: &str, caps: CapStyle, flag: AffixFlag) -> bool {
         for winfo in self.word_iter_fold(word, caps) {
             if winfo.has_affix_flag(flag) {
                 return true;
@@ -408,19 +380,12 @@ impl SpellerHunspellDict {
     }
 
     /// Check a word against the dictionary and try affix combinations
-    fn _spellcheck_affixes(
-        &self,
-        word: &str,
-        caps: CapStyle,
-        compound: Compound,
-    ) -> bool {
+    fn _spellcheck_affixes(&self, word: &str, caps: CapStyle, compound: Compound) -> bool {
         for winfo in self.word_iter_fold(word, caps) {
             if compound.word_ok(winfo.word_flags)
-                && !winfo.word_flags.intersects(
-                    WordFlags::Forbidden
-                        | WordFlags::NeedAffix
-                        | caps.keepcase(),
-                )
+                && !winfo
+                    .word_flags
+                    .intersects(WordFlags::Forbidden | WordFlags::NeedAffix | caps.keepcase())
             {
                 return true;
             }
@@ -465,15 +430,8 @@ impl SpellerHunspellDict {
             // This avoids a lot of backtracking for words that would never
             // work anyway.
             for rule in &self.affix_data.compound_rules {
-                if rule.partial_match(v, |word, flag| {
-                    self.has_affix_flag_fold(word, caps, flag)
-                }) {
-                    if self._spellcheck_compoundrule(
-                        word,
-                        caps,
-                        v,
-                        iter.clone(),
-                    ) {
+                if rule.partial_match(v, |word, flag| self.has_affix_flag_fold(word, caps, flag)) {
+                    if self._spellcheck_compoundrule(word, caps, v, iter.clone()) {
                         return true;
                     }
                     break;
@@ -487,9 +445,7 @@ impl SpellerHunspellDict {
             return false;
         }
         for rule in &self.affix_data.compound_rules {
-            if rule.matches(v, |word, flag| {
-                self.has_affix_flag_fold(word, caps, flag)
-            }) {
+            if rule.matches(v, |word, flag| self.has_affix_flag_fold(word, caps, flag)) {
                 return true;
             }
         }
@@ -528,8 +484,7 @@ impl SpellerHunspellDict {
             } else {
                 Compound::Middle
             };
-            let piece_caps = if (caps == CapStyle::Capitalized
-                || caps == CapStyle::Decapitalized)
+            let piece_caps = if (caps == CapStyle::Capitalized || caps == CapStyle::Decapitalized)
                 && compound != Compound::Begin
             {
                 CapStyle::Lowercase
@@ -553,8 +508,7 @@ impl SpellerHunspellDict {
         // Success if we exactly consumed `word`.
         // Also check a special case: if a word pair is in the dictionary
         // separated by a space, then don't accept it as a compound.
-        wlen == 0
-            && !(v.len() == 2 && self.has_word_pair_fold(v[0], v[1], caps))
+        wlen == 0 && !(v.len() == 2 && self.has_word_pair_fold(v[0], v[1], caps))
     }
 
     /// Check a word against the dictionary and try compound words
@@ -566,33 +520,18 @@ impl SpellerHunspellDict {
         // For COMPOUNDRULE, divide the word into pieces that are all
         // directly in the dictionary (no prefix/suffix processing).
         if !self.affix_data.compound_rules.is_empty()
-            && self._spellcheck_compoundrule(
-                word,
-                caps,
-                &mut Vec::new(),
-                word.char_indices(),
-            )
+            && self._spellcheck_compoundrule(word, caps, &mut Vec::new(), word.char_indices())
         {
             return true;
         }
 
         // Early return for dictionaries that don't support compounding.
         self.affix_data.special_flags.has_compounds()
-            && self._spellcheck_compounding(
-                word,
-                caps,
-                &mut Vec::new(),
-                word.char_indices(),
-            )
+            && self._spellcheck_compounding(word, caps, &mut Vec::new(), word.char_indices())
     }
 
     // Check a word against the dictionary and try word breaks and affixes
-    fn _spellcheck(
-        &self,
-        word: &str,
-        strict: StrictMode,
-        count: &mut u16,
-    ) -> bool {
+    fn _spellcheck(&self, word: &str, strict: StrictMode, count: &mut u16) -> bool {
         if Self::is_numeric(word) {
             return true;
         }
@@ -638,8 +577,7 @@ impl SpellerHunspellDict {
                 continue;
             }
             if let Some((worda, wordb)) = word.split_once(brk) {
-                if self._spellcheck(worda, strict, count)
-                    && self._spellcheck(wordb, strict, count)
+                if self._spellcheck(worda, strict, count) && self._spellcheck(wordb, strict, count)
                 {
                     return true;
                 }
@@ -649,12 +587,7 @@ impl SpellerHunspellDict {
     }
 
     // Check a word against the dictionary and try different capitalization
-    fn _spellcheck_caps(
-        &self,
-        word: &str,
-        caps: CapStyle,
-        strict: StrictMode,
-    ) -> bool {
+    fn _spellcheck_caps(&self, word: &str, caps: CapStyle, strict: StrictMode) -> bool {
         if self._spellcheck_compound(word, caps) {
             return true;
         }
@@ -665,20 +598,14 @@ impl SpellerHunspellDict {
 
         if matches!(strict, StrictMode::AllowAll)
             && caps == CapStyle::AllCaps
-            && self._spellcheck_compound(
-                &default_case_fold_str(word),
-                CapStyle::Folded,
-            )
+            && self._spellcheck_compound(&default_case_fold_str(word), CapStyle::Folded)
         {
             return true;
         }
 
         if matches!(strict, StrictMode::AllowDecap | StrictMode::AllowAll)
             && caps == CapStyle::Capitalized
-            && self._spellcheck_compound(
-                &word.to_lowercase(),
-                CapStyle::Decapitalized,
-            )
+            && self._spellcheck_compound(&word.to_lowercase(), CapStyle::Decapitalized)
         {
             return true;
         }
@@ -698,18 +625,13 @@ impl SpellerHunspellDict {
 
         // If the suggestion is two words, check both
         if let Some((sugga, suggb)) = word.split_once(' ') {
-            self.check_suggestion(sugga, origcaps)
-                && self.check_suggestion(suggb, origcaps)
+            self.check_suggestion(sugga, origcaps) && self.check_suggestion(suggb, origcaps)
         } else {
             false
         }
     }
 
-    fn check_suggestion_priority(
-        &self,
-        word: &str,
-        origcaps: CapStyle,
-    ) -> bool {
+    fn check_suggestion_priority(&self, word: &str, origcaps: CapStyle) -> bool {
         if self.is_forbidden_suggestion(word) {
             return false;
         }
@@ -730,11 +652,7 @@ impl SpellerHunspellDict {
 
         self.affix_data.replacements.suggest(word, &mut collector);
 
-        related_char_suggestions(
-            &self.affix_data.related_chars,
-            word,
-            &mut collector,
-        );
+        related_char_suggestions(&self.affix_data.related_chars, word, &mut collector);
 
         delete_char_suggestions(word, &mut collector);
 
@@ -826,12 +744,10 @@ impl Speller for SpellerHunspellDict {
 
     fn set_user_dict(&mut self, path: &Path) -> Result<i32> {
         if !path.exists() {
-            File::create(path).with_context(|| {
-                format!("Could not create {}", path.display())
-            })?;
+            File::create(path).with_context(|| format!("Could not create {}", path.display()))?;
         }
-        let dict = read_to_string(path)
-            .with_context(|| format!("Could not read {}", path.display()))?;
+        let dict =
+            read_to_string(path).with_context(|| format!("Could not read {}", path.display()))?;
 
         self.user_dict = Some(path.to_path_buf());
 
@@ -850,9 +766,8 @@ impl Speller for SpellerHunspellDict {
         }
 
         if let Some(user_dict) = &self.user_dict {
-            self._user_dict_adder(word).with_context(|| {
-                format!("Could not append to {}", user_dict.display())
-            })?;
+            self._user_dict_adder(word)
+                .with_context(|| format!("Could not append to {}", user_dict.display()))?;
         }
         Ok(true)
     }
@@ -881,9 +796,7 @@ mod test {
         );
         assert_eq!(
             ("Alyssa/L'D'Q'", Some("po:prn is:fem is:inv")),
-            SpellerHunspellDict::split_morphological_fields(
-                "Alyssa/L'D'Q' po:prn is:fem is:inv"
-            )
+            SpellerHunspellDict::split_morphological_fields("Alyssa/L'D'Q' po:prn is:fem is:inv")
         );
     }
 }

@@ -104,19 +104,11 @@ impl CompoundRule {
         }
     }
 
-    pub fn matches(
-        &self,
-        words: &[&str],
-        check: impl Fn(&str, AffixFlag) -> bool,
-    ) -> bool {
+    pub fn matches(&self, words: &[&str], check: impl Fn(&str, AffixFlag) -> bool) -> bool {
         self._matches(words, 0, &check, false)
     }
 
-    pub fn partial_match(
-        &self,
-        words: &[&str],
-        check: impl Fn(&str, AffixFlag) -> bool,
-    ) -> bool {
+    pub fn partial_match(&self, words: &[&str], check: impl Fn(&str, AffixFlag) -> bool) -> bool {
         self._matches(words, 0, &check, true)
     }
 }

@@ -93,8 +93,7 @@ pub struct LineInfo {
 
 impl LineInfo {
     fn highlight(&mut self, env: &Env) {
-        (self.rendered, self.bad_words) =
-            highlight_syntax(&self.line.line, env, &self.speller);
+        (self.rendered, self.bad_words) = highlight_syntax(&self.line.line, env, &self.speller);
         if let Some(range) = self.marked_word() {
             self.rendered
                 .add_attribute(range, Attribute::underline(true));
@@ -144,11 +143,7 @@ pub struct FileState {
 }
 
 impl FileState {
-    fn new(
-        pathname: &Path,
-        contents: &str,
-        speller: Rc<RefCell<dyn Speller>>,
-    ) -> Self {
+    fn new(pathname: &Path, contents: &str, speller: Rc<RefCell<dyn Speller>>) -> Self {
         let filename = if let Some(name) = pathname.file_name() {
             name.to_string_lossy().to_string()
         } else {
@@ -163,9 +158,8 @@ impl FileState {
     }
 
     fn save(&self) -> Result<()> {
-        let mut file = File::create(&*self.pathname).with_context(|| {
-            format!("Could not write to {}", self.pathname.display())
-        })?;
+        let mut file = File::create(&*self.pathname)
+            .with_context(|| format!("Could not write to {}", self.pathname.display()))?;
         file.write_all("\u{FEFF}".as_bytes())?; // Unicode BOM
         for lineinfo in self.lines.iter() {
             file.write_all(lineinfo.line.line.as_bytes())?;
@@ -272,10 +266,7 @@ impl AppState {
             .bad_words
             .get(self.cursor.wordnr - 1)
         {
-            Some(
-                &self.file.lines[self.cursor.linenr - 1].line.line
-                    [range.clone()],
-            )
+            Some(&self.file.lines[self.cursor.linenr - 1].line.line[range.clone()])
         } else {
             None
         }
@@ -404,10 +395,7 @@ fn highlight_syntax(
     (text, Rc::new(bad_words))
 }
 
-fn split_lines(
-    contents: &str,
-    speller: &Rc<RefCell<dyn Speller>>,
-) -> Vec<LineInfo> {
+fn split_lines(contents: &str, speller: &Rc<RefCell<dyn Speller>>) -> Vec<LineInfo> {
     let mut lines: Vec<LineInfo> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
     while let Some((nr, line)) = line_iter.next() {
@@ -463,10 +451,7 @@ fn expand_dir(dir: &Path) -> Option<PathBuf> {
 /// Look for Hunspell-format dictionaries for the given `locale` in the
 /// provided directory search path. Return a tuple of paths to the
 /// dictionary file and the affix file.
-pub fn find_dictionary(
-    search_path: Vec<&str>,
-    locale: &str,
-) -> Option<(PathBuf, PathBuf)> {
+pub fn find_dictionary(search_path: Vec<&str>, locale: &str) -> Option<(PathBuf, PathBuf)> {
     for dir in search_path {
         let dir = match expand_dir(&PathBuf::from(dir)) {
             Some(dir) => dir,
@@ -495,10 +480,8 @@ fn load_file(
     local_dict: Option<&PathBuf>,
     dicts: &mut HashMap<String, Rc<RefCell<dyn Speller>>>,
 ) -> Result<FileState> {
-    let mut contents =
-        std::fs::read_to_string(pathname).with_context(|| {
-            format!("Could not read file {}", pathname.display())
-        })?;
+    let mut contents = std::fs::read_to_string(pathname)
+        .with_context(|| format!("Could not read file {}", pathname.display()))?;
     if contents.starts_with('\u{feff}') {
         contents.remove(0); // Remove BOM
     }
@@ -508,13 +491,10 @@ fn load_file(
         dicts[locale].clone()
     } else {
         eprintln!("Using locale {}", locale);
-        let mut speller =
-            match find_dictionary(DICTIONARY_SEARCH_PATH.to_vec(), locale) {
-                Some((dictpath, affixpath)) => {
-                    SpellerHunspellDict::new(&dictpath, &affixpath)
-                }
-                None => Err(anyhow!("Dictionary not found")),
-            }?;
+        let mut speller = match find_dictionary(DICTIONARY_SEARCH_PATH.to_vec(), locale) {
+            Some((dictpath, affixpath)) => SpellerHunspellDict::new(&dictpath, &affixpath),
+            None => Err(anyhow!("Dictionary not found")),
+        }?;
         for e in speller.get_errors() {
             eprintln!("Dictionary error: {}", e);
         }
@@ -543,16 +523,14 @@ fn main() -> Result<()> {
 
     for pathname in args.pathnames.iter() {
         if needs_glob {
-            for entry in glob(&pathname.to_string_lossy())
-                .expect("could not understand filename pattern")
+            for entry in
+                glob(&pathname.to_string_lossy()).expect("could not understand filename pattern")
             {
                 match entry {
-                    Ok(path) => {
-                        match load_file(&path, local_dict, &mut dicts) {
-                            Ok(file) => files.push(file),
-                            Err(err) => eprintln!("{:#}", err),
-                        }
-                    }
+                    Ok(path) => match load_file(&path, local_dict, &mut dicts) {
+                        Ok(file) => files.push(file),
+                        Err(err) => eprintln!("{:#}", err),
+                    },
                     Err(err) => eprintln!("{:#}", err),
                 }
             }

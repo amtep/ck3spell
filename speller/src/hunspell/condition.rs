@@ -62,9 +62,7 @@ impl AffixCondition {
                 }
                 CondState::InGroup => {
                     if c == ']' {
-                        v.push(AffixCondChar::Group(
-                            condition[group_start..i].to_string(),
-                        ));
+                        v.push(AffixCondChar::Group(condition[group_start..i].to_string()));
                         state = CondState::Matching;
                     }
                 }

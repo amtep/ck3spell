@@ -21,11 +21,7 @@ pub struct SuggCollector<'a> {
 }
 
 impl<'a> SuggCollector<'a> {
-    pub fn new(
-        dict: &'a SpellerHunspellDict,
-        word: &'a str,
-        max: usize,
-    ) -> Self {
+    pub fn new(dict: &'a SpellerHunspellDict, word: &'a str, max: usize) -> Self {
         SuggCollector {
             dict,
             word,
@@ -61,9 +57,7 @@ impl<'a> SuggCollector<'a> {
         // If the suggestion is in the dictionary as a single entry
         // (so no space or break checking), then it overrides all other
         // suggestions.
-        if sugg != self.word
-            && self.dict.check_suggestion_priority(sugg, self.caps)
-        {
+        if sugg != self.word && self.dict.check_suggestion_priority(sugg, self.caps) {
             self.suggs.clear();
             self.suggs.push(sugg.to_string());
             self.done = true;
@@ -73,10 +67,7 @@ impl<'a> SuggCollector<'a> {
     }
 
     pub fn suggest(&mut self, sugg: &str) {
-        if self.limit()
-            || sugg == self.word
-            || self.suggs.iter().any(|s| s == sugg)
-        {
+        if self.limit() || sugg == self.word || self.suggs.iter().any(|s| s == sugg) {
             return;
         }
         self.counter -= 1;
