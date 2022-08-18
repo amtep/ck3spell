@@ -1,8 +1,6 @@
 ## TODO
 - allow selection of american or british english?
 - after "accept word", it doesn't underline the new selection?
-- do something about the en_US dictionary not accepting plural possessives like apes'
-- (check possessives of proper names too)
 - clicking directly on a red word should immediately select it
 
 ## NOT SURE

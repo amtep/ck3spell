@@ -1,11 +1,11 @@
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, take_until, take_while1};
 use nom::character::complete::{
-    alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0, space1,
+    alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
 };
-use nom::combinator::{eof, map, not, opt, peek, recognize, rest};
+use nom::combinator::{eof, map, opt, peek, recognize, rest};
 use nom::multi::{fold_many0, many0_count, separated_list1};
-use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
+use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
 use std::fmt::Debug;
@@ -30,20 +30,6 @@ pub enum TokenType {
 pub struct Token {
     pub ttype: TokenType,
     pub range: Range<usize>,
-}
-
-fn is_word_char(c: char) -> bool {
-    // U+2019 is the unicode apostrophe
-    // alphanumeric is accepted for words like "2nd"
-    c.is_alphanumeric() || c == '\'' || c == '\u{2019}' || c == '-'
-}
-
-fn is_word_char_no_apostrophes(c: char) -> bool {
-    c.is_alphanumeric() || c == '-'
-}
-
-fn is_word_char_no_dash(c: char) -> bool {
-    c != '-' && is_word_char(c)
 }
 
 fn token<'a, F: 'a, O>(
@@ -97,14 +83,6 @@ fn vec_pair<T>((v1, v2): (Vec<T>, Vec<T>)) -> Vec<T> {
     vec_add(v1, v2)
 }
 
-fn vec_flatten<T>(mut vv: Vec<Vec<T>>) -> Vec<T> {
-    let mut v = Vec::new();
-    for vt in vv.iter_mut() {
-        v.append(vt);
-    }
-    v
-}
-
 fn comment(s: Span) -> IResult<Span, Span> {
     preceded(char('#'), rest)(s)
 }
@@ -118,25 +96,11 @@ fn loc_key_header(s: Span) -> IResult<Span, Span> {
 }
 
 fn word(s: Span) -> IResult<Span, Span> {
-    take_while1(is_word_char)(s)
-}
-
-fn word_no_apostrophes(s: Span) -> IResult<Span, Span> {
-    take_while1(is_word_char_no_apostrophes)(s)
-}
-
-fn word_no_double_dash(s: Span) -> IResult<Span, Span> {
+    // U+2019 is the unicode apostrophe
     recognize(separated_list1(
-        char('-'),
-        take_while1(is_word_char_no_dash),
+        one_of("-'\u{2019}"),
+        take_while1(char::is_alphanumeric),
     ))(s)
-}
-
-fn quoted_phrase(s: Span) -> IResult<Span, Vec<Token>> {
-    map(
-        separated_list1(space1, token(TokenType::Word, word_no_apostrophes)),
-        vec_flatten,
-    )(s)
 }
 
 fn code_block(s: Span) -> IResult<Span, Span> {
@@ -151,13 +115,6 @@ fn icon_tag(s: Span) -> IResult<Span, Span> {
 fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     fold_many0(
         alt((
-            terminated(token(TokenType::Word, word_no_double_dash), tag("--")),
-            delimited(char('\''), quoted_phrase, pair(char('\''), not(word))),
-            delimited(
-                char('\u{2018}'),
-                quoted_phrase,
-                pair(char('\u{2019}'), not(word)),
-            ),
             map(
                 pair(
                     token(TokenType::WordPart, word),
