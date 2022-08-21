@@ -25,7 +25,7 @@ fn find_dict(name: &str) -> (PathBuf, PathBuf) {
             Ok(_) => {
                 return (dictpath, affpath);
             }
-            Err(e) => eprintln!("{:#}", e.to_string()),
+            Err(e) => eprintln!("{:#}", e),
         }
     }
     panic!("Could not find dictionary for {}", name);
@@ -81,7 +81,7 @@ fn load_speller(name: &str) -> impl Speller {
             Ok(dict) => {
                 return dict;
             }
-            Err(e) => eprintln!("{:#}", e.to_string()),
+            Err(e) => eprintln!("{:#}", e),
         }
     }
     panic!("Could not find dictionary for {}", name);
@@ -140,7 +140,7 @@ fn load_words(name: &str) -> String {
             Ok(words) => {
                 return words;
             }
-            Err(e) => eprintln!("{:#}", e.to_string()),
+            Err(e) => eprintln!("{:#}", e),
         }
     }
     panic!("Could not find word list for {}", name);
@@ -224,7 +224,7 @@ fn load_sample_words(name: &str) -> String {
         }
         match read_to_string(path) {
             Ok(words) => return words,
-            Err(e) => eprintln!("{:#}", e.to_string()),
+            Err(e) => eprintln!("{:#}", e),
         }
     }
     panic!("Could not find word list {}", name);
