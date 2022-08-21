@@ -1,7 +1,7 @@
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag, take_until, take_while1};
 use nom::character::complete::{
-    alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, space0,
+    alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, satisfy, space0,
 };
 use nom::combinator::{eof, map, opt, peek, recognize, rest};
 use nom::multi::{fold_many0, many0_count, separated_list1};
@@ -146,6 +146,11 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
             token(
                 TokenType::Markup,
                 preceded(char('#'), alt((tag("!"), alpha1))),
+            ),
+            // Alternate markup syntax, for Stellaris
+            token(
+                TokenType::Markup,
+                preceded(char('§'), alt((char('!'), satisfy(char::is_alphanumeric)))),
             ),
             // Unescaped embedded double-quotes are allowed.
             // The game engine reads up to the last double-quote on the line.
