@@ -95,6 +95,19 @@ fn loc_key_header(s: Span) -> IResult<Span, Span> {
     recognize(tuple((loc_key, char(':'), digit0)))(s)
 }
 
+fn format_codes(s: Span) -> IResult<Span, Span> {
+    // This is deliberately not quite correct. We stop at the first alphabetic character.
+    // In Stellaris, § codes are always one letter long.
+    // In EU4, § codes can contain a mix of formatting characters and one letter.
+    // The letter is not necessarily at the end in EU4, but we can stop there because
+    // the remaining formatting characters aren't "word" characters anyway.
+    // This compromise allows support for both games.
+    recognize(tuple((
+        many0_count(one_of("%*=0123456789+-")),
+        opt(satisfy(char::is_alphabetic)),
+    )))(s)
+}
+
 fn word(s: Span) -> IResult<Span, Span> {
     // U+2019 is the unicode apostrophe
     recognize(separated_list1(
@@ -150,7 +163,7 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
             // Alternate markup syntax, for Stellaris
             token(
                 TokenType::Markup,
-                preceded(char('§'), alt((char('!'), satisfy(char::is_alphanumeric)))),
+                preceded(char('§'), alt((tag("!"), format_codes))),
             ),
             // Unescaped embedded double-quotes are allowed.
             // The game engine reads up to the last double-quote on the line.
@@ -247,5 +260,40 @@ mod test {
         assert_eq!(TokenType::IconTag, tokens[1].ttype);
         assert_eq!(7..7 + icon.len(), tokens[1].range);
         assert_eq!(TokenType::Word, tokens[2].ttype);
+    }
+
+    #[test]
+    fn test_alternate_markup_syntax_stellaris() {
+        let txt = r#" key: "§Yword§!""#;
+
+        let tokens = parse_line(&txt);
+
+        assert_eq!(4, tokens.len());
+        assert_eq!(TokenType::LocKey, tokens[0].ttype);
+        assert_eq!(1..5, tokens[0].range);
+        assert_eq!(TokenType::Markup, tokens[1].ttype);
+        assert_eq!(7..10, tokens[1].range);
+        assert_eq!(TokenType::Word, tokens[2].ttype);
+        assert_eq!(10..14, tokens[2].range);
+        assert_eq!(TokenType::Markup, tokens[3].ttype);
+        assert_eq!(14..17, tokens[3].range);
+    }
+
+    #[test]
+    fn test_alternate_markup_syntax_eu4() {
+        let txt = r#" key: "§=3Yword§!""#;
+
+        let tokens = parse_line(&txt);
+
+        // For the ranges in these asserts, keep in mind that the § is 2 bytes
+        assert_eq!(4, tokens.len());
+        assert_eq!(TokenType::LocKey, tokens[0].ttype);
+        assert_eq!(1..5, tokens[0].range);
+        assert_eq!(TokenType::Markup, tokens[1].ttype);
+        assert_eq!(7..12, tokens[1].range);
+        assert_eq!(TokenType::Word, tokens[2].ttype);
+        assert_eq!(12..16, tokens[2].range);
+        assert_eq!(TokenType::Markup, tokens[3].ttype);
+        assert_eq!(16..19, tokens[3].range);
     }
 }
