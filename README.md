@@ -1,5 +1,7 @@
 # ck3spell
-Spelling checker for Crusader Kings 3 localization files
+Spelling checker for Crusader Kings 3 localization files.
+
+It also works for Imperator: Rome.
 
 ## Purpose
 Localization files for CK3 (Crusader Kings 3) contain the text presented to the user for all the UI elements, in-game events and decisions, etc.
