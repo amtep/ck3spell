@@ -230,8 +230,18 @@ impl SpellerHunspellDict {
             .decode(&dict_bytes, DecoderTrap::Strict)
             .map_err(anyhow::Error::msg)
             .with_context(|| format!("Could not read words from {}", dictionary.display()))?;
-        // Skip the first line because it's just the number of words
-        for line in dict_text.lines().skip(1) {
+
+        // The first line is the number of words
+        let mut lines = dict_text.lines();
+        let wordcount: usize = lines
+            .next()
+            .unwrap_or("0")
+            .trim_matches('\u{feff}')
+            .parse()?;
+        dict.words.reserve(wordcount);
+        dict.folded_words.reserve(wordcount);
+
+        for line in lines {
             if line.starts_with('\t') {
                 // comment
                 continue;
