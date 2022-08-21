@@ -28,7 +28,7 @@ jobs:
       - name: Install dictionaries
         run: |
           sudo apt-get install hunspell-en-us hunspell-de-de hunspell-fr \
-              hunspell-es hunspell-ru
+              hunspell-es hunspell-ru hunspell-pt-br hunspell-pl
 
       - name: Populate output dir
         run: |
@@ -38,6 +38,8 @@ jobs:
           cp /usr/share/hunspell/fr_FR.* dicts/
           cp /usr/share/hunspell/es_ES.* dicts/
           cp /usr/share/hunspell/ru_RU.* dicts/
+          cp /usr/share/hunspell/pt_BR.* dicts/
+          cp /usr/share/hunspell/pl_PL.* dicts/
 
       - name: Get dict sources
         run: |
@@ -48,6 +50,8 @@ jobs:
           apt-get source --download-only hunspell-fr
           apt-get source --download-only hunspell-es
           apt-get source --download-only hunspell-ru
+          apt-get source --download-only hunspell-pt-br
+          apt-get source --download-only hunspell-pl
           cd ..
           tar cfvz dict-sources-"${{ github.ref_name }}".tar.gz dict-sources/
 
