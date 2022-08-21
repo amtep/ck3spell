@@ -112,6 +112,11 @@ fn icon_tag(s: Span) -> IResult<Span, Span> {
     delimited(char('@'), is_not("! "), one_of("! "))(s)
 }
 
+fn alternate_icon_tag(s: Span) -> IResult<Span, Span> {
+    // This form of icon tags is used in some other games than CK3
+    delimited(char('£'), is_not("£"), char('£'))(s)
+}
+
 fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     fold_many0(
         alt((
@@ -132,6 +137,7 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
             token(TokenType::Word, word),
             token(TokenType::Code, code_block),
             token(TokenType::IconTag, icon_tag),
+            token(TokenType::IconTag, alternate_icon_tag),
             token(
                 TokenType::KeyReference,
                 delimited(char('$'), is_not("$"), char('$')),
@@ -221,5 +227,20 @@ mod test {
         assert_eq!(7..7 + icon.len(), tokens[1].range);
         assert_eq!(TokenType::Word, tokens[2].ttype);
         assert_eq!(TokenType::Word, tokens[3].ttype);
+    }
+
+    #[test]
+    fn test_alternate_icon_syntax() {
+        let icon = "£minerals£";
+        let txt = format!(r#" key: "{} minerals""#, icon);
+
+        let tokens = parse_line(&txt);
+
+        assert_eq!(3, tokens.len());
+        assert_eq!(TokenType::LocKey, tokens[0].ttype);
+        assert_eq!(1..5, tokens[0].range);
+        assert_eq!(TokenType::IconTag, tokens[1].ttype);
+        assert_eq!(7..7 + icon.len(), tokens[1].range);
+        assert_eq!(TokenType::Word, tokens[2].ttype);
     }
 }
