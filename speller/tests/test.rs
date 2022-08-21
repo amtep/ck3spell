@@ -250,6 +250,43 @@ fn language_russian() {
 }
 
 #[test]
+fn language_portuguese() {
+    let speller = load_speller("pt_BR");
+
+    assert!(speller.spellcheck("aéreo"));
+    assert!(speller.spellcheck("aéreos")); // D
+    assert!(speller.spellcheck("aérea")); // D
+    assert!(speller.spellcheck("aéreas")); // D
+    assert!(speller.spellcheck("antiaéreo")); // Á
+    assert!(speller.spellcheck("subaéreo")); // È
+    assert!(speller.spellcheck("antiaéreos")); // Á + D
+
+    assert!(speller.spellcheck("eugeossinclinal"));
+    assert!(speller.spellcheck("eugeossinclinalista")); // 2
+    assert!(speller.spellcheck("eugeossinclinalistas")); // 2
+    assert!(speller.spellcheck("eugeossinclinais")); // B
+    assert!(speller.spellcheck("eugeossinclinalíssima")); // H
+    assert!(speller.spellcheck("eugeossinclinalissimamente")); // H
+    assert!(speller.spellcheck("eugeossinclinalmente")); // J
+    assert!(speller.spellcheck("eugeossinclinaizinhos")); // R
+    assert!(speller.spellcheck("eugeossinclinalzão")); // V
+    assert!(speller.spellcheck("eugeossinclinalzões")); // V
+    assert!(speller.spellcheck("eugeossinclinalidade")); // X
+    assert!(speller.spellcheck("eugeossinclinalidades")); // X
+    assert!(speller.spellcheck("eugeossinclinalismo")); // Z
+    assert!(speller.spellcheck("eugeossinclinalismos")); // Z
+    assert!(speller.spellcheck("inremediável"));
+    assert!(speller.spellcheck("inremediáveis")); // B
+    assert!(speller.spellcheck("inremediabilíssima")); // I
+    assert!(speller.spellcheck("inremediabilissimamente")); // I
+    assert!(speller.spellcheck("inremediavelmente")); // K
+    assert!(speller.spellcheck("inremediabilidade")); // X
+    assert!(speller.spellcheck("inremediabilidades")); // X
+    assert!(speller.spellcheck("tuberta"));
+    assert!(speller.spellcheck("tubertas")); // B
+}
+
+#[test]
 fn match_continuation_suffix() {
     let speller = load_speller("2sfx"); // test "flag" from hunspell
 

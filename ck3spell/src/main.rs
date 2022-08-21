@@ -334,7 +334,7 @@ impl AppState {
     }
 }
 
-const LANGUAGES: [(&str, &str, &str); 7] = [
+const LANGUAGES: [(&str, &str, &str); 8] = [
     ("l_english", "en_US", "English"),
     ("l_german", "de_DE", "German"),
     ("l_french", "fr_FR", "French"),
@@ -342,6 +342,7 @@ const LANGUAGES: [(&str, &str, &str); 7] = [
     ("l_russian", "ru_RU", "Russian"),
     ("l_korean", "", "Korean"),
     ("l_simp_chinese", "", "Chinese"),
+    ("l_braz_por", "pt_BR", "Portuguese"), // for Stellaris
 ];
 
 fn locale_from_filename(pathname: &Path) -> Result<&str> {

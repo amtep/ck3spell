@@ -28,5 +28,7 @@ bitflags! {
         /// This word may appear in compounds.
         /// (predates the CompoundBegin, Middle, End flags)
         const CompoundFlag = 0x0400;
+        /// This is a very rare word that is likely a spelling error
+        const Warn = 0x0800;
     }
 }

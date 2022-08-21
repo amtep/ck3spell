@@ -55,6 +55,14 @@ fn load_de(c: &mut Criterion) {
     });
 }
 
+fn load_pt(c: &mut Criterion) {
+    let (dictpath, affpath) = find_dict("pt_BR");
+
+    c.bench_function("load_pt", |b| {
+        b.iter(|| SpellerHunspellDict::new(&dictpath, &affpath))
+    });
+}
+
 fn load_speller(name: &str) -> impl Speller {
     // Relative path of the files depends on whether we are called by
     // cargo bench or cargo flamegraph
@@ -107,6 +115,18 @@ fn suggest_de(c: &mut Criterion) {
 
     c.bench_function("suggest_de_compound", |b| {
         b.iter(|| speller.suggestions(black_box("Arbeitscompter"), 9))
+    });
+}
+
+fn suggest_pt(c: &mut Criterion) {
+    let speller = load_speller("pt_BR");
+
+    // Pick a word with enough errors to activate the NGRAM and DELINS
+    // suggestion methods.
+    dbg!(speller.suggestions("inenediávesi", 9));
+
+    c.bench_function("suggest_pt", |b| {
+        b.iter(|| speller.suggestions(black_box("inenediávesi"), 9))
     });
 }
 
@@ -251,6 +271,6 @@ fn spellcheck_es(c: &mut Criterion) {
 criterion_group!(spellcheck, spellcheck_en, spellcheck_es);
 criterion_group!(casefold, casefold_loop);
 criterion_group!(ngram, ngram_loop);
-criterion_group!(load, load_fr, load_en, load_de);
-criterion_group!(suggest, suggest_fr, suggest_en, suggest_de);
+criterion_group!(load, load_fr, load_en, load_de, load_pt);
+criterion_group!(suggest, suggest_fr, suggest_en, suggest_de, suggest_pt);
 criterion_main!(suggest, load, ngram, casefold, spellcheck);

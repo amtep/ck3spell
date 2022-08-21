@@ -111,7 +111,7 @@ fn value_string(s: &str) -> IResult<&str, &str> {
     take_till1(char::is_whitespace)(s)
 }
 
-const FLAG_NAMES: [(&str, WordFlags); 12] = [
+const FLAG_NAMES: [(&str, WordFlags); 13] = [
     ("FORBIDDENWORD", WordFlags::Forbidden),
     ("COMPOUNDBEGIN", WordFlags::CompoundBegin),
     ("COMPOUNDMIDDLE", WordFlags::CompoundMiddle),
@@ -124,6 +124,7 @@ const FLAG_NAMES: [(&str, WordFlags); 12] = [
     ("PSEUDOROOT", WordFlags::NeedAffix), // backwards compat for NEEDAFFIX
     ("KEEPCASE", WordFlags::KeepCase),
     ("COMPOUNDFLAG", WordFlags::CompoundFlag),
+    ("WARN", WordFlags::Warn),
 ];
 
 fn assign_flag(s: &str) -> IResult<&str, AffixLine> {
@@ -157,6 +158,16 @@ fn flag_mode(s: &str) -> IResult<&str, FlagMode> {
 
 fn set_flag_mode(s: &str) -> IResult<&str, AffixLine> {
     map(keyword("FLAG", flag_mode), AffixLine::SetFlagMode)(s)
+}
+
+fn maxdiff(s: Input) -> IResult<Input, AffixLine> {
+    // Not implemented, and not relevant for our implementation
+    value(AffixLine::Empty, keyword("MAXDIFF", value_string))(s)
+}
+
+fn onlymaxdiff(s: Input) -> IResult<Input, AffixLine> {
+    // Not implemented, and not relevant for our implementation
+    value(AffixLine::Empty, tag("ONLYMAXDIFF"))(s)
 }
 
 fn set_keyboard_string(s: &str) -> IResult<&str, AffixLine> {
@@ -307,6 +318,8 @@ fn line(s: &str) -> IResult<&str, AffixLine> {
         set_checksharps,
         add_affix("PFX", true),
         add_affix("SFX", false),
+        maxdiff,
+        onlymaxdiff,
         success(AffixLine::Empty),
     ))(s)
 }
