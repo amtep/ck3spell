@@ -1,5 +1,6 @@
 /// Parser for hunspell-format .aff files
 use anyhow::{bail, Result};
+use encoding::Encoding;
 use nom::branch::alt;
 use nom::bytes::complete::{tag, take_till1};
 use nom::character::complete::{char, one_of, satisfy, space0, space1, u32, u8};
@@ -346,11 +347,8 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
         });
         match afline {
             AffixLine::Empty => (),
-            AffixLine::SetEncoding(enc) => {
-                if enc != "UTF-8" {
-                    bail!(format!("Unsupported encoding {}", enc));
-                }
-            }
+            // Encoding was already handled when opening the file
+            AffixLine::SetEncoding(_) => (),
             AffixLine::SetFlagMode(fm) => d.flag_mode = fm,
             AffixLine::SetKeyboardString(k) => {
                 d.keyboard_string = Some(k.to_string());
@@ -422,6 +420,33 @@ pub fn parse_affix_data(s: &str) -> Result<AffixData> {
     }
     d.finalize();
     Ok(d)
+}
+
+pub fn determine_encoding(bytes: &[u8]) -> &'static dyn Encoding {
+    for line in bytes.split(|b| *b == b'\n') {
+        if line.starts_with(b"SET ") {
+            return match String::from_utf8_lossy(&line[4..]).trim() {
+                "UTF-8" => encoding::all::UTF_8,
+                "ISO8859-1" => encoding::all::ISO_8859_1,
+                "ISO8859-2" => encoding::all::ISO_8859_2,
+                "ISO8859-3" => encoding::all::ISO_8859_3,
+                "ISO8859-4" => encoding::all::ISO_8859_4,
+                "ISO8859-5" => encoding::all::ISO_8859_5,
+                "ISO8859-6" => encoding::all::ISO_8859_6,
+                "ISO8859-7" => encoding::all::ISO_8859_7,
+                "ISO8859-8" => encoding::all::ISO_8859_8,
+                "ISO8859-10" => encoding::all::ISO_8859_10,
+                "ISO8859-13" => encoding::all::ISO_8859_13,
+                "ISO8859-14" => encoding::all::ISO_8859_14,
+                "ISO8859-15" => encoding::all::ISO_8859_15,
+                "KOI8-R" => encoding::all::KOI8_R,
+                "KOI8-U" => encoding::all::KOI8_U,
+                "cp1251" => encoding::all::WINDOWS_1251,
+                _ => encoding::all::UTF_8,
+            };
+        }
+    }
+    encoding::all::UTF_8
 }
 
 #[cfg(test)]

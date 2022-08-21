@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use caseless::default_case_fold_str;
+use encoding::DecoderTrap;
 use fnv::FnvHashMap;
 use smallvec::SmallVec;
-use std::fs::{read_to_string, File, OpenOptions};
+use std::fs::{read, read_to_string, File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::str::CharIndices;
@@ -19,7 +20,7 @@ mod suggestions;
 mod wordflags;
 
 use crate::hunspell::affixdata::{AffixData, AffixFlag};
-use crate::hunspell::parse_aff::parse_affix_data;
+use crate::hunspell::parse_aff::{determine_encoding, parse_affix_data};
 use crate::hunspell::suggcollector::SuggCollector;
 use crate::hunspell::suggestions::{
     add_char_suggestions, capitalize_char_suggestions, delete_char_suggestions,
@@ -205,10 +206,16 @@ enum StrictMode {
 impl SpellerHunspellDict {
     /// Returns a Speller that uses a Hunspell-format dictionary and affix file.
     pub fn new(dictionary: &Path, affixes: &Path) -> Result<Self> {
-        let affixes_text = read_to_string(affixes)
+        let affixes_bytes = read(affixes)
             .map_err(anyhow::Error::from)
             .with_context(|| format!("Could not read affix data from {}", affixes.display()))?;
+        let encoding = determine_encoding(&affixes_bytes);
+        let affixes_text = encoding
+            .decode(&affixes_bytes, DecoderTrap::Strict)
+            .map_err(anyhow::Error::msg)
+            .with_context(|| format!("Could not read affix data from {}", affixes.display()))?;
         let affix_data = parse_affix_data(&affixes_text)?;
+
         let mut dict = SpellerHunspellDict {
             affix_data,
             user_dict: None,
@@ -216,8 +223,12 @@ impl SpellerHunspellDict {
             folded_words: FnvHashMap::default(),
         };
 
-        let dict_text = read_to_string(dictionary)
+        let dict_bytes = read(dictionary)
             .map_err(anyhow::Error::from)
+            .with_context(|| format!("Could not read words from {}", dictionary.display()))?;
+        let dict_text = encoding
+            .decode(&dict_bytes, DecoderTrap::Strict)
+            .map_err(anyhow::Error::msg)
             .with_context(|| format!("Could not read words from {}", dictionary.display()))?;
         // Skip the first line because it's just the number of words
         for line in dict_text.lines().skip(1) {
