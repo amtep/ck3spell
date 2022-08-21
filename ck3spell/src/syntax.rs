@@ -127,7 +127,7 @@ fn icon_tag(s: Span) -> IResult<Span, Span> {
 
 fn alternate_icon_tag(s: Span) -> IResult<Span, Span> {
     // This form of icon tags is used in some other games than CK3
-    delimited(char('£'), is_not("£"), char('£'))(s)
+    delimited(char('£'), is_not("£ "), one_of("£ "))(s)
 }
 
 fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
