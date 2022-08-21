@@ -287,6 +287,29 @@ fn language_portuguese() {
 }
 
 #[test]
+fn language_polish() {
+    let speller = load_speller("pl_PL");
+
+    assert!(speller.spellcheck("fotoelektron"));
+    assert!(speller.spellcheck("fotoelektronom")); // N
+    assert!(speller.spellcheck("fotoelektronu")); // Q
+    assert!(speller.spellcheck("fotoelektronowi")); // Q
+    assert!(speller.spellcheck("fotoelektronem")); // Q
+    assert!(speller.spellcheck("fotoelektronie")); // Q
+    assert!(speller.spellcheck("fotoelektrony")); // s
+    assert!(speller.spellcheck("fotoelektronów")); // T
+    assert!(speller.spellcheck("niedniujący"));
+    assert!(speller.spellcheck("niedniującego")); // X
+    assert!(speller.spellcheck("niedniującemu")); // X
+    assert!(speller.spellcheck("niedniującym")); // X
+    assert!(speller.spellcheck("niedniująca")); // x
+    assert!(speller.spellcheck("niedniującej")); // x
+    assert!(speller.spellcheck("Starogardzie"));
+
+    assert!(!speller.spellcheck("starogardzie"));
+}
+
+#[test]
 fn match_continuation_suffix() {
     let speller = load_speller("2sfx"); // test "flag" from hunspell
 
