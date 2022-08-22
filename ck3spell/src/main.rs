@@ -20,6 +20,7 @@ use speller::{Speller, SpellerHunspellDict};
 
 mod appcontroller;
 mod commands;
+mod custom;
 mod edit;
 mod editorcontroller;
 mod linelist;
@@ -28,6 +29,7 @@ mod syntax;
 mod syntaxhighlighter;
 mod ui;
 
+use crate::custom::CustomEndings;
 use crate::syntax::{parse_line, TokenType};
 use crate::ui::ui_builder;
 
@@ -90,6 +92,7 @@ pub struct LineInfo {
     bad_words: Rc<Vec<Range<usize>>>,
     highlight_word_nr: usize,
     speller: Rc<RefCell<dyn Speller>>, // Should be in Env but can't.
+    custom: Rc<CustomEndings>,         // Should be in Env but can't.
 }
 
 impl LineInfo {
@@ -141,10 +144,16 @@ pub struct FileState {
     filename: Rc<String>,
     lines: Arc<Vec<LineInfo>>,
     speller: Rc<RefCell<dyn Speller>>,
+    custom: Rc<CustomEndings>,
 }
 
 impl FileState {
-    fn new(pathname: &Path, contents: &str, speller: Rc<RefCell<dyn Speller>>) -> Self {
+    fn new(
+        pathname: &Path,
+        contents: &str,
+        speller: Rc<RefCell<dyn Speller>>,
+        custom: Rc<CustomEndings>,
+    ) -> Self {
         let filename = if let Some(name) = pathname.file_name() {
             name.to_string_lossy().to_string()
         } else {
@@ -153,8 +162,9 @@ impl FileState {
         FileState {
             pathname: Rc::new(pathname.to_path_buf()),
             filename: Rc::new(filename),
-            lines: Arc::new(split_lines(contents, &speller.clone())),
+            lines: Arc::new(split_lines(contents, &speller, &custom)),
             speller,
+            custom,
         }
     }
 
@@ -398,7 +408,11 @@ fn highlight_syntax(
     (text, Rc::new(bad_words))
 }
 
-fn split_lines(contents: &str, speller: &Rc<RefCell<dyn Speller>>) -> Vec<LineInfo> {
+fn split_lines(
+    contents: &str,
+    speller: &Rc<RefCell<dyn Speller>>,
+    custom: &Rc<CustomEndings>,
+) -> Vec<LineInfo> {
     let mut lines: Vec<LineInfo> = Vec::new();
     let mut line_iter = contents.split('\n').enumerate().peekable();
     while let Some((nr, line)) = line_iter.next() {
@@ -431,6 +445,7 @@ fn split_lines(contents: &str, speller: &Rc<RefCell<dyn Speller>>) -> Vec<LineIn
             bad_words: Rc::new(Vec::new()),
             highlight_word_nr: 0,
             speller: Rc::clone(speller),
+            custom: Rc::clone(custom),
         });
     }
     lines
@@ -482,6 +497,7 @@ fn load_file(
     pathname: &Path,
     local_dict: Option<&PathBuf>,
     dicts: &mut HashMap<String, Rc<RefCell<dyn Speller>>>,
+    customs: &mut HashMap<String, Rc<CustomEndings>>,
 ) -> Result<FileState> {
     let mut contents = std::fs::read_to_string(pathname)
         .with_context(|| format!("Could not read file {}", pathname.display()))?;
@@ -511,12 +527,18 @@ fn load_file(
         speller
     };
 
-    Ok(FileState::new(pathname, &contents, speller))
+    if !customs.contains_key(locale) {
+        customs.insert(locale.to_string(), Rc::new(CustomEndings::new(locale)));
+    }
+    let custom = customs[locale].clone();
+
+    Ok(FileState::new(pathname, &contents, speller, custom))
 }
 
 fn main() -> Result<()> {
     let args = Cli::parse();
     let mut dicts = HashMap::new();
+    let mut customs = HashMap::new();
     let mut files = Vec::new();
 
     // Heuristic. Does the shell that invoked us do its own globbing?
@@ -530,7 +552,7 @@ fn main() -> Result<()> {
                 glob(&pathname.to_string_lossy()).expect("could not understand filename pattern")
             {
                 match entry {
-                    Ok(path) => match load_file(&path, local_dict, &mut dicts) {
+                    Ok(path) => match load_file(&path, local_dict, &mut dicts, &mut customs) {
                         Ok(file) => files.push(file),
                         Err(err) => eprintln!("{:#}", err),
                     },
@@ -538,7 +560,7 @@ fn main() -> Result<()> {
                 }
             }
         } else {
-            match load_file(pathname, local_dict, &mut dicts) {
+            match load_file(pathname, local_dict, &mut dicts, &mut customs) {
                 Ok(file) => files.push(file),
                 Err(err) => eprintln!("{:#}", err),
             }

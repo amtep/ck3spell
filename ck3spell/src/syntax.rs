@@ -153,6 +153,8 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
             token(TokenType::Code, code_block),
             token(TokenType::IconTag, icon_tag),
             token(TokenType::IconTag, alternate_icon_tag),
+            // $$ is used to represent a single $ instead of a KeyReference
+            no_token(tag("$$")),
             token(
                 TokenType::KeyReference,
                 delimited(char('$'), is_not("$"), char('$')),
