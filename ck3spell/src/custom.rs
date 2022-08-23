@@ -21,6 +21,10 @@ impl CustomEndings {
         new
     }
 
+    pub fn check(&self, custom: &str) -> Option<&Vec<&'static str>> {
+        self.table.get(custom)
+    }
+
     fn load_strings(&mut self, text: &'static str) {
         for line in text.lines() {
             let mut iter = line.split(';');

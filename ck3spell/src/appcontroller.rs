@@ -31,7 +31,7 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                 let wordnr = data.cursor.wordnr;
                 if wordnr > 0 {
                     data.change_line(data.cursor.linenr, |lineinfo| {
-                        if let Some(range) = lineinfo.bad_words.get(wordnr - 1) {
+                        if let Some(range) = lineinfo.bad_words_range.get(wordnr - 1) {
                             let mut linetext = (*lineinfo.line.line).clone();
                             linetext.replace_range(range.clone(), word);
                             lineinfo.line.line = Rc::new(linetext);
@@ -60,7 +60,10 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
             } else if let Some(&linenr) = command.get(GOTO_LINE) {
                 let mut cursor = data.cursor;
                 cursor.linenr = linenr;
-                if !data.file.lines[cursor.linenr - 1].bad_words.is_empty() {
+                if !data.file.lines[cursor.linenr - 1]
+                    .bad_words_range
+                    .is_empty()
+                {
                     cursor.wordnr = 1;
                 } else {
                     cursor.wordnr = 0;

@@ -36,7 +36,7 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
                 }
                 self.background = cursor.linenr == data.line.line_nr;
             } else if command.is(DICTIONARY_UPDATED) {
-                if !data.bad_words.is_empty() {
+                if !data.bad_words_range.is_empty() {
                     force_update = true;
                 }
             } else if command.is(FILE_CHANGED) {

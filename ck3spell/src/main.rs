@@ -89,7 +89,11 @@ struct Line {
 pub struct LineInfo {
     line: Line,
     rendered: RichText,
-    bad_words: Rc<Vec<Range<usize>>>,
+    // For highlighting
+    bad_words_range: Rc<Vec<Range<usize>>>,
+    // For spellchecking and for displaying the word. Usually the same as the highlighted range,
+    // but can differ when custom endings are used.
+    bad_words_text: Rc<Vec<String>>,
     highlight_word_nr: usize,
     speller: Rc<RefCell<dyn Speller>>, // Should be in Env but can't.
     custom: Rc<CustomEndings>,         // Should be in Env but can't.
@@ -97,7 +101,7 @@ pub struct LineInfo {
 
 impl LineInfo {
     fn highlight(&mut self, env: &Env) {
-        (self.rendered, self.bad_words) = highlight_syntax(&self.line.line, env, &self.speller);
+        highlight_syntax(self, env);
         if let Some(range) = self.marked_word() {
             self.rendered
                 .add_attribute(range, Attribute::underline(true));
@@ -106,7 +110,9 @@ impl LineInfo {
 
     fn marked_word(&self) -> Option<Range<usize>> {
         if self.highlight_word_nr > 0 {
-            self.bad_words.get(self.highlight_word_nr - 1).cloned()
+            self.bad_words_range
+                .get(self.highlight_word_nr - 1)
+                .cloned()
         } else {
             None
         }
@@ -237,7 +243,7 @@ impl AppState {
             cursor.wordnr = 0;
             while cursor.linenr > 1 {
                 cursor.linenr -= 1;
-                let nwords = self.file.lines[cursor.linenr - 1].bad_words.len();
+                let nwords = self.file.lines[cursor.linenr - 1].bad_words_range.len();
                 if nwords > 0 {
                     cursor.wordnr = nwords;
                     break;
@@ -250,7 +256,7 @@ impl AppState {
 
     fn cursor_next(&mut self) {
         let mut cursor = self.cursor;
-        let nwords = self.file.lines[cursor.linenr - 1].bad_words.len();
+        let nwords = self.file.lines[cursor.linenr - 1].bad_words_range.len();
         let nlines = self.file.lines.len();
         if cursor.wordnr < nwords {
             cursor.wordnr += 1;
@@ -258,7 +264,7 @@ impl AppState {
             cursor.wordnr = 0;
             while cursor.linenr < nlines {
                 cursor.linenr += 1;
-                let nwords = self.file.lines[cursor.linenr - 1].bad_words.len();
+                let nwords = self.file.lines[cursor.linenr - 1].bad_words_range.len();
                 if nwords > 0 {
                     cursor.wordnr = 1;
                     break;
@@ -269,18 +275,13 @@ impl AppState {
         self.update_suggestions();
     }
 
-    fn cursor_word(&self) -> Option<&str> {
+    fn cursor_word(&self) -> Option<&String> {
         if self.cursor.wordnr == 0 {
             return None;
         }
-        if let Some(range) = self.file.lines[self.cursor.linenr - 1]
-            .bad_words
+        self.file.lines[self.cursor.linenr - 1]
+            .bad_words_text
             .get(self.cursor.wordnr - 1)
-        {
-            Some(&self.file.lines[self.cursor.linenr - 1].line.line[range.clone()])
-        } else {
-            None
-        }
     }
 
     fn update_cursor(&mut self, cursor: Cursor) {
@@ -374,13 +375,11 @@ fn locale_from_filename(pathname: &Path) -> Result<&str> {
     Err(anyhow!("Could not determine language from filename"))
 }
 
-fn highlight_syntax(
-    line: &Rc<String>,
-    env: &Env,
-    speller: &Rc<RefCell<dyn Speller>>,
-) -> (RichText, Rc<Vec<Range<usize>>>) {
+fn highlight_syntax(lineinfo: &mut LineInfo, env: &Env) {
+    let line = &lineinfo.line.line;
     let mut text = RichText::new((*line.as_str()).into());
-    let mut bad_words = Vec::new();
+    let mut bad_words_range = Vec::new();
+    let mut bad_words_text = Vec::new();
 
     for token in parse_line(line) {
         let mut color = match token.ttype {
@@ -397,15 +396,18 @@ fn highlight_syntax(
 
         if let TokenType::Word = token.ttype {
             let word = &line[token.range.clone()];
-            if word.chars().count() > 1 && !speller.borrow().spellcheck(word) {
+            if word.chars().count() > 1 && !lineinfo.speller.borrow().spellcheck(word) {
                 color = env.get(MISSPELLED_COLOR);
-                bad_words.push(token.range.clone());
+                bad_words_range.push(token.range.clone());
+                bad_words_text.push(lineinfo.line.line[token.range.clone()].to_string())
             }
         }
 
         text.add_attribute(token.range.clone(), Attribute::text_color(color));
     }
-    (text, Rc::new(bad_words))
+    lineinfo.rendered = text;
+    lineinfo.bad_words_range = Rc::new(bad_words_range);
+    lineinfo.bad_words_text = Rc::new(bad_words_text);
 }
 
 fn split_lines(
@@ -442,7 +444,8 @@ fn split_lines(
         lines.push(LineInfo {
             line: numbered_line,
             rendered: RichText::new("".into()),
-            bad_words: Rc::new(Vec::new()),
+            bad_words_range: Rc::new(Vec::new()),
+            bad_words_text: Rc::new(Vec::new()),
             highlight_word_nr: 0,
             speller: Rc::clone(speller),
             custom: Rc::clone(custom),
