@@ -1,0 +1,40 @@
+ES_AlAla;a la;al
+ES_AnAna;ana;án
+ES_CaballeroDama;dama;caballero
+ES_ConsorConcub;concubina;concubino
+ES_ConsorConcubOpp;concubina;concubino
+ES_DelDela;de la;del
+ES_DorTriz;triz;dor
+ES_EA;a;e
+ES_EAOpp;a;e
+ES_EEsa;esa;e
+ES_ElElla;ella;él
+ES_ElLa;la;el
+ES_EsposoEsposa;esposa;esposo
+ES_EsposoEsposaOpp;esposa;esposo
+ES_HeroeHeroina;heroína;héroe
+ES_HijoHija;hija;hijo
+ES_InIna;ina;ín
+ES_InoIna;ina;ino
+ES_LLla;lla;l
+ES_LeLa;la;le
+ES_LoLa;la;lo
+ES_LoLaOpp;la;lo
+ES_NnoNna;ña;ño
+ES_OA;a;o
+ES_OnOna;ona;ón
+ES_OnOnesa;onesa;ón
+ES_ReyReina;Reina;Rey
+ES_RleRla;la;le
+ES_SennorSennora;señora;señor
+ES_TaTisa;tisa;ta
+ES_TeTisa;tisa;te
+ES_XA;a;
+ES_XAOpp;a;o
+ES_XIssa;issa;
+ES_only_a_GetShortUIName;al ;al ;a la ;a la ;al ;al ;a la ;al 
+ES_only_al_GetTitledFirstName;al ;a la ;a la ;al ;al ;a la ;al 
+ES_only_de_GetShortUIName;del ;del ;de la ;de la ;del ;del ;de la ;del 
+ES_only_del_GetTitledFirstName;del ;de la ;de la ;del ;del ;de la ;del 
+ES_only_el_GetShortUIName;el ;la ;la ;el ;el ;la 
+ES_only_el_GetTitledFirstName;el ;la ;la ;el ;la ;la 

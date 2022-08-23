@@ -3,9 +3,9 @@ use nom::bytes::complete::{is_not, tag, take_until, take_while1};
 use nom::character::complete::{
     alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, satisfy, space0,
 };
-use nom::combinator::{eof, map, opt, peek, recognize, rest};
+use nom::combinator::{eof, map, not, opt, peek, recognize, rest};
 use nom::multi::{fold_many0, many0_count, separated_list1};
-use nom::sequence::{delimited, pair, preceded, separated_pair, tuple};
+use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
 use std::fmt::Debug;
@@ -22,6 +22,7 @@ pub enum TokenType {
     WordPart,
     Escape,
     Code,
+    Custom,
     Markup,
     IconTag,
 }
@@ -83,6 +84,10 @@ fn vec_pair<T>((v1, v2): (Vec<T>, Vec<T>)) -> Vec<T> {
     vec_add(v1, v2)
 }
 
+fn vec_triple<T>((v1, v2, v3): (Vec<T>, Vec<T>, Vec<T>)) -> Vec<T> {
+    vec_add(vec_add(v1, v2), v3)
+}
+
 fn comment(s: Span) -> IResult<Span, Span> {
     preceded(char('#'), rest)(s)
 }
@@ -132,25 +137,47 @@ fn alternate_icon_tag(s: Span) -> IResult<Span, Span> {
     delimited(char('£'), is_not("£ "), one_of("£ "))(s)
 }
 
+fn custom_tag(s: Span) -> IResult<Span, Span> {
+    alt((tag("Custom('"), tag("Custom2('")))(s)
+}
+
+fn code_upto_custom(s: Span) -> IResult<Span, Span> {
+    recognize(tuple((
+        char('['),
+        many0_count(terminated(none_of("]"), not(custom_tag))),
+        none_of("]"),
+        custom_tag,
+    )))(s)
+}
+
+fn custom_code(s: Span) -> IResult<Span, Vec<Token>> {
+    map(
+        tuple((
+            token(TokenType::Code, code_upto_custom),
+            token(TokenType::Custom, is_not("'")),
+            token(TokenType::Code, terminated(is_not("]"), char(']'))),
+        )),
+        vec_triple,
+    )(s)
+}
+
+fn code_tokens(s: Span) -> IResult<Span, Vec<Token>> {
+    alt((custom_code, token(TokenType::Code, code_block)))(s)
+}
+
 fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
     fold_many0(
         alt((
             map(
-                pair(
-                    token(TokenType::WordPart, word),
-                    token(TokenType::Code, code_block),
-                ),
+                pair(token(TokenType::WordPart, word), code_tokens),
                 vec_pair,
             ),
             map(
-                pair(
-                    token(TokenType::Code, code_block),
-                    token(TokenType::WordPart, word),
-                ),
+                pair(code_tokens, token(TokenType::WordPart, word)),
                 vec_pair,
             ),
             token(TokenType::Word, word),
-            token(TokenType::Code, code_block),
+            code_tokens,
             token(TokenType::IconTag, icon_tag),
             token(TokenType::IconTag, alternate_icon_tag),
             // $$ is used to represent a single $ instead of a KeyReference
@@ -278,5 +305,24 @@ mod test {
         assert_eq!(10..14, tokens[2].range);
         assert_eq!(TokenType::Markup, tokens[3].ttype);
         assert_eq!(14..17, tokens[3].range);
+    }
+
+    #[test]
+    fn test_custom_code() {
+        let txt = r#" key: "ami[bg_opponent.Custom('FR_E')]""#;
+
+        let tokens = parse_line(&txt);
+
+        assert_eq!(5, tokens.len());
+        assert_eq!(TokenType::LocKey, tokens[0].ttype);
+        assert_eq!(TokenType::WordPart, tokens[1].ttype);
+        assert_eq!(TokenType::Code, tokens[2].ttype);
+        assert_eq!(TokenType::Custom, tokens[3].ttype);
+        assert_eq!(TokenType::Code, tokens[4].ttype);
+        assert_eq!(1..5, tokens[0].range);
+        assert_eq!(7..10, tokens[1].range);
+        assert_eq!(10..31, tokens[2].range);
+        assert_eq!(31..35, tokens[3].range);
+        assert_eq!(35..38, tokens[4].range);
     }
 }

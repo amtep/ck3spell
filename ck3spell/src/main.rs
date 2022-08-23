@@ -50,6 +50,7 @@ const LOC_KEY_COLOR: Key<Color> = Key::new("ck3spell.loc-key-color");
 const WORD_COLOR: Key<Color> = Key::new("ck3spell.word-color");
 const MISSPELLED_COLOR: Key<Color> = Key::new("ck3spell.misspelled-color");
 const CODE_COLOR: Key<Color> = Key::new("ck3spell.code-color");
+const CUSTOM_COLOR: Key<Color> = Key::new("ck3spell.custom-color");
 const KEYWORD_COLOR: Key<Color> = Key::new("ck3spell.keyword-color");
 const ESCAPE_COLOR: Key<Color> = Key::new("ck3spell.escape-color");
 const COMMENT_COLOR: Key<Color> = Key::new("ck3spell.comment-color");
@@ -381,7 +382,10 @@ fn highlight_syntax(lineinfo: &mut LineInfo, env: &Env) {
     let mut bad_words_range = Vec::new();
     let mut bad_words_text = Vec::new();
 
-    for token in parse_line(line) {
+    let tokens = parse_line(line);
+    for i in 0..tokens.len() {
+        let token = &tokens[i];
+
         let mut color = match token.ttype {
             TokenType::Comment => env.get(COMMENT_COLOR),
             TokenType::LocKey => env.get(LOC_KEY_COLOR),
@@ -390,11 +394,35 @@ fn highlight_syntax(lineinfo: &mut LineInfo, env: &Env) {
             TokenType::WordPart => env.get(WORD_COLOR),
             TokenType::Escape => env.get(ESCAPE_COLOR),
             TokenType::Code => env.get(CODE_COLOR),
+            TokenType::Custom => env.get(CUSTOM_COLOR),
             TokenType::Markup => env.get(MARKUP_COLOR),
             TokenType::IconTag => env.get(ICON_TAG_COLOR),
         };
 
-        if let TokenType::Word = token.ttype {
+        if let TokenType::WordPart = token.ttype {
+            // Look for a sequence WordPart, Code, Custom, Code (the last Code
+            // is not checked), where the WordPart directly borders the Code.
+            // For example: meilleur[bg_opponent.Custom('FR_E')]
+            //              ^^^^^^^^ WordPart            ^^^^ Custom
+            if i + 2 < tokens.len()
+                && tokens[i + 2].ttype == TokenType::Custom
+                && tokens[i + 1].ttype == TokenType::Code
+                && token.range.end == tokens[i + 1].range.start
+            {
+                let custom = &line[tokens[i + 2].range.clone()];
+                if let Some(endings) = lineinfo.custom.check(custom) {
+                    for ending in endings {
+                        let word = line[token.range.clone()].to_string() + ending;
+                        if !lineinfo.speller.borrow().spellcheck(&word) {
+                            color = env.get(MISSPELLED_COLOR);
+                            bad_words_range.push(token.range.clone());
+                            bad_words_text.push(word);
+                            break;
+                        }
+                    }
+                }
+            }
+        } else if let TokenType::Word = token.ttype {
             let word = &line[token.range.clone()];
             if word.chars().count() > 1 && !lineinfo.speller.borrow().spellcheck(word) {
                 color = env.get(MISSPELLED_COLOR);
@@ -586,6 +614,7 @@ fn main() -> Result<()> {
             env.set(WORD_COLOR, Color::rgb8(0xFF, 0xFF, 0xFF));
             env.set(MISSPELLED_COLOR, Color::rgb8(0xFF, 0x40, 0x40));
             env.set(CODE_COLOR, Color::rgb8(0x60, 0x60, 0xFF));
+            env.set(CUSTOM_COLOR, Color::rgb8(0x80, 0x80, 0xFF));
             env.set(KEYWORD_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
             env.set(ESCAPE_COLOR, Color::rgb8(0xc0, 0xa0, 0x00));
             env.set(COMMENT_COLOR, Color::rgb8(0xc0, 0xa0, 0x50));
