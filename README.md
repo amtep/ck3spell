@@ -1,7 +1,7 @@
 # ck3spell
 Spelling checker for Crusader Kings 3 localization files.
 
-It also works for Imperator: Rome.
+It also works for Imperator: Rome, Stellaris, Hearts of Iron 4, and Europa Universalis 4.
 
 ## Purpose
 Localization files for CK3 (Crusader Kings 3) contain the text presented to the user for all the UI elements, in-game events and decisions, etc.
@@ -15,8 +15,9 @@ Because of that need, the localization texts often contain small blocks of code,
 
 ## Features
 * Colors the localization strings to make the user-visible parts easy to recognize
-* Uses the correct language from the supported languages for CK3
+* Detects the language and supports all languages supported by Paradox
 * Can add words to a permanent local dictionary
+* Understands the custom word endings used in french, german, and spanish localizations (CK3 only)
 
 ## Dependencies
 `ck3spell` uses `hunspell` dictionaries but not the `hunspell` library.
@@ -31,8 +32,10 @@ The dictionaries are also bundled in the `.tar.gz` release archive, so you only 
 * Spanish: `hunspell-es`
 * French: `hunspell-fr`
 * Russian: `hunspell-ru`
+* Portuguese: `hunspell-pt-br`
+* Polish: `hunspell-pl`
 
-`sudo apt install hunspell-en-us hunspell-de-de hunspell-es hunspell-fr hunspell-ru`
+`sudo apt install hunspell-en-us hunspell-de-de hunspell-es hunspell-fr hunspell-ru hunspell-pt-br hunspell-pl`
 
 ### Windows
 All the necessary dictionaries are bundled in the `.zip` release archive. As long as you keep them together with the `ck3spell.exe` file, `ck3spell` will find them and use them.
@@ -84,4 +87,3 @@ The name `ck3spell.list` can be any filename you like.
 * Support Korean and Chinese.
 * Check words that are part text and part code. Such combination words are important for some languages which use bits of code to get the word endings right. (For example 'luchador'/'luchadora' in Spanish.)
 * Support installation and dictionary bundling on Mac.
-* Support spellchecking of Imperator:Rome, Hearts of Iron 4, Europa Universalis 4, and Stellaris mods too. Their localization files are very similar.
