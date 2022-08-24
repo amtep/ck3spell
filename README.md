@@ -15,7 +15,7 @@ Because of that need, the localization texts often contain small blocks of code,
 
 ## Features
 * Colors the localization strings to make the user-visible parts easy to recognize
-* Detects the language and supports all languages supported by Paradox
+* Detects the language and supports all languages supported by Paradox except Korean and Chinese
 * Can add words to a permanent local dictionary
 * Understands the custom word endings used in french, german, and spanish localizations (CK3 only)
 
@@ -85,5 +85,4 @@ The name `ck3spell.list` can be any filename you like.
 
 ## TODO
 * Support Korean and Chinese.
-* Check words that are part text and part code. Such combination words are important for some languages which use bits of code to get the word endings right. (For example 'luchador'/'luchadora' in Spanish.)
 * Support installation and dictionary bundling on Mac.
