@@ -1,0 +1,60 @@
+FR_AinIne;ine;ain
+FR_AlAla;à la ;à l’
+FR_AuAla;à la;au
+FR_AuxAles;ales;aux
+FR_CeluiCelle;celle;celui
+FR_DDe;de ;d’
+FR_DuDela;de la;du
+FR_E;e;
+FR_EEsse;esse;e
+FR_EEtte;ette;e
+FR_EOpp;;e
+FR_EauElle;elle;eau
+FR_EauxElles;elles;eaux
+FR_EfEve;ève;ef
+FR_EluiElle;’elle;e lui
+FR_EpouxEpouse;épouse;époux
+FR_EpouxEpouseOpp;époux;épouse
+FR_ErEre;ère;er
+FR_Eresse;eresse;
+FR_Es;es;
+FR_EtEte;ète;et
+FR_EtEtte;ette;et
+FR_EteEtesse;étesse;ète
+FR_EurEresse;eresse;eur
+FR_EurRice;rice;eur
+FR_EuxElles;elles;eux
+FR_FVe;ve;f
+FR_GarconFille;fille;garçon
+FR_He;he;
+FR_Hesse;hesse;
+FR_IeuxIeille;ieille;ieux
+FR_IlElle;elle;il
+FR_IlsElles;elles;ils
+FR_LLa;la ;l’
+FR_LLle;lle;l
+FR_LeLa;la;le
+FR_LeLaOpp;le;la
+FR_LuiElle;elle;lui
+FR_MonseigneurMadame;madame;monseigneur
+FR_NNne;nne;n
+FR_OnA;a;on
+FR_OnAOpp;on;a
+FR_OuOlle;olle;ou
+FR_PaternelMaternel;maternel;paternel
+FR_RSe;se;r
+FR_SEs;es;s
+FR_SSse;sse;s
+FR_STes;tes;s
+FR_SeigneurDame;dame;seigneur
+FR_ServiteurServante;servante;serviteur
+FR_SieurDame;dame;sieur
+FR_SilSielle;si elle;s’il
+FR_SilsSielles;si elles;s’ils
+FR_TTte;tte;t
+FR_Te;te;
+FR_XCe;ce;x
+FR_XSe;se;x
+FR_XSeOpp;x;se
+FR_XSes;ses;x
+FR_XSse;sse;x

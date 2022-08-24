@@ -7,6 +7,7 @@ pub struct CustomEndings {
 
 const CUSTOM_DE: &str = include_str!("../assets/custom_DE.txt");
 const CUSTOM_ES: &str = include_str!("../assets/custom_ES.txt");
+const CUSTOM_FR: &str = include_str!("../assets/custom_FR.txt");
 
 impl CustomEndings {
     pub fn new(locale: &str) -> Self {
@@ -16,6 +17,7 @@ impl CustomEndings {
         match locale {
             "de_DE" => new.load_strings(CUSTOM_DE),
             "es_ES" => new.load_strings(CUSTOM_ES),
+            "fr_FR" => new.load_strings(CUSTOM_FR),
             _ => (),
         }
         new
@@ -53,5 +55,11 @@ mod test {
     fn test_loaded_es() {
         let custom = CustomEndings::new("es_ES");
         assert_eq!(Some(&vec!["a", ""]), custom.table.get("ES_XA"));
+    }
+
+    #[test]
+    fn test_loaded_fr() {
+        let custom = CustomEndings::new("fr_FR");
+        assert_eq!(Some(&vec!["ette", "et"]), custom.table.get("FR_EtEtte"));
     }
 }
