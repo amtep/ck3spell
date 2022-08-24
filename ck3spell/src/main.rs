@@ -285,6 +285,23 @@ impl AppState {
             .get(self.cursor.wordnr - 1)
     }
 
+    // If the cursor word is from a WordPart + Custom, then the Custom part is fixed
+    // and can't be changed by suggestions. This is a helper function for dealing with that.
+    fn cursor_word_fixed_suffix(&self) -> Option<String> {
+        if let Some(word) = self.cursor_word() {
+            // These indexes are safe because cursor_word() succeeded so there's a word there.
+            let lineinfo = &self.file.lines[self.cursor.linenr - 1];
+            let range = &lineinfo.bad_words_range[self.cursor.wordnr - 1];
+            let wordpart = &lineinfo.line.line[range.clone()];
+            if let Some(suffix) = word.strip_prefix(wordpart) {
+                if !suffix.is_empty() {
+                    return Some(suffix.to_string());
+                }
+            }
+        }
+        None
+    }
+
     fn update_cursor(&mut self, cursor: Cursor) {
         if self.cursor.linenr != cursor.linenr {
             self.change_line(self.cursor.linenr, |lineinfo| {
@@ -299,12 +316,20 @@ impl AppState {
 
     fn update_suggestions(&mut self) {
         self.suggestions = if let Some(word) = self.cursor_word() {
+            let opt_suffix = self.cursor_word_fixed_suffix();
             Arc::new(
                 self.file
                     .speller
                     .borrow()
                     .suggestions(word, 9)
                     .iter()
+                    .filter(|s| {
+                        if let Some(suffix) = &opt_suffix {
+                            s.ends_with(suffix)
+                        } else {
+                            true
+                        }
+                    })
                     .take(9)
                     .enumerate()
                     .map(|(i, s)| Suggestion {

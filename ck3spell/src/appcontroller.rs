@@ -28,6 +28,12 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
         }
         if let Event::Command(command) = event {
             if let Some(word) = command.get(APPLY_SUGGESTION) {
+                let mut word: &str = word;
+                if let Some(suffix) = data.cursor_word_fixed_suffix() {
+                    if let Some(stripped) = word.strip_suffix(&suffix) {
+                        word = stripped;
+                    }
+                }
                 let wordnr = data.cursor.wordnr;
                 if wordnr > 0 {
                     data.change_line(data.cursor.linenr, |lineinfo| {
