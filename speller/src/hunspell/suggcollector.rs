@@ -35,6 +35,7 @@ impl<'a> SuggCollector<'a> {
         }
     }
 
+    #[allow(dead_code)] // This function is useful when debugging
     pub fn len(&self) -> usize {
         self.suggs.len()
     }
