@@ -25,8 +25,8 @@ use crate::hunspell::suggcollector::SuggCollector;
 use crate::hunspell::suggestions::{
     add_char_suggestions, capitalize_char_suggestions, delete_char_suggestions,
     delete_doubled_pair_suggestions, delins_suggestions, move_char_suggestions, ngram_suggestions,
-    related_char_suggestions, split_word_suggestions, split_word_with_dash_suggestions,
-    swap_char_suggestions, wrong_key_suggestions,
+    related_char_suggestions, replace_char_suggestions, split_word_suggestions,
+    split_word_with_dash_suggestions, swap_char_suggestions, wrong_key_suggestions,
 };
 use crate::hunspell::wordflags::WordFlags;
 use crate::Speller;
@@ -685,6 +685,7 @@ impl SpellerHunspellDict {
 
         if let Some(try_chars) = &self.affix_data.try_string {
             add_char_suggestions(word, try_chars, &mut collector);
+            replace_char_suggestions(word, try_chars, &mut collector);
         }
 
         move_char_suggestions(word, &mut collector);

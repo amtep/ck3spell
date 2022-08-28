@@ -459,6 +459,17 @@ fn suggest_long_move() {
 }
 
 #[test]
+fn suggest_replace_char() {
+    let speller = load_speller("suggest-replace");
+
+    // Make sure the suggestion from earlier in the TRY string comes first.
+    assert_eq!(
+        vec!["permanent", "permenent", "pxrmxnent"],
+        speller.suggestions("permxnent", 3)
+    );
+}
+
+#[test]
 fn suggest_delete_char() {
     let speller = load_speller("en_US");
 

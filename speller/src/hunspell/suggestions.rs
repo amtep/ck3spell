@@ -214,6 +214,30 @@ pub fn add_char_suggestions(word: &str, try_chars: &str, collector: &mut SuggCol
     }
 }
 
+/// Try replacing each char with any of the chars from the TRY string.
+/// (This overlaps a lot with wrong_key_suggestions; do we really need both?)
+pub fn replace_char_suggestions(word: &str, try_chars: &str, collector: &mut SuggCollector) {
+    collector.new_source("replace_char");
+    let mut sugg = String::with_capacity(word.len() + 3);
+
+    for tc in try_chars.chars() {
+        if tc == '-' {
+            // Dashes are tried separately with special logic
+            continue;
+        }
+        for (i, c) in word.char_indices() {
+            sugg.clear();
+            sugg.push_str(&word[..i]);
+            sugg.push(tc);
+            sugg.push_str(&word[i + c.len_utf8()..]);
+            collector.suggest(&sugg);
+            if collector.limit() {
+                return;
+            }
+        }
+    }
+}
+
 /// `keyboard` contains a |-separated list of horizontally adjacent keys.
 /// This information will be used to generate suggestions, on the basis
 /// that the user may have hit an adjacent key instead of the right one.
