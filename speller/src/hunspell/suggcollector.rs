@@ -35,6 +35,10 @@ impl<'a> SuggCollector<'a> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.suggs.len()
+    }
+
     pub fn set_limit(&mut self, reserve: usize) {
         self.limit = min(self.suggs.len() + reserve, self.max);
     }

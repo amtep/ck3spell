@@ -709,10 +709,12 @@ impl SpellerHunspellDict {
         // corrections didn't produce any usable suggestions.
         if !has_good {
             // Re-use MAXNGRAMSUGGS to limit delins suggestions too.
-            collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
+            let divided_max = (usize::from(self.affix_data.max_ngram_suggestions) + 1) / 2;
+
+            collector.set_limit(divided_max);
             delins_suggestions(word, self, &mut collector);
 
-            collector.set_limit(self.affix_data.max_ngram_suggestions as usize);
+            collector.set_limit(divided_max);
             ngram_suggestions(word, self, &mut collector);
 
             collector.set_limit(max);
