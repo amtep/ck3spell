@@ -137,6 +137,11 @@ fn alternate_icon_tag(s: Span) -> IResult<Span, Span> {
     delimited(char('£'), is_not("£ "), one_of("£ "))(s)
 }
 
+// Markup can be of the form #high;bold if you really want
+fn markup(s: Span) -> IResult<Span, Span> {
+    recognize(separated_list1(char(';'), alpha1))(s)
+}
+
 fn custom_tag(s: Span) -> IResult<Span, Span> {
     alt((tag("Custom('"), tag("Custom2('")))(s)
 }
@@ -189,7 +194,7 @@ fn loc_value(s: Span) -> IResult<Span, Vec<Token>> {
             token(TokenType::Escape, preceded(char('\\'), anychar)),
             token(
                 TokenType::Markup,
-                preceded(char('#'), alt((tag("!"), alpha1))),
+                preceded(char('#'), alt((tag("!"), markup))),
             ),
             // Alternate markup syntax, for Stellaris, EU4, HOI4
             token(TokenType::Markup, alternate_format_code),
@@ -324,5 +329,22 @@ mod test {
         assert_eq!(10..31, tokens[2].range);
         assert_eq!(31..35, tokens[3].range);
         assert_eq!(35..38, tokens[4].range);
+    }
+
+    #[test]
+    fn test_combined_markup() {
+        let txt = r##" key: "#high;bold word #!""##;
+
+        let tokens = parse_line(&txt);
+
+        assert_eq!(4, tokens.len());
+        assert_eq!(TokenType::LocKey, tokens[0].ttype);
+        assert_eq!(TokenType::Markup, tokens[1].ttype);
+        assert_eq!(TokenType::Word, tokens[2].ttype);
+        assert_eq!(TokenType::Markup, tokens[3].ttype);
+        assert_eq!(1..5, tokens[0].range);
+        assert_eq!(7..17, tokens[1].range);
+        assert_eq!(18..22, tokens[2].range);
+        assert_eq!(23..25, tokens[3].range);
     }
 }
