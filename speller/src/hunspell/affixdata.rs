@@ -253,7 +253,6 @@ impl AffixData {
                     | WordFlags::NeedAffix,
             ) {
                 suggest(root);
-                break;
             }
 
             for pfx in &self.prefixes {
