@@ -1595,6 +1595,7 @@ dependencies = [
  "fnv",
  "itertools",
  "nom",
+ "rayon",
  "smallvec",
  "unicode-casing",
  "unicode_titlecase",

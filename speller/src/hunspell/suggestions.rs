@@ -1,5 +1,6 @@
 use fnv::FnvHashSet;
 use itertools::Itertools;
+use rayon::prelude::*;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::mem::swap;
@@ -333,37 +334,36 @@ pub fn ngram_suggestions(word: &str, dict: &SpellerHunspellDict, collector: &mut
         }
     }
 
-    let mut rootheap: BinaryHeap<HeapItem<&str>> = BinaryHeap::with_capacity(MAX_NGRAM_ROOTS);
     let wvec = word.chars().collect::<Vec<char>>();
 
-    'outer: for (root, homonyms) in &dict.words {
-        for winfo in homonyms.iter() {
-            if winfo
-                .word_flags
-                .intersects(WordFlags::Forbidden | WordFlags::NoSuggest | WordFlags::OnlyInCompound)
-            {
-                continue 'outer;
+    let mut rootscores: Vec<HeapItem<&String>> = dict
+        .words
+        .par_iter()
+        .filter_map(|(root, homonyms)| {
+            for winfo in homonyms.iter() {
+                if winfo.word_flags.intersects(
+                    WordFlags::Forbidden | WordFlags::NoSuggest | WordFlags::OnlyInCompound,
+                ) {
+                    return None;
+                }
             }
-        }
 
-        let rvec = root.chars().collect::<Vec<char>>();
-        if rvec.len() > wvec.len() + 2 {
-            continue;
-        }
-        let score = ngram(3, &wvec, &rvec);
-        if rootheap.len() == MAX_NGRAM_ROOTS && score > rootheap.peek().unwrap().score {
-            rootheap.pop();
-        }
-        if rootheap.len() < MAX_NGRAM_ROOTS {
-            rootheap.push(HeapItem { word: root, score });
-        }
-    }
+            let rvec = root.chars().collect::<Vec<char>>();
+            if rvec.len() > wvec.len() + 2 {
+                return None;
+            }
+            let score = ngram(3, &wvec, &rvec);
+            Some(HeapItem { word: root, score })
+        })
+        .collect();
+    rootscores.par_sort_unstable();
+    rootscores.truncate(MAX_NGRAM_ROOTS);
 
     // Heuristic minimum score, to discard bad suggestions
     let heuristic = ngram(1, &wvec, &wvec);
     let mut suggheap: BinaryHeap<HeapItem<String>> = BinaryHeap::with_capacity(MAX_NGRAM_SUGG);
     let mut uniq: FnvHashSet<String> = FnvHashSet::default();
-    for HeapItem { word: root, .. } in rootheap.into_vec() {
+    for HeapItem { word: root, .. } in rootscores {
         dict.affix_data
             .generate_words_from_root(root, dict, |sugg| {
                 if uniq.contains(sugg) {
