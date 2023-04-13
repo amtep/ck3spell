@@ -243,7 +243,6 @@ impl AffixData {
         dict: &SpellerHunspellDict,
         mut suggest: impl FnMut(&str),
     ) {
-        let caps = CapStyle::from_str(root);
         for winfo in dict.word_iter(root) {
             // First try the root itself.
             if !winfo.word_flags.intersects(
@@ -257,13 +256,13 @@ impl AffixData {
 
             for pfx in &self.prefixes {
                 if winfo.has_affix_flag(pfx.flag) {
-                    pfx.try_prefix(root, winfo, caps, dict, &mut suggest);
+                    pfx.try_prefix(root, winfo, dict, &mut suggest);
                 }
             }
 
             for sfx in &self.suffixes {
                 if winfo.has_affix_flag(sfx.flag) {
-                    sfx.try_suffix(root, winfo, caps, dict, &mut suggest, false);
+                    sfx.try_suffix(root, dict, &mut suggest, false);
                 }
             }
         }
@@ -501,7 +500,6 @@ impl AffixEntry {
         &self,
         root: &str,
         winfo: &WordInfo,
-        caps: CapStyle,
         dict: &SpellerHunspellDict,
         suggest: &mut impl FnMut(&str),
     ) {
@@ -517,7 +515,7 @@ impl AffixEntry {
             if self.allow_cross {
                 for sfx in &dict.affix_data.suffixes {
                     if winfo.has_affix_flag(sfx.flag) {
-                        sfx.try_suffix(&word, winfo, caps, dict, suggest, false);
+                        sfx.try_suffix(&word, dict, suggest, false);
                     }
                 }
             }
@@ -527,8 +525,6 @@ impl AffixEntry {
     fn try_suffix(
         &self,
         root: &str,
-        winfo: &WordInfo,
-        caps: CapStyle,
         dict: &SpellerHunspellDict,
         suggest: &mut impl FnMut(&str),
         from_suffix: bool,
@@ -545,7 +541,7 @@ impl AffixEntry {
             if !from_suffix && !self.contflags.affix_flags.is_empty() {
                 for sfx2 in &dict.affix_data.suffixes {
                     if self.contflags.affix_flags.contains(&sfx2.flag) {
-                        sfx2.try_suffix(&word, winfo, caps, dict, suggest, false);
+                        sfx2.try_suffix(&word, dict, suggest, false);
                     }
                 }
             }
