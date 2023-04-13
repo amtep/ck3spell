@@ -120,7 +120,7 @@ impl<T: ListIter<LineInfo>> Widget<T> for LineList {
             };
 
             let child_pos = Point::new(0.0, pos);
-            child.set_origin(ctx, child_data, env, child_pos);
+            child.set_origin(ctx, child_pos);
             paint_rect = paint_rect.union(child.paint_rect());
             width = width.max(child_size.width);
             pos += child_size.height;

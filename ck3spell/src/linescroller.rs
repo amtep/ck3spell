@@ -35,7 +35,7 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
                     region.x1,
                     centerline + port_pad,
                 );
-                let moved = self.scroll.widget_mut().scroll_to(rect);
+                let moved = self.scroll.widget_mut().scroll_to(ctx, rect);
                 ctx.set_handled();
                 if moved {
                     ctx.request_paint();
@@ -75,7 +75,7 @@ impl<W: Widget<AppState>> Widget<AppState> for LineScroller<W> {
     ) -> Size {
         bc.debug_check("LineScroller");
         let size = self.scroll.layout(ctx, bc, data, env);
-        self.scroll.set_origin(ctx, data, env, Point::ZERO);
+        self.scroll.set_origin(ctx, Point::ZERO);
         size
     }
 

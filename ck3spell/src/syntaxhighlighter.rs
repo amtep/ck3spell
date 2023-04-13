@@ -72,7 +72,7 @@ impl<W: Widget<LineInfo>> Widget<LineInfo> for SyntaxHighlighter<W> {
     ) -> Size {
         bc.debug_check("SyntaxHighlighter");
         let size = self.child.layout(ctx, bc, data, env);
-        self.child.set_origin(ctx, data, env, Point::ZERO);
+        self.child.set_origin(ctx, Point::ZERO);
         size
     }
 
