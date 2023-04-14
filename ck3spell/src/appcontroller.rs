@@ -7,8 +7,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::commands::{
-    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_CHANGED, CURSOR_NEXT, CURSOR_PREV,
-    DICTIONARY_UPDATED, EDIT_LINE, FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
+    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CLOSE_GOOD_FILES, CURSOR_CHANGED, CURSOR_NEXT,
+    CURSOR_PREV, DICTIONARY_UPDATED, EDIT_LINE, FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
 };
 use crate::AppState;
 
@@ -106,6 +106,11 @@ impl<W: Widget<AppState>> Controller<AppState, W> for AppController {
                 } else {
                     data.drop_file();
                     ctx.submit_command(FILE_CHANGED);
+                }
+            } else if command.is(CLOSE_GOOD_FILES) {
+                if data.file.is_clean() {
+                    ctx.submit_command(SAVE_AND_CLOSE);
+                    ctx.submit_command(CLOSE_GOOD_FILES);
                 }
             } else if command.is(CURSOR_PREV) {
                 data.cursor_prev();

@@ -185,6 +185,12 @@ impl FileState {
         }
         Ok(())
     }
+
+    fn is_clean(&self) -> bool {
+        self.lines
+            .iter()
+            .all(|lineinfo| lineinfo.bad_words_range.is_empty())
+    }
 }
 
 #[derive(Clone, Data, Lens)]

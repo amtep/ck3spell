@@ -25,4 +25,7 @@ pub const CURSOR_PREV: Selector = Selector::new("cursor_prev");
 pub const EDIT_LINE: Selector = Selector::new("edit_line");
 pub const SAVE_AND_CLOSE: Selector = Selector::new("save_and_close");
 
+// Non-hotkey buttons
+pub const CLOSE_GOOD_FILES: Selector = Selector::new("close_good_files");
+
 pub const EDIT_TEXT_AT: Selector<usize> = Selector::new("edit_text_at");

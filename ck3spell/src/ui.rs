@@ -6,8 +6,8 @@ use druid::{Color, Command, Target, WidgetExt};
 
 use crate::appcontroller::AppController;
 use crate::commands::{
-    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CURSOR_NEXT, CURSOR_PREV, EDIT_LINE, FILE_CHANGED,
-    GOTO_LINE, SAVE_AND_CLOSE,
+    ACCEPT_WORD, APPLY_EDIT, APPLY_SUGGESTION, CLOSE_GOOD_FILES, CURSOR_NEXT, CURSOR_PREV,
+    EDIT_LINE, FILE_CHANGED, GOTO_LINE, SAVE_AND_CLOSE,
 };
 use crate::edit::EditLineBox;
 use crate::editorcontroller::EditorController;
@@ -87,16 +87,25 @@ fn buttons_builder() -> impl Widget<AppState> {
     let save = Button::new("Save and [C]lose").on_click(|ctx, _, _| {
         ctx.submit_command(SAVE_AND_CLOSE);
     });
-    Flex::row()
-        .with_child(prev)
-        .with_default_spacer()
-        .with_child(next)
-        .with_default_spacer()
-        .with_child(accept)
-        .with_default_spacer()
-        .with_child(edit)
-        .with_default_spacer()
-        .with_child(save)
+    let close_good = Button::new("Close good files")
+        .on_click(|ctx, _, _| {
+            ctx.submit_command(CLOSE_GOOD_FILES);
+        })
+        .disabled_if(|data: &AppState, _| !data.file.is_clean());
+    Flex::column()
+        .with_child(
+            Flex::row()
+                .with_child(prev)
+                .with_default_spacer()
+                .with_child(next)
+                .with_default_spacer()
+                .with_child(accept)
+                .with_default_spacer()
+                .with_child(edit)
+                .with_default_spacer()
+                .with_child(save),
+        )
+        .with_child(Flex::row().with_child(close_good))
 }
 
 fn make_suggestion() -> impl Widget<Suggestion> {
