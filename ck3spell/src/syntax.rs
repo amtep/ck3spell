@@ -1,15 +1,16 @@
 use nom::branch::alt;
-use nom::bytes::complete::{is_not, tag, take_until, take_while1};
+use nom::bytes::complete::{is_not, tag, take_until, take_while, take_while1};
 use nom::character::complete::{
     alpha1, alphanumeric1, anychar, char, digit0, none_of, one_of, satisfy, space0,
 };
 use nom::combinator::{eof, map, not, opt, peek, recognize, rest};
-use nom::multi::{fold_many0, many0_count, separated_list1};
+use nom::multi::{fold_many0, many0_count, many1_count, separated_list1};
 use nom::sequence::{delimited, pair, preceded, separated_pair, terminated, tuple};
 use nom::{Finish, IResult};
 use nom_locate::{position, LocatedSpan};
 use std::fmt::Debug;
 use std::ops::Range;
+use unicode_categories::UnicodeCategories;
 
 type Span<'a> = LocatedSpan<&'a str>;
 
@@ -119,7 +120,10 @@ fn word(s: Span) -> IResult<Span, Span> {
     // U+2019 is the unicode apostrophe
     recognize(separated_list1(
         one_of("-'\u{2019}"),
-        take_while1(char::is_alphanumeric),
+        many1_count(pair(
+            take_while1(char::is_alphanumeric),
+            take_while(char::is_mark),
+        )),
     ))(s)
 }
 
