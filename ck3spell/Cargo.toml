@@ -1,6 +1,6 @@
 [package]
 name = "ck3spell"
-version = "1.2.2"
+version = "1.2.3"
 edition = "2021"
 
 authors = ["Richard Braakman <shuttlegit@gmail.com>"]
@@ -12,10 +12,10 @@ license = "gpl-3.0-or-later"
 speller = { version = "0.1.0", path = "../speller" }
 
 anyhow = "1.0"
-clap = { version = "3.2.12", features = ["derive"] }
+clap = { version = "4.3.17", features = ["derive"] }
 druid = { git = "https://github.com/linebender/druid.git" }
 fnv = "1"
-nu-glob = "0.66"
+nu-glob = "0.82"
 home = "0.5"
 nom = "7"
 nom_locate = "4"

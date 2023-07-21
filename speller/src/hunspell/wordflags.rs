@@ -3,7 +3,7 @@
 use bitflags::bitflags;
 
 bitflags! {
-    #[derive(Default)]
+    #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
     pub struct WordFlags: u16 {
         /// This word must not be accepted as good.
         const Forbidden = 0x0001;
