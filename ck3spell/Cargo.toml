@@ -6,7 +6,7 @@ edition = "2021"
 authors = ["Richard Braakman <shuttlegit@gmail.com>"]
 description = "A spelling checker for Crusader Kings 3 user mods"
 repository = "https://github.com/amtep/ck3spell"
-license = "gpl-3.0-or-later"
+license = "GPL-3.0-or-later"
 
 [dependencies]
 speller = { version = "0.1.0", path = "../speller" }

@@ -6,7 +6,7 @@ edition = "2021"
 authors = ["Richard Braakman <shuttlegit@gmail.com>"]
 description = "A spellchecker library that uses hunspell-format dictionaries"
 repository = "https://github.com/amtep/ck3spell/tree/main/speller"
-license = "gpl-3.0-or-later"
+license = "GPL-3.0-or-later"
 
 [dependencies]
 anyhow = "1.0"
