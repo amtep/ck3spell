@@ -3,6 +3,7 @@ members = [
     "ck3spell",
     "speller",
 ]
+resolver = "1"
 
 [profile.bench]
 debug = true
